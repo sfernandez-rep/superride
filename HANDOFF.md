@@ -80,9 +80,10 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
 3. Done: lines, ordering, grouping, lm/LOESS fits and model statistics.
    Done: histogram and boxplot kinds (statistics equal ggplot2's).
 4. Done: non-modal, draggable editor window (Plots pane and console usable
-   while it is open; stale data detected). **Next:** tibble/data.table
-   discovery (Milestone 4), then bar/density kinds, a property-editor
-   foundation for contextual editing, and development branding (Milestone 6).
+   while it is open; stale data detected). Done: tibble/data.table
+   support with copy-free staleness checks (Milestone 4). **Next:** bar and
+   density kinds, a property-editor foundation for contextual editing, and
+   development branding (Milestone 6).
 5. M4 groundwork: saving/loading specifications and contextual editing on a
    structured specification (not on the raster image).
 6. Before release: dependency audit, localized logging test, `es` locale build.

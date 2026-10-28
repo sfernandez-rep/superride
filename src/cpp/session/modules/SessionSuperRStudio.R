@@ -1,5 +1,9 @@
 # SuperRStudio experimental visual workflow. SPDX-License-Identifier: AGPL-3.0-only
 # One bounded validation snapshot per session; never used as the plot's data.
+# For data frames and tibbles the snapshot is the object itself (no copy:
+# copy-on-modify gives any change a new object, compared with identical());
+# data.table objects can be modified in place with `:=`, so for them the
+# snapshot is their serialized content.
 assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsEnv())
 .rs.superrstudioState$counter <- 0L
 
@@ -335,8 +339,14 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
                                            appearance = list())
 {
    state <- .rs.superrstudioState
-   plainFrame <- function(value) identical(class(value), 'data.frame') &&
+   # data frames, tibbles (also grouped) and data.tables; other data.frame
+   # subclasses (e.g. sf) carry semantics this editor does not handle
+   tableFrame <- function(value) is.data.frame(value) &&
+      all(class(value) %in% c('data.frame', 'tbl_df', 'tbl', 'grouped_df', 'data.table')) &&
       !anyNA(names(value)) && !anyDuplicated(names(value)) && all(nzchar(names(value)))
+   tableKind <- function(value) if (inherits(value, 'data.table')) 'data.table'
+      else if (inherits(value, 'tbl_df')) 'tibble' else 'data.frame'
+   snapshot <- function(value) if (inherits(value, 'data.table')) serialize(value, NULL, version = 2) else value
    numericColumn <- function(value) (is.double(value) || is.integer(value)) &&
       !is.object(value) && is.null(dim(value))
    # categories: factors, plain character and logical vectors
@@ -349,8 +359,9 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    {
       state$snapshot <- NULL
       frames <- available[vapply(available, function(name)
-         plainFrame(get(name, envir = .GlobalEnv, inherits = FALSE)), logical(1))]
-      return(list(datasets = unname(frames)))
+         tableFrame(get(name, envir = .GlobalEnv, inherits = FALSE)), logical(1))]
+      kinds <- vapply(frames, function(name) tableKind(get(name, envir = .GlobalEnv, inherits = FALSE)), '')
+      return(list(datasets = unname(frames), dataset_kinds = unname(kinds)))
    }
    if (operation == 'release')
    {
@@ -359,13 +370,13 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       return(list(released = I(TRUE)))
    }
    if (!operation %in% c('inspect', 'code', 'preview')) fail('Unsupported operation.')
-   if (!dataset %in% available) fail('Dataset no longer exists or is not an ordinary data frame. Refresh the selection.')
+   if (!dataset %in% available) fail('Dataset no longer exists or is not a data frame. Refresh the selection.')
    data <- get(dataset, envir = .GlobalEnv, inherits = FALSE)
-   if (!plainFrame(data)) fail('Select a plain data frame with unique, nonempty column names.')
+   if (!tableFrame(data))
+      fail('Select a data frame, tibble or data.table with unique, nonempty column names.')
    if (nrow(data) > 100000L || as.numeric(object.size(data)) > 16 * 1024^2)
       fail('This experimental preview supports up to 100,000 rows and 16 MiB.')
-   bytes <- serialize(data, NULL, version = 2)
-   if (length(bytes) > 16 * 1024^2) fail('The serialized dataset exceeds the 16 MiB preview limit.')
+   current <- snapshot(data)
    columns <- names(data)[vapply(data, numericColumn, logical(1))]
    colourColumns <- names(data)[vapply(data, colourColumn, logical(1))]
    discreteColumns <- names(data)[vapply(data, discreteColumn, logical(1))]
@@ -374,13 +385,13 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       state$counter <- state$counter + 1L
       state$revision <- as.character(state$counter)
       state$dataset <- dataset
-      state$snapshot <- bytes
+      state$snapshot <- current
       return(list(revision = I(state$revision), columns = unname(columns),
                   colour_columns = unname(colourColumns),
                   discrete_columns = unname(discreteColumns), rows = I(nrow(data))))
    }
    if (!identical(revision, state$revision) || !identical(dataset, state$dataset) ||
-       !identical(bytes, state$snapshot))
+       !identical(current, state$snapshot))
       fail('Dataset changed after selection. Refresh and select the columns again.')
 
    # One flat settings object from the dialog: column mappings (data, so they

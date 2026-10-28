@@ -76,7 +76,7 @@ async function waitStatus(page, pattern)
 async function selectDataset(page, name)
 {
    await page.selectOption('#superrstudio_dataset', name);
-   await waitStatus(page, /Select numeric columns|no supported numeric/);
+   await waitStatus(page, /Select columns|no supported numeric/);
 }
 
 async function closeDialog(page)
@@ -121,6 +121,8 @@ async function closeDialog(page)
       `dupes <- data.frame(a = 1:2, b = 3:4); names(dupes) <- c('a', 'a'); not_a_frame <- 1:3; ` +
       `growth <- data.frame(age = c(1, 2, 3, 4, 5, 6, 7, 8), size = c(10.2, 19.8, 30.5, 39.6, 50.4, 59.1, 70.6, 79.8), ` +
       `site = rep(c('north', 'south'), 4)); growth_original <- growth; ` +
+      `if (requireNamespace('tibble', quietly = TRUE)) fish_tbl <- tibble::as_tibble(fish); ` +
+      `if (requireNamespace('data.table', quietly = TRUE)) fish_dt <- data.table::as.data.table(fish); ` +
       `invisible(grDevices::graphics.off()); ` +
       `stopifnot(${mode === 'ggplot2' ? '' : '!'}requireNamespace('ggplot2', quietly = TRUE))`,
       'SCATTER_SETUP_OK');
@@ -134,6 +136,22 @@ async function closeDialog(page)
    for (const rejected of ['dupes', 'not_a_frame'])
       if (datasets.includes(rejected)) throw new Error(`unsupported object offered: ${rejected}`);
    log('PASS dataset discovery (data frames only; duplicate-name frame excluded)');
+
+   if (mode === 'ggplot2')
+   {
+      // tibbles and data.tables are offered, labelled with their kind
+      const labels = await page.$$eval('#superrstudio_dataset option', o => o.map(x => x.textContent));
+      if (!labels.includes('fish_tbl (tibble)') || !labels.includes('fish_dt (data.table)'))
+         throw new Error('tibble/data.table not offered: ' + JSON.stringify(labels));
+      await selectDataset(page, 'fish_dt');
+      await page.selectOption('#superrstudio_x', 'length cm');
+      await page.selectOption('#superrstudio_y', 'mass_g');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const dtCode = await page.locator('#superrstudio_code').inputValue();
+      if (!dtCode.includes('ggplot2::ggplot(fish_dt, ')) throw new Error('data.table code: ' + dtCode);
+      log('PASS tibble and data.table offered; preview from a data.table');
+   }
 
    // Invalid selection: a frame with no numeric columns cannot be plotted.
    await selectDataset(page, 'labels_only');

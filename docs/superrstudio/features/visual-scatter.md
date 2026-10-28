@@ -75,6 +75,16 @@ branch `feature/visual-scatter`. Opt-in: the session must be started with
    `ModalDialogTracker`, and Escape is handled only inside the editor. Data
    changed in the console while it is open is detected and must be refreshed.
 
+11. **Tibbles and data.tables** are offered alongside data frames (labelled
+   `name (tibble)` / `name (data.table)`); other `data.frame` subclasses such
+   as `sf` are not. Staleness detection without copying: for data frames and
+   tibbles the session keeps a reference and compares with `identical()`
+   (copy-on-modify gives every R-level change a new object; measured 0.02 ms
+   versus 33 ms to serialize a 15 MiB frame on each request); data.tables can
+   change in place (`:=`, `set()`), so their content is snapshotted
+   (serialized) instead. Verified with tibble 3.3.1 and data.table 1.18.6.1
+   installed only in the isolated test library.
+
 Generated code (the header records the versioned specification and versions):
 
 ```r
@@ -128,8 +138,9 @@ left-associated sum.
 - Spanish strings exist but are not compiled: the GWT module only builds
   `en,fr` (`RStudio.gwt.xml`). Adding `es` needs a locale permutation and the
   `ui_language` preference value; tracked for M7.
-- Only global-environment data frames; tibbles/data.tables (classed frames) are
-  intentionally excluded in this slice.
+- Only global-environment objects; `sf` and other data.frame subclasses are
+  excluded. An in-place modification of a plain data frame by C code (for
+  example `data.table::set()` on a data.frame) is not detected.
 - The editor is a floating window, not yet a dockable workbench pane;
   contextual (right-click) editing of plot elements is not implemented yet.
 - Text appearance fields commit on blur/Enter (GWT value-change semantics);

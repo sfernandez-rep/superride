@@ -13,7 +13,7 @@ data <- data.frame(x = c(1, 2, NA, 4), y = c(3, 5, 7, 9), group = letters[1:4])
 original <- data
 request <- function(op, name = 'data', rev = '', x = 'x', y = 'y', appearance = list())
    toolsEnv$.rs.superrstudioData(op, name, as.character(rev), x, y,
-      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes'), ls(globalenv())), appearance)
+      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes', 'tb', 'dt', 'myframe'), ls(globalenv())), appearance)
 reject <- function(expr, pattern) {
    error <- tryCatch({force(expr); NULL}, error = identity)
    if (!inherits(error, 'error') || !grepl(pattern, conditionMessage(error)))
@@ -47,6 +47,44 @@ selected <- request('inspect')
 rm(data)
 reject(request('preview', rev = selected$revision), 'no longer exists')
 data <- original
+
+# Tibbles and data.tables (real packages, isolated test library only).
+if (requireNamespace('tibble', quietly = TRUE) && requireNamespace('data.table', quietly = TRUE)) {
+   tb <- tibble::as_tibble(original)
+   dt <- data.table::as.data.table(original)
+   myframe <- structure(original, class = c('myframe', 'data.frame'))
+   listed <- request('list')
+   stopifnot(all(c('data', 'tb', 'dt') %in% listed$datasets), !'myframe' %in% listed$datasets,
+             identical(listed$dataset_kinds[match(c('data', 'tb', 'dt'), listed$datasets)],
+                       c('data.frame', 'tibble', 'data.table')))
+   chosen <- request('inspect', 'tb')
+   stopifnot(identical(chosen$columns, c('x', 'y')),
+             identical(toolsEnv$.rs.superrstudioState$snapshot, tb),     # a reference: no serialization
+             !is.raw(toolsEnv$.rs.superrstudioState$snapshot))
+   tb$y[2] <- 50                                                        # copy-on-modify: a new object
+   reject(request('code', 'tb', chosen$revision), 'changed')
+   chosen <- request('inspect', 'dt')
+   stopifnot(is.raw(toolsEnv$.rs.superrstudioState$snapshot))           # data.table: content snapshot
+   data.table::set(dt, j = 'y', value = dt$y * 2)                       # modified in place, same object
+   reject(request('code', 'dt', chosen$revision), 'changed')
+   chosen <- request('inspect', 'dt')
+   if (requireNamespace('ggplot2', quietly = TRUE))
+   {
+      fromDt <- request('code', 'dt', chosen$revision, 'x', 'y', list(fit = 'lm'))
+      stopifnot(fromDt$fit_summary[[1L]]$n == 3L)
+      suppressWarnings(ggplot2::ggplot_build(eval(parse(text = fromDt$code), envir = environment())))
+      chosen <- request('inspect', 'tb')
+      fromTb <- request('code', 'tb', chosen$revision, 'y', '', list(kind = 'histogram', bins = 3))
+      suppressWarnings(ggplot2::ggplot_build(eval(parse(text = fromTb$code), envir = environment())))
+      chosen <- request('inspect', 'dt')
+   }
+   rm(dt)
+   reject(request('code', 'dt', chosen$revision), 'no longer exists')
+   rm(tb, myframe)
+   cat('PASS: tibble/data.table discovery and kinds, reference snapshot (no copy), in-place data.table change detected, deletion\n')
+} else {
+   cat('SKIP: tibble/data.table (packages absent)\n')
+}
 
 # Appearance validation (independent of ggplot2).
 look <- toolsEnv$.rs.superrstudioScatterAppearance

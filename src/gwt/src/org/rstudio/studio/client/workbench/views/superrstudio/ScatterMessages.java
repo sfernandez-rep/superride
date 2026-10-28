@@ -89,8 +89,8 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Refresh data") String refresh();
    @DefaultMessage("Close") String close();
    @DefaultMessage("Loading current data…") String loading();
-   @DefaultMessage("No supported data frames. Create or import one in the R console, then refresh.") String noData();
-   @DefaultMessage("Select numeric columns; this preview supports plain data frames up to 100,000 rows and 16 MiB.") String ready();
+   @DefaultMessage("No supported data frames, tibbles or data.tables. Create or import one in the R console, then refresh.") String noData();
+   @DefaultMessage("Select columns; data frames, tibbles and data.tables up to 100,000 rows and 16 MiB are supported.") String ready();
    @DefaultMessage("This data frame has no supported numeric columns.") String noColumns();
    @DefaultMessage("Working in the active R session…") String working();
    @DefaultMessage("Plot created in the Plots pane. The R code is shown below.") String plotted();

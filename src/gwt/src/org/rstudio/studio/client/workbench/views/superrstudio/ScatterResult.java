@@ -8,6 +8,7 @@ public class ScatterResult extends JavaScriptObject
    protected ScatterResult() {}
    public final native boolean enabled() /*-{ return this.enabled === true; }-*/;
    public final native JsArrayString datasets() /*-{ return this.datasets || []; }-*/;
+   public final native JsArrayString datasetKinds() /*-{ return this.dataset_kinds || []; }-*/;
    public final native JsArrayString columns() /*-{ return this.columns || []; }-*/;
    public final native JsArrayString colourColumns() /*-{ return this.colour_columns || []; }-*/;
    public final native JsArrayString discreteColumns() /*-{ return this.discrete_columns || []; }-*/;

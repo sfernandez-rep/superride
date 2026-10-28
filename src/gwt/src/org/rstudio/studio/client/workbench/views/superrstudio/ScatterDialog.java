@@ -694,7 +694,12 @@ public class ScatterDialog extends DialogBox
       datasets_.clear(); clearColumns();
       status_.setText(messages_.loading());
       request("list", "", "", "", "", result -> {
-         fill(datasets_, result.datasets());
+         // label tibbles and data.tables; the value stays the object's name
+         JsArrayString names = result.datasets(), kinds = result.datasetKinds();
+         datasets_.clear();
+         for (int i = 0; i < names.length(); i++)
+            datasets_.addItem(i < kinds.length() && !"data.frame".equals(kinds.get(i))
+               ? names.get(i) + " (" + kinds.get(i) + ")" : names.get(i), names.get(i));
          if (datasets_.getItemCount() > 0) inspect();
          else status_.setText(messages_.noData());
       });
