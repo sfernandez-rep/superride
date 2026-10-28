@@ -1,5 +1,12 @@
 # SuperRStudio agent instructions
 
+Read `HANDOFF.md` first and keep it current at milestones and before stopping.
+Follow the supplemental instructions in `docs/superrstudio/CONTINUITY.md` along
+with the original project brief. Continue completed work; do not restart or
+reinstall verified tools. Advance to the next verified roadmap milestone when
+resources permit. Prefer inspected, local Graphify analysis; external model/code
+transmission requires user authorization. Do not install Ponytail at this stage.
+
 Read `UPSTREAM.md`, `BUILDING.md`, `ARCHITECTURE.md`, `COMPATIBILITY.md` and
 `docs/superrstudio/baseline/2026-10-27.md` before work. The Windows baseline now
 builds and its headless version checks/R-session tests run; full desktop GUI
