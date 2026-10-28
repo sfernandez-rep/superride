@@ -3,6 +3,14 @@
 assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsEnv())
 .rs.superrstudioState$counter <- 0L
 
+# RPC entry point. Validation failures are returned as data rather than raised,
+# so the dialog reports them without R also printing them in the console.
+.rs.addFunction('superrstudioDataRpc', function(...)
+{
+   tryCatch(.rs.superrstudioData(...),
+            error = function(e) list(error = I(conditionMessage(e))))
+})
+
 .rs.addFunction('superrstudioData', function(operation, dataset = '', revision = '',
                                            x = '', y = '', available = character())
 {
@@ -68,9 +76,11 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          invokeRestart('muffleWarning')
       })
    }
+   # The revision is a session-scoped staleness token, not part of the
+   # reproducible specification: the same selection yields the same record.
    list(code = I(paste0(code, '\n')), warnings = unname(warnings),
         spec = list(schema_version = I(1L), kind = I('scatter'), dataset = I(dataset),
-                    revision = I(revision), x = I(x), y = I(y)),
+                    x = I(x), y = I(y)),
         r_version = I(as.character(getRversion())),
         ggplot2_version = I(as.character(utils::packageVersion('ggplot2'))))
 })

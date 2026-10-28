@@ -29,6 +29,10 @@ selected <- request('inspect')
 reject(request('code', rev = selected$revision, x = 'group'), 'numeric')
 reject(request('code', rev = 'old'), 'changed')
 reject(request('unknown'), 'Unsupported')
+# The RPC entry point returns validation failures as data (nothing is printed).
+rpc <- toolsEnv$.rs.superrstudioDataRpc('unknown', '', '', '', '', character())
+stopifnot(identical(rpc, list(error = I('Unsupported operation.'))))
+stopifnot(identical(toolsEnv$.rs.superrstudioDataRpc('list', available = 'data')$datasets, 'data'))
 second <- request('inspect')
 request('release', rev = selected$revision)
 stopifnot(!is.null(toolsEnv$.rs.superrstudioState$snapshot))
@@ -55,7 +59,7 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    stopifnot(identical(built$data[[1]]$x, original$x),
              identical(built$data[[1]]$y, original$y),
              !exists('INJECTED', globalenv()), result$spec$schema_version == 1L,
-             identical(result$spec$x, I(evil)))
+             identical(result$spec$x, I(evil)), is.null(result$spec$revision))
    pdf <- tempfile(fileext = '.pdf')
    grDevices::pdf(pdf)
    preview <- request('preview', 'odd name', selected$revision, evil, 'y')

@@ -4,6 +4,7 @@ import com.google.gwt.i18n.client.Messages;
 public interface ScatterMessages extends Messages
 {
    @DefaultMessage("Visual scatter plot") String title();
+   @DefaultMessage("Scatter") String toolbarLabel();
    @DefaultMessage("Plot two numeric columns from a data frame in the current R session. The source data is preserved.") String help();
    @DefaultMessage("Dataset") String dataset();
    @DefaultMessage("X column") String xColumn();

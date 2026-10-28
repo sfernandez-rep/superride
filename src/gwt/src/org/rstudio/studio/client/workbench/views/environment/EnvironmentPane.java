@@ -66,6 +66,9 @@ import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentObj
 import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentObjectsObserver;
 import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentResources;
 import org.rstudio.studio.client.workbench.views.environment.view.MemUsageWidget;
+import org.rstudio.studio.client.workbench.views.superrstudio.ScatterDialog;
+import org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages;
+import org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArray;
@@ -153,19 +156,7 @@ public class EnvironmentPane extends WorkbenchPane
       toolbar.addLeftWidget(commands_.saveWorkspace().createToolbarButton());
       toolbar.addLeftSeparator();
       toolbar.addLeftWidget(createImportMenu());
-      server_.superrstudioData("status", "", "", "", "",
-         new ServerRequestCallback<org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult>() {
-            @Override public void onResponseReceived(org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult result)
-            {
-               if (!result.enabled()) return;
-               org.rstudio.core.client.widget.ThemedButton button = new org.rstudio.core.client.widget.ThemedButton(
-                  ((org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages) GWT.create(org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages.class)).title(),
-                  event -> new org.rstudio.studio.client.workbench.views.superrstudio.ScatterDialog(server_, events_).showModal());
-               button.getElement().setId("superrstudio_scatter");
-               toolbar.addLeftWidget(button);
-            }
-            @Override public void onError(ServerError error) { /* Older/disabled backend: keep the ordinary IDE. */ }
-         });
+      toolbar.addLeftWidget(createScatterButton());
       toolbar.addLeftSeparator();
       memUsage_ = new MemUsageWidget(session_.getSessionInfo().getMemoryUsage(), prefs_);
       toolbar.addLeftWidget(memUsage_);
@@ -563,6 +554,37 @@ public class EnvironmentPane extends WorkbenchPane
 
       SendToConsoleEvent event = new SendToConsoleEvent(editCode, activeLanguage_, true);
       events_.fireEvent(event);
+   }
+
+   // SuperRStudio: the visual scatter workflow is opt-in. The button keeps its
+   // toolbar position but stays hidden unless the session module is enabled.
+   private Widget createScatterButton()
+   {
+      ScatterMessages messages = GWT.create(ScatterMessages.class);
+      ToolbarButton button = new ToolbarButton(
+            messages.toolbarLabel(),
+            messages.title(),
+            (ImageResource) null,
+            event -> new ScatterDialog(server_, events_, commands_).showModal());
+      ElementIds.assignElementId(button, ElementIds.SUPERRSTUDIO_SCATTER);
+      button.setVisible(false);
+
+      server_.superrstudioData("status", "", "", "", "", new ServerRequestCallback<ScatterResult>()
+      {
+         @Override
+         public void onResponseReceived(ScatterResult result)
+         {
+            button.setVisible(result.enabled());
+         }
+
+         @Override
+         public void onError(ServerError error)
+         {
+            // older or disabled backend: keep the ordinary IDE
+         }
+      });
+
+      return button;
    }
 
    private Widget createImportMenu()

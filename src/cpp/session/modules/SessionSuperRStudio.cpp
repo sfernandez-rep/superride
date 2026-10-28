@@ -1,6 +1,7 @@
 // SuperRStudio experimental visual workflow. SPDX-License-Identifier: AGPL-3.0-only
 #include "SessionSuperRStudio.hpp"
 #include <core/system/Environment.hpp>
+#include <r/RErrorCategory.hpp>
 #include <r/RExec.hpp>
 #include <r/RJson.hpp>
 #include <r/RSexp.hpp>
@@ -39,16 +40,27 @@ Error dataRequest(const json::JsonRpcRequest& request, json::JsonRpcResponse* re
    }
    r::sexp::Protect protect;
    SEXP result = R_NilValue;
-   error = r::exec::RFunction(".rs.superrstudioData")
+   error = r::exec::RFunction(".rs.superrstudioDataRpc")
       .addParam(operation).addParam(dataset).addParam(revision)
       .addParam(x).addParam(y).addParam(available).call(&result, &protect);
    if (error)
       return error;
    json::Value value;
    error = r::json::jsonValueFromObject(result, &value);
-   if (!error)
-      response->setResult(value);
-   return error;
+   if (error)
+      return error;
+
+   // validation failures are written for the user; the client shows this
+   // message (client info) in place of the error summary
+   if (value.isObject() && value.getObject().hasMember("error"))
+   {
+      std::string message = value.getObject()["error"].getString();
+      response->setError(r::rCodeExecutionError(message, ERROR_LOCATION), json::Value(message));
+      return Success();
+   }
+
+   response->setResult(value);
+   return Success();
 }
 } // namespace
 

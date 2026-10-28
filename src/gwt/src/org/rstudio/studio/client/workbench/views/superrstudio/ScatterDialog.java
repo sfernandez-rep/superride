@@ -4,6 +4,7 @@ package org.rstudio.studio.client.workbench.views.superrstudio;
 import com.google.gwt.aria.client.Roles;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArrayString;
+import com.google.gwt.json.client.JSONValue;
 import com.google.gwt.user.client.ui.*;
 import org.rstudio.core.client.widget.ModalDialog;
 import org.rstudio.core.client.widget.OperationWithInput;
@@ -11,18 +12,21 @@ import org.rstudio.core.client.widget.ThemedButton;
 import org.rstudio.studio.client.application.events.EventBus;
 import org.rstudio.studio.client.server.ServerError;
 import org.rstudio.studio.client.server.ServerRequestCallback;
+import org.rstudio.studio.client.workbench.commands.Commands;
 import org.rstudio.studio.client.workbench.views.source.events.NewDocumentWithCodeEvent;
 import org.rstudio.studio.client.workbench.views.source.model.SourcePosition;
 
 public class ScatterDialog extends ModalDialog<Void>
 {
-   public ScatterDialog(SuperRStudioServerOperations server, EventBus events)
+   public ScatterDialog(SuperRStudioServerOperations server, EventBus events, Commands commands)
    {
       super(messages_.title(), Roles.getDialogRole(), (OperationWithInput<Void>) null);
       server_ = server;
       events_ = events;
-      setOkButtonCaption(messages_.close());
-      // Keep the normal modal keyboard/focus behavior; Escape closes it.
+      commands_ = commands;
+      // A single Close action: the cancel button (also bound to Escape).
+      setOkButtonVisible(false);
+      setCancelButtonCaption(messages_.close());
       preview_ = new ThemedButton(messages_.preview(), e -> generate(false));
       export_ = new ThemedButton(messages_.exportCode(), e -> generate(true));
       refresh_ = new ThemedButton(messages_.refresh(), e -> refresh());
@@ -42,10 +46,12 @@ public class ScatterDialog extends ModalDialog<Void>
       Label help = new Label(messages_.help());
       help.setWidth("460px");
       panel.add(help);
+      status_.getElement().setId("superrstudio_status");
       status_.getElement().setAttribute("role", "status");
       status_.getElement().setAttribute("aria-live", "polite");
       status_.getElement().setAttribute("tabindex", "-1");
       status_.setWidth("460px");
+      status_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
       panel.add(status_);
       field(panel, messages_.dataset(), datasets_, "superrstudio_dataset");
       field(panel, messages_.xColumn(), x_, "superrstudio_x");
@@ -102,6 +108,7 @@ public class ScatterDialog extends ModalDialog<Void>
    {
       revision_ = "";
       x_.clear(); y_.clear(); code_.setText("");
+      status_.setText(messages_.loading());
       request("inspect", datasets_.getSelectedValue(), "", "", "", result -> {
          revision_ = result.revision();
          fill(x_, result.columns()); fill(y_, result.columns());
@@ -123,6 +130,12 @@ public class ScatterDialog extends ModalDialog<Void>
                closeDialog();
                events_.fireEvent(new NewDocumentWithCodeEvent(
                   NewDocumentWithCodeEvent.R_SCRIPT, code, SourcePosition.create(1, 1), false));
+            }
+            else
+            {
+               // plots rendered during an RPC don't activate the Plots pane
+               // on their own (see SessionPlots.cpp detectChanges)
+               commands_.activatePlots().execute();
             }
          });
    }
@@ -148,7 +161,10 @@ public class ScatterDialog extends ModalDialog<Void>
             {
                if (!isAttached() || requestId != requestId_) return;
                busy(false);
-               status_.setText(error.getUserMessage());
+               JSONValue info = error.getClientInfo();
+               status_.setText(info != null && info.isString() != null
+                  ? info.isString().stringValue()
+                  : error.getUserMessage());
                status_.getElement().focus();
             }
          });
@@ -166,6 +182,7 @@ public class ScatterDialog extends ModalDialog<Void>
    }
    private final SuperRStudioServerOperations server_;
    private final EventBus events_;
+   private final Commands commands_;
    private final ListBox datasets_ = new ListBox(), x_ = new ListBox(), y_ = new ListBox();
    private final TextArea code_ = new TextArea();
    private final Label status_ = new Label();
