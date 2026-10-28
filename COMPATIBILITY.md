@@ -8,7 +8,7 @@ among R versions, packages, native libraries and project lockfiles.
 
 | Platform | Source configure/build | Desktop + R startup | Workflow regressions | Support claim |
 | --- | --- | --- | --- | --- |
-| Windows 11 x64 | Attempted; configure failed: missing MSVC | Blocked | Not run | Primary target, unverified |
+| Windows 11 x64 | Dependencies provisioned; fresh configure PASS; full build under assessment | Not run | Standalone R fixture PASS with R 3.6.3/4.6.1; IDE tests not run | Primary target, unverified |
 | Windows 10 x64 | Not attempted | Not run | Not run | Experimental only |
 | Ubuntu 24.04 x64 | Not attempted | Not run | Not run | Secondary target, unverified |
 | WSL Ubuntu 24.04.3 | No build; shared Windows checkout integrity scan failed under different Git EOL settings | Not run | Not run | Does not certify native Linux |

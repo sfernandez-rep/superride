@@ -5,6 +5,11 @@ Read `UPSTREAM.md`, `BUILDING.md`, `ARCHITECTURE.md`, `COMPATIBILITY.md` and
 baseline has NOT compiled or launched. Application features are gated on a
 verified unmodified baseline build and smoke test.
 
+The host toolchain has since been provisioned and CMake configure passes. Read
+`docs/superrstudio/baseline/windows-dependencies-2026-10-27.md` for the current
+assessment. Use `tools/superrstudio/enter-windows.cmd` in Command Prompt. Do not
+infer that MSVC is still missing from the historical initial failure report.
+
 - This is an RStudio fork. Preserve the existing GWT workbench, Electron shell,
   C++/R session, `.Rproj`, packages, themes, shortcuts and reporting workflows.
 - Inspect the real subsystem and callers before editing. Prefer existing modules,

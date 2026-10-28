@@ -10,6 +10,10 @@ Windows configure attempt failed because the required MSVC toolchain is absent.
 No enhanced application, successful build or compatibility certification is
 claimed. Visual dataset and ggplot2 editors remain planned.
 
+The Windows toolchain and upstream dependencies have since been installed;
+fresh baseline configuration now passes. See the
+[current provisioning and build assessment](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
+
 - [Fork and upstream pin](UPSTREAM.md)
 - [Build instructions and actual blockers](BUILDING.md)
 - [Architecture and extension decisions](ARCHITECTURE.md)

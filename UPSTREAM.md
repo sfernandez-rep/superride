@@ -10,7 +10,7 @@ Verified on **2026-10-27** (America/Montevideo):
 | Exact commit | `e961c6137d92315437caf5af53959f7110b517f9` |
 | Upstream | https://github.com/rstudio/rstudio |
 | Fork | https://github.com/sfernandez-rep/superrstudio |
-| Build acceptance | **Pending**: Windows configure blocked by missing MSVC |
+| Build acceptance | **Pending**: host dependencies provisioned; Windows configure passes; full build under assessment |
 
 The machine-readable pin is [superrstudio/upstream.json](superrstudio/upstream.json).
 This is a source baseline under assessment, not a tested SuperRStudio release.

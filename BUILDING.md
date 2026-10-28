@@ -5,6 +5,18 @@ The source pin is in [UPSTREAM.md](UPSTREAM.md). Follow upstream [INSTALL](INSTA
 [packaging instructions](package/README.md). The steps below supplement them;
 they do not change upstream build requirements.
 
+## Current provisioning update
+
+The Windows host prerequisites are now installed and verified, including VS 2026,
+MSVC 145, SDK 26100, Java 17 and both R runtimes. See the
+[dependency provisioning record](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md)
+for actual versions, checks and the current baseline assessment. From Command
+Prompt, call `tools\superrstudio\enter-windows.cmd` before building.
+
+The portable bootstrap now installs **CMake 4.3.4**, because 3.31.10 does not
+recognize the required MSVC 145 toolset. The initial inventory and failure below
+are retained as historical evidence.
+
 ## Observed environment, 2026-10-27
 
 Windows 11 Pro for Workstations x64, version `10.0.26300`; non-administrator
@@ -66,9 +78,11 @@ Set-Location ..\SuperRStudio-baseline\dependencies\windows
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-RStudio-Prereqs.ps1
 ```
 
-This installs system-wide tools and needs elevation unavailable in the current
-session. Inspect its prerequisite versions first, especially the R 3.6.3 build
-runtime. Preserve existing R installations and scientific project libraries.
+This installs system-wide tools and requires an elevated process. The current
+host was provisioned through UAC with Winget/Scoop and signed installers instead
+of the all-in-one Chocolatey bootstrap; see the provisioning record above.
+Inspect prerequisite versions first, especially the R 3.6.3 build runtime.
+Preserve existing R installations and scientific project libraries.
 Open a fresh **non-administrator Command Prompt**, then:
 
 ```bat
@@ -117,7 +131,7 @@ This is a development suffix, not a release. Audit branding, install paths and
 updaters before installing beside an existing RStudio installation. Inspect the
 packaging log for the actual artifact path. No artifact has been produced here.
 
-## Actual local build result
+## Initial local build result
 
 Before any tracked changes, `git diff --quiet` returned 0. Upstream
 `windows-dev.cmd` reported no Visual Studio C++ installation and could not run

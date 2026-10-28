@@ -9,11 +9,11 @@ New-Item -ItemType Directory -Path $toolsRoot -Force | Out-Null
 
 $archives = @(
     @{
-        Name = 'cmake-3.31.10-windows-x86_64.zip'
-        Url = 'https://github.com/Kitware/CMake/releases/download/v3.31.10/cmake-3.31.10-windows-x86_64.zip'
-        Hash = '13d1a463d7130df5339baedd63d8ae990aaf385062b2f42f372796143ae94086'
+        Name = 'cmake-4.3.4-windows-x86_64.zip'
+        Url = 'https://github.com/Kitware/CMake/releases/download/v4.3.4/cmake-4.3.4-windows-x86_64.zip'
+        Hash = '86e5fcafb38bdf58346a78b187c7b6b4f252ae5242cffe24c463a92bbd2e77d1'
         Destination = $toolsRoot
-        Executable = 'cmake-3.31.10-windows-x86_64\bin\cmake.exe'
+        Executable = 'cmake-4.3.4-windows-x86_64\bin\cmake.exe'
     },
     @{
         Name = 'ninja-win.zip'
