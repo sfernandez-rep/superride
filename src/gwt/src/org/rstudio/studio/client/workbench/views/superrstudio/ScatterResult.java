@@ -12,7 +12,8 @@ public class ScatterResult extends JavaScriptObject
    public final native String code() /*-{ return this.code || ''; }-*/;
    public final native String warnings() /*-{ return (this.warnings || []).join('\n'); }-*/;
    public final native String provenance() /*-{
-      return '# SuperRStudio scatter v1\n# Specification: ' + JSON.stringify(this.spec) +
+      return '# SuperRStudio ' + this.spec.kind + ' v' + this.spec.schema_version +
+         '\n# Specification: ' + JSON.stringify(this.spec) +
          '\n# R: ' + this.r_version + '; ggplot2: ' + this.ggplot2_version + '\n';
    }-*/;
 }

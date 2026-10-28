@@ -6306,7 +6306,8 @@ public class RemoteServer implements Server
 
    @Override
    public void superrstudioData(String operation, String dataset, String revision,
-         String x, String y, ServerRequestCallback<org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult> callback)
+         String x, String y, JSONObject appearance,
+         ServerRequestCallback<org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult> callback)
    {
       JSONArray params = new JSONArray();
       params.set(0, new JSONString(operation));
@@ -6314,6 +6315,7 @@ public class RemoteServer implements Server
       params.set(2, new JSONString(revision));
       params.set(3, new JSONString(x));
       params.set(4, new JSONString(y));
+      params.set(5, appearance == null ? new JSONObject() : appearance);
       sendRequest(RPC_SCOPE, "superrstudio_data", params, callback);
    }
 

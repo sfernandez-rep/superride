@@ -11,8 +11,68 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
             error = function(e) list(error = I(conditionMessage(e))))
 })
 
+#' Validate scatter appearance settings
+#'
+#' Returns the complete, normalized appearance (defaults filled in) or stops
+#' with a message for the user. Text is only ever embedded as R strings.
+#'
+#' @param appearance A named list (from the dialog's JSON object).
+.rs.addFunction('superrstudioScatterAppearance', function(appearance = list())
+{
+   fail <- function(message) stop(message, call. = FALSE)
+   defaults <- list(title = '', x_label = '', y_label = '', colour = '',
+                    size = 1.5, alpha = 1, theme = 'grey')
+   if (is.null(appearance)) appearance <- list()
+   if (!is.list(appearance) || (length(appearance) && is.null(names(appearance))))
+      fail('Appearance settings must be named.')
+   unknown <- setdiff(names(appearance), names(defaults))
+   if (length(unknown)) fail(paste0('Unknown appearance setting: ', unknown[[1L]], '.'))
+   result <- utils::modifyList(defaults, appearance)
+
+   text <- function(value) is.character(value) && length(value) == 1L && !is.na(value)
+   number <- function(value, low, high) is.numeric(value) && length(value) == 1L &&
+      is.finite(value) && value >= low && value <= high
+   for (field in c('title', 'x_label', 'y_label'))
+      if (!text(result[[field]]) || nchar(result[[field]]) > 200L)
+         fail('Titles and axis labels must be text of at most 200 characters.')
+   if (!text(result$colour) || !(result$colour == '' ||
+       result$colour %in% grDevices::colors() || grepl('^#[0-9A-Fa-f]{6}$', result$colour)))
+      fail('Point colour must be an R colour name or #RRGGBB.')
+   if (!number(result$size, 0.5, 10)) fail('Point size must be between 0.5 and 10.')
+   if (!number(result$alpha, 0.05, 1)) fail('Point opacity must be between 0.05 and 1.')
+   if (!text(result$theme) || !result$theme %in% c('grey', 'bw', 'minimal', 'classic', 'light'))
+      fail('Unsupported theme.')
+   result$size <- as.numeric(result$size)
+   result$alpha <- as.numeric(result$alpha)
+   result[names(defaults)]
+})
+
+#' Build the scatter plot as ggplot2 layers (language objects)
+#'
+#' Only settings that differ from ggplot2's defaults are emitted.
+.rs.addFunction('superrstudioScatterLayers', function(dataset, x, y, appearance)
+{
+   layers <- list(substitute(ggplot2::ggplot(DATA, ggplot2::aes(x = .data[[X]], y = .data[[Y]])),
+                             list(DATA = as.name(dataset), X = x, Y = y)))
+   point <- list()
+   if (nzchar(appearance$colour)) point$colour <- appearance$colour
+   if (appearance$size != 1.5) point$size <- appearance$size
+   if (appearance$alpha != 1) point$alpha <- appearance$alpha
+   layers <- c(layers, as.call(c(quote(ggplot2::geom_point), point)))
+   labels <- list()
+   if (nzchar(appearance$title)) labels$title <- appearance$title
+   if (nzchar(appearance$x_label)) labels$x <- appearance$x_label
+   if (nzchar(appearance$y_label)) labels$y <- appearance$y_label
+   if (length(labels)) layers <- c(layers, as.call(c(quote(ggplot2::labs), labels)))
+   if (appearance$theme != 'grey')
+      layers <- c(layers, as.call(list(call('::', as.name('ggplot2'),
+                                             as.name(paste0('theme_', appearance$theme))))))
+   layers
+})
+
 .rs.addFunction('superrstudioData', function(operation, dataset = '', revision = '',
-                                           x = '', y = '', available = character())
+                                           x = '', y = '', available = character(),
+                                           appearance = list())
 {
    state <- .rs.superrstudioState
    plainFrame <- function(value) identical(class(value), 'data.frame') &&
@@ -57,11 +117,16 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (!requireNamespace('ggplot2', quietly = TRUE))
       fail('ggplot2 is required in the active R library. Install it explicitly, then retry.')
 
+   appearance <- .rs.superrstudioScatterAppearance(appearance)
+
    # Build language objects, never parse concatenated names or executable text.
-   expression <- substitute(ggplot2::ggplot(DATA,
-      ggplot2::aes(x = .data[[X]], y = .data[[Y]])) + ggplot2::geom_point(),
-      list(DATA = as.name(dataset), X = x, Y = y))
-   code <- paste(deparse(expression, width.cutoff = 90L, backtick = TRUE), collapse = '\n')
+   # The displayed code joins the deparsed layers; the evaluated expression is
+   # the same left-associated sum that R parses from that text.
+   layers <- .rs.superrstudioScatterLayers(dataset, x, y, appearance)
+   expression <- Reduce(function(lhs, rhs) call('+', lhs, rhs), layers)
+   code <- paste(vapply(layers, function(layer)
+      paste(deparse(layer, width.cutoff = 90L, backtick = TRUE), collapse = '\n'), ''),
+      collapse = ' +\n  ')
    warnings <- character()
    if (operation == 'preview')
    {
@@ -79,8 +144,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    # The revision is a session-scoped staleness token, not part of the
    # reproducible specification: the same selection yields the same record.
    list(code = I(paste0(code, '\n')), warnings = unname(warnings),
-        spec = list(schema_version = I(1L), kind = I('scatter'), dataset = I(dataset),
-                    x = I(x), y = I(y)),
+        spec = list(schema_version = I(2L), kind = I('scatter'), dataset = I(dataset),
+                    x = I(x), y = I(y), appearance = lapply(appearance, I)),
         r_version = I(as.character(getRversion())),
         ggplot2_version = I(as.character(utils::packageVersion('ggplot2'))))
 })

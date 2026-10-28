@@ -11,9 +11,9 @@ toolsEnv <- new.env(parent = globalenv())
 sys.source(file.path(root, 'src/cpp/session/modules/SessionSuperRStudio.R'), envir = toolsEnv)
 data <- data.frame(x = c(1, 2, NA, 4), y = c(3, 5, 7, 9), group = letters[1:4])
 original <- data
-request <- function(op, name = 'data', rev = '', x = 'x', y = 'y')
+request <- function(op, name = 'data', rev = '', x = 'x', y = 'y', appearance = list())
    toolsEnv$.rs.superrstudioData(op, name, as.character(rev), x, y,
-      intersect(c('data', 'odd name', 'bad', 'huge'), ls(globalenv())))
+      intersect(c('data', 'odd name', 'bad', 'huge'), ls(globalenv())), appearance)
 reject <- function(expr, pattern) {
    error <- tryCatch({force(expr); NULL}, error = identity)
    if (!inherits(error, 'error') || !grepl(pattern, conditionMessage(error)))
@@ -47,6 +47,33 @@ rm(data)
 reject(request('preview', rev = selected$revision), 'no longer exists')
 data <- original
 
+# Appearance validation (independent of ggplot2).
+look <- toolsEnv$.rs.superrstudioScatterAppearance
+defaults <- look(list())
+stopifnot(identical(defaults, list(title = '', x_label = '', y_label = '', colour = '',
+                                   size = 1.5, alpha = 1, theme = 'grey')),
+          identical(look(NULL), defaults),
+          identical(look(list(size = 3L))$size, 3),
+          identical(look(list(colour = '#0072B2'))$colour, '#0072B2'),
+          identical(look(list(colour = 'steelblue'))$colour, 'steelblue'))
+reject(look(list(colour = 'red; system("x")')), 'colour')
+reject(look(list(colour = '#12345')), 'colour')
+reject(look(list(size = 0)), 'size')
+reject(look(list(size = Inf)), 'size')
+reject(look(list(size = '3')), 'size')
+reject(look(list(alpha = 1.5)), 'opacity')
+reject(look(list(theme = 'void')), 'theme')
+reject(look(list(title = strrep('a', 201L))), '200')
+reject(look(list(title = c('a', 'b'))), 'text')
+reject(look(list(fill = 'red')), 'Unknown appearance setting: fill')
+reject(look(list('red')), 'named')
+layers <- toolsEnv$.rs.superrstudioScatterLayers('data', 'x', 'y', defaults)
+stopifnot(length(layers) == 2L, identical(layers[[2L]], quote(ggplot2::geom_point())))
+selected <- request('inspect')
+reject(request('code', rev = selected$revision, appearance = list(theme = 'void')),
+       if (requireNamespace('ggplot2', quietly = TRUE)) 'theme' else 'ggplot2 is required')
+cat('PASS: appearance validation (types, ranges, colours, themes, unknown keys, defaults)\n')
+
 if (requireNamespace('ggplot2', quietly = TRUE)) {
    # Includes whitespace, quotes, backticks and a would-be executable name.
    assign('odd name', data, globalenv())
@@ -58,7 +85,7 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    built <- ggplot2::ggplot_build(plot)
    stopifnot(identical(built$data[[1]]$x, original$x),
              identical(built$data[[1]]$y, original$y),
-             !exists('INJECTED', globalenv()), result$spec$schema_version == 1L,
+             !exists('INJECTED', globalenv()), result$spec$schema_version == 2L,
              identical(result$spec$x, I(evil)), is.null(result$spec$revision))
    pdf <- tempfile(fileext = '.pdf')
    grDevices::pdf(pdf)
@@ -67,7 +94,27 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    stopifnot(file.info(pdf)$size > 0, length(preview$warnings) == 1L,
              identical(data, original), identical(result$code, preview$code))
    unlink(pdf)
-   cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation\n')
+
+   # Appearance reaches the plot, is emitted only when not default, and text
+   # (including injection-shaped titles) stays literal.
+   style <- list(title = evil, x_label = 'Length (cm)', y_label = '', colour = '#D55E00',
+                 size = 3, alpha = 0.6, theme = 'minimal')
+   styled <- request('code', 'odd name', selected$revision, evil, 'y', style)
+   cat(styled$code)
+   plot <- eval(parse(text = styled$code), envir = globalenv())
+   built <- ggplot2::ggplot_build(plot)
+   point <- plot$layers[[1L]]$aes_params
+   stopifnot(identical(plot$labels$title, evil), identical(plot$labels$x, 'Length (cm)'),
+             identical(point$colour, '#D55E00'), identical(point$size, 3), identical(point$alpha, 0.6),
+             isTRUE(all.equal(plot$theme, ggplot2::theme_minimal())),
+             identical(built$data[[1]]$x, original$x), !exists('INJECTED', globalenv()),
+             !grepl('y = ', strsplit(styled$code, 'labs', fixed = TRUE)[[1L]][2L], fixed = TRUE),
+             identical(styled$spec$appearance$theme, I('minimal')),
+             grepl(' +\n  ggplot2::theme_minimal()', styled$code, fixed = TRUE))
+   # Defaults produce exactly the original minimal code.
+   plain <- request('code', 'odd name', selected$revision, evil, 'y', defaults)
+   stopifnot(identical(plain$code, result$code), !grepl('labs|theme_', plain$code))
+   cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation, appearance\n')
 } else {
    selected <- request('inspect')
    reject(request('code', rev = selected$revision), 'ggplot2 is required')

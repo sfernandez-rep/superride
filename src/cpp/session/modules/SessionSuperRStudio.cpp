@@ -15,7 +15,9 @@ bool s_enabled = false;
 Error dataRequest(const json::JsonRpcRequest& request, json::JsonRpcResponse* response)
 {
    std::string operation, dataset, revision, x, y;
-   Error error = json::readParams(request.params, &operation, &dataset, &revision, &x, &y);
+   json::Object appearance;
+   Error error = json::readParams(request.params, &operation, &dataset, &revision, &x, &y,
+                                  &appearance);
    if (error)
       return error;
    if (operation == "status" || !s_enabled)
@@ -40,9 +42,12 @@ Error dataRequest(const json::JsonRpcRequest& request, json::JsonRpcResponse* re
    }
    r::sexp::Protect protect;
    SEXP result = R_NilValue;
+   // appearance settings arrive as a JSON object and are validated in R
+   SEXP appearanceSEXP = r::sexp::create(appearance, &protect);
    error = r::exec::RFunction(".rs.superrstudioDataRpc")
       .addParam(operation).addParam(dataset).addParam(revision)
-      .addParam(x).addParam(y).addParam(available).call(&result, &protect);
+      .addParam(x).addParam(y).addParam(available).addParam(appearanceSEXP)
+      .call(&result, &protect);
    if (error)
       return error;
    json::Value value;

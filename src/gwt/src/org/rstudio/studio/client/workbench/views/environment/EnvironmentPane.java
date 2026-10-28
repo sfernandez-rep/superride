@@ -569,7 +569,7 @@ public class EnvironmentPane extends WorkbenchPane
       ElementIds.assignElementId(button, ElementIds.SUPERRSTUDIO_SCATTER);
       button.setVisible(false);
 
-      server_.superrstudioData("status", "", "", "", "", new ServerRequestCallback<ScatterResult>()
+      server_.superrstudioData("status", "", "", "", "", null, new ServerRequestCallback<ScatterResult>()
       {
          @Override
          public void onResponseReceived(ScatterResult result)

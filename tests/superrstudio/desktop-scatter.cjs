@@ -87,7 +87,14 @@ async function closeDialog(page)
 
 (async () => {
    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-   const page = browser.contexts()[0].pages().find(p => p.url().startsWith('http:'));
+   // the debugging port opens before the IDE window has loaded its page
+   let page;
+   for (let i = 0; i < 120 && !page; i++)
+   {
+      page = browser.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith('http:'));
+      if (!page) await new Promise(resolve => setTimeout(resolve, 1000));
+   }
+   if (!page) throw new Error('RStudio window did not load');
    await page.waitForFunction(() => window.rstudio?.ready, null, {timeout: 120000});
    await page.evaluate(() => window.rstudio.errors.clear());
    if (mode === 'disabled')
@@ -196,6 +203,55 @@ async function closeDialog(page)
          `identical(srs_built$data[[1]]$y, as.numeric(fish$mass_g)), identical(fish, fish_original)); print(srs_plot)`,
          'GENERATED_CODE_REPRODUCES_PLOT');
 
+      // Appearance: title, axis title, colour, size, opacity and theme, with undo.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'fish');
+      await page.selectOption('#superrstudio_x', 'length cm');
+      await page.selectOption('#superrstudio_y', 'mass_g');
+      if (await page.locator('#superrstudio_undo').isEnabled()) throw new Error('undo enabled before any change');
+      const title = 'Fish "length" vs mass';
+      await page.fill('#superrstudio_title', title);
+      await page.locator('#superrstudio_title').press('Tab');            // commits the value
+      await page.fill('#superrstudio_xlabel', 'Length (cm)');
+      await page.locator('#superrstudio_xlabel').press('Tab');
+      await page.selectOption('#superrstudio_colour', '#0072B2');
+      await page.selectOption('#superrstudio_size', '3');
+      await page.selectOption('#superrstudio_alpha', '0.6');
+      await page.selectOption('#superrstudio_theme', 'classic');
+      await page.selectOption('#superrstudio_theme', 'bw');
+      await page.locator('#superrstudio_undo').click();                  // back to classic
+      if (await page.inputValue('#superrstudio_theme') !== 'classic') throw new Error('undo did not restore the theme');
+      log('PASS appearance undo restores the previous setting');
+      const imageBeforeStyled = await plotImage();
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const styledCode = await page.locator('#superrstudio_code').inputValue();
+      log('styled code:\n' + styledCode);
+      fs.writeFileSync(path.join(evidence, 'generated-scatter-styled.R'), styledCode);
+      for (const part of ['ggplot2::geom_point(colour = "#0072B2", size = 3, alpha = 0.6)',
+                          'ggplot2::labs(title = "Fish \\"length\\" vs mass", x = "Length (cm)")',
+                          'ggplot2::theme_classic()', 'SuperRStudio scatter v2'])
+         if (!styledCode.includes(part)) throw new Error('styled code lacks ' + part);
+      let styledSrc = null;
+      for (let i = 0; i < 60 && (!styledSrc || styledSrc === imageBeforeStyled); i++)
+      {
+         await page.waitForTimeout(500);
+         styledSrc = await plotImage();
+      }
+      if (!styledSrc || styledSrc === imageBeforeStyled) throw new Error('styled plot not rendered');
+      await shot(page, '2b-styled-preview');
+      await page.locator('#superrstudio_reset').click();
+      if (await page.inputValue('#superrstudio_title') !== '' || await page.inputValue('#superrstudio_theme') !== 'grey')
+         throw new Error('reset did not restore defaults');
+      log('PASS styled preview rendered; reset restores defaults');
+      await closeDialog(page);
+      await check(page,
+         `srs_plot <- eval(parse(text = ${JSON.stringify(styledCode)})); ` +
+         `stopifnot(identical(srs_plot$labels$title, ${JSON.stringify(title)}), identical(srs_plot$labels$x, 'Length (cm)'), ` +
+         `identical(srs_plot$layers[[1]]$aes_params$colour, '#0072B2'), isTRUE(all.equal(srs_plot$theme, ggplot2::theme_classic())), ` +
+         `identical(fish, fish_original))`,
+         'STYLED_CODE_REPRODUCES_APPEARANCE');
+
       // Export opens the same code in a new, unsaved R script.
       dialog = await openDialog(page);
       await selectDataset(page, 'fish');
@@ -203,7 +259,7 @@ async function closeDialog(page)
       await page.selectOption('#superrstudio_y', 'mass_g');
       await page.locator('#rstudio_superrstudio_export').click();
       await page.getByRole('dialog').waitFor({state: 'detached'});
-      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v1'));
+      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v2'));
       const script = await page.evaluate(() => window.rstudio.documents.activeEditor().getValue());
       if (script !== code) throw new Error('exported script differs from previewed code:\n' + script);
       log('PASS export opens identical code in a new R script');

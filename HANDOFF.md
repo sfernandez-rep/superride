@@ -27,7 +27,8 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
 1. **Visual scatter plot (first real feature, M3 slice)**, opt-in with
    `SUPER_RSTUDIO_EXPERIMENTAL=1`: Environment toolbar *Scatter* button, dialog
    to pick a data frame and two numeric columns, ggplot2 preview in the Plots
-   pane of the active session, reproducible code exported to a new R script.
+   pane of the active session, reproducible code exported to a new R script,
+   appearance controls with undo/reset (spec schema 2).
    Details, design and evidence: [visual-scatter.md](docs/superrstudio/features/visual-scatter.md).
 2. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
@@ -59,7 +60,7 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | `visual-scatter.R`, R 4.6.1 + ggplot2 | PASS |
 | `visual-scatter.R`, R 3.6.3 | PASS missing-package path; rendering SKIP |
 | Upstream R-session suite on feature build, feature off and on | 654 passed / 655 (1 skipped), same as baseline |
-| Live desktop scatter: ggplot2 / no-ggplot2 / disabled | PASS / PASS / PASS |
+| Live desktop scatter: ggplot2 (incl. appearance, undo, reset) / no-ggplot2 / disabled | PASS / PASS / PASS |
 | Debug launch (DevTools 9222, Node inspector 9229), `-Wait` exit code | PASS |
 
 Known failures/limitations (unchanged from baseline unless noted):
@@ -70,14 +71,14 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
 
 ## Next actionable tasks
 
-1. **In progress next: scatter appearance controls** (Priority 3): title, axis
-   labels, point colour/size/alpha and theme in the dialog, validated in R,
-   emitted as ggplot2 code and recorded in the versioned specification
-   (schema 2, backward compatible). Extend `visual-scatter.R` and
-   `desktop-scatter.cjs`; keep code generation language-object based.
-2. Then: optional colour-by-column (factor/numeric mapping), additional plot
-   types (line, histogram, boxplot) behind the same spec; undo of dialog edits.
-3. M4 groundwork: non-modal editor and saved specifications.
+1. Done: scatter appearance controls (title, axis titles, Okabe-Ito colour,
+   size, opacity, theme, undo/reset; spec schema 2) — desktop-verified.
+2. **Next: colour-by-column** (map a factor/character or numeric column to
+   point colour with a discrete/continuous scale), validated like x/y and
+   emitted inside `aes()` via `.data[[...]]`; then additional plot types
+   (line, histogram, boxplot) behind the same specification.
+3. M4 groundwork: non-modal editor (the modal dialog hides part of the Plots
+   pane) and saving/loading specifications.
 4. Before release: dependency audit, localized logging test, `es` locale build.
 
 ## Continuing in Codex or Claude Code
