@@ -84,8 +84,10 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    while it is open; stale data detected). Done: tibble/data.table
    support with copy-free staleness checks (Milestone 4). Done: bar (counts) and
    density kinds. **Next:** a property-editor foundation for contextual
-   editing on the structured specification, saving/loading specifications,
-   and development branding (Milestone 6).
+   editing on the structured specification and saving/loading specifications.
+   Branding (Milestone 6) is investigated in
+   [BRANDING.md](docs/superrstudio/BRANDING.md) and **blocked on an owner
+   decision**: the public name contains the RStudio trademark.
 5. M4 groundwork: saving/loading specifications and contextual editing on a
    structured specification (not on the raster image).
 6. Before release: dependency audit, localized logging test, `es` locale build.
