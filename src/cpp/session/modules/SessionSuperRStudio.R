@@ -49,16 +49,27 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 
 #' Build the scatter plot as ggplot2 layers (language objects)
 #'
-#' Only settings that differ from ggplot2's defaults are emitted.
-.rs.addFunction('superrstudioScatterLayers', function(dataset, x, y, appearance)
+#' Only settings that differ from ggplot2's defaults are emitted. A colour
+#' column is mapped inside aes() with a colour-blind-safe viridis scale
+#' (discrete or continuous according to the column).
+.rs.addFunction('superrstudioScatterLayers', function(dataset, x, y, appearance,
+                                                    colour_by = '', discrete = TRUE)
 {
-   layers <- list(substitute(ggplot2::ggplot(DATA, ggplot2::aes(x = .data[[X]], y = .data[[Y]])),
-                             list(DATA = as.name(dataset), X = x, Y = y)))
+   mapping <- if (nzchar(colour_by))
+      substitute(ggplot2::aes(x = .data[[X]], y = .data[[Y]], colour = .data[[C]]),
+                 list(X = x, Y = y, C = colour_by))
+   else
+      substitute(ggplot2::aes(x = .data[[X]], y = .data[[Y]]), list(X = x, Y = y))
+   layers <- list(substitute(ggplot2::ggplot(DATA, MAPPING),
+                             list(DATA = as.name(dataset), MAPPING = mapping)))
    point <- list()
    if (nzchar(appearance$colour)) point$colour <- appearance$colour
    if (appearance$size != 1.5) point$size <- appearance$size
    if (appearance$alpha != 1) point$alpha <- appearance$alpha
    layers <- c(layers, as.call(c(quote(ggplot2::geom_point), point)))
+   if (nzchar(colour_by))
+      layers <- c(layers, if (discrete) quote(ggplot2::scale_colour_viridis_d())
+                          else quote(ggplot2::scale_colour_viridis_c()))
    labels <- list()
    if (nzchar(appearance$title)) labels$title <- appearance$title
    if (nzchar(appearance$x_label)) labels$x <- appearance$x_label
@@ -79,6 +90,9 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       !anyNA(names(value)) && !anyDuplicated(names(value)) && all(nzchar(names(value)))
    numericColumn <- function(value) (is.double(value) || is.integer(value)) &&
       !is.object(value) && is.null(dim(value))
+   # columns that can be mapped to colour: plain numbers or categories
+   colourColumn <- function(value) numericColumn(value) || (is.null(dim(value)) &&
+      (is.factor(value) || ((is.character(value) || is.logical(value)) && !is.object(value))))
    fail <- function(message) stop(message, call. = FALSE)
    if (operation == 'list')
    {
@@ -102,13 +116,15 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    bytes <- serialize(data, NULL, version = 2)
    if (length(bytes) > 16 * 1024^2) fail('The serialized dataset exceeds the 16 MiB preview limit.')
    columns <- names(data)[vapply(data, numericColumn, logical(1))]
+   colourColumns <- names(data)[vapply(data, colourColumn, logical(1))]
    if (operation == 'inspect')
    {
       state$counter <- state$counter + 1L
       state$revision <- as.character(state$counter)
       state$dataset <- dataset
       state$snapshot <- bytes
-      return(list(revision = I(state$revision), columns = unname(columns), rows = I(nrow(data))))
+      return(list(revision = I(state$revision), columns = unname(columns),
+                  colour_columns = unname(colourColumns), rows = I(nrow(data))))
    }
    if (!identical(revision, state$revision) || !identical(dataset, state$dataset) ||
        !identical(bytes, state$snapshot))
@@ -117,12 +133,22 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (!requireNamespace('ggplot2', quietly = TRUE))
       fail('ggplot2 is required in the active R library. Install it explicitly, then retry.')
 
+   # The colour mapping travels with the appearance object but is data, so it
+   # is validated against this dataset's columns here.
+   colourBy <- if (is.list(appearance) && !is.null(appearance$colour_by)) appearance$colour_by else ''
+   if (is.list(appearance)) appearance$colour_by <- NULL
+   if (!is.character(colourBy) || length(colourBy) != 1L || is.na(colourBy) ||
+       !(colourBy == '' || colourBy %in% colourColumns))
+      fail('Select a numeric, character, factor or logical column to colour by.')
    appearance <- .rs.superrstudioScatterAppearance(appearance)
+   if (nzchar(colourBy) && nzchar(appearance$colour))
+      fail('Choose either a fixed point colour or a colour column, not both.')
 
    # Build language objects, never parse concatenated names or executable text.
    # The displayed code joins the deparsed layers; the evaluated expression is
    # the same left-associated sum that R parses from that text.
-   layers <- .rs.superrstudioScatterLayers(dataset, x, y, appearance)
+   layers <- .rs.superrstudioScatterLayers(dataset, x, y, appearance, colourBy,
+                                           discrete = !nzchar(colourBy) || !colourBy %in% columns)
    expression <- Reduce(function(lhs, rhs) call('+', lhs, rhs), layers)
    code <- paste(vapply(layers, function(layer)
       paste(deparse(layer, width.cutoff = 90L, backtick = TRUE), collapse = '\n'), ''),
@@ -145,7 +171,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    # reproducible specification: the same selection yields the same record.
    list(code = I(paste0(code, '\n')), warnings = unname(warnings),
         spec = list(schema_version = I(2L), kind = I('scatter'), dataset = I(dataset),
-                    x = I(x), y = I(y), appearance = lapply(appearance, I)),
+                    x = I(x), y = I(y), colour_by = I(colourBy),
+                    appearance = lapply(appearance, I)),
         r_version = I(as.character(getRversion())),
         ggplot2_version = I(as.character(utils::packageVersion('ggplot2'))))
 })

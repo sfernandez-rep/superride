@@ -46,6 +46,7 @@ public class ScatterDialog extends ModalDialog<Void>
       datasets_.addChangeHandler(e -> inspect());
       x_.addChangeHandler(e -> code_.setText(""));
       y_.addChangeHandler(e -> code_.setText(""));
+      colourBy_.addChangeHandler(e -> colourByChanged());
 
       option(colour_, messages_.colourDefault(), "");
       option(colour_, messages_.colourBlack(), "#000000");
@@ -94,6 +95,7 @@ public class ScatterDialog extends ModalDialog<Void>
       field(data, messages_.dataset(), datasets_, "superrstudio_dataset");
       field(data, messages_.xColumn(), x_, "superrstudio_x");
       field(data, messages_.yColumn(), y_, "superrstudio_y");
+      field(data, messages_.colourBy(), colourBy_, "superrstudio_colour_by");
 
       VerticalPanel look = column(messages_.appearanceHeading());
       field(look, messages_.plotTitle(), title_, "superrstudio_title");
@@ -152,6 +154,20 @@ public class ScatterDialog extends ModalDialog<Void>
       list.addItem(label, value);
    }
 
+   // A fixed point colour would override the mapping, so it is disabled
+   // (and returned to the default) while a colour column is selected.
+   private void colourByChanged()
+   {
+      boolean mapped = colourBy_.getItemCount() > 0 && !colourBy_.getSelectedValue().isEmpty();
+      if (mapped && !colour_.getSelectedValue().isEmpty())
+      {
+         select(colour_, "");
+         appearanceChanged();
+      }
+      colour_.setEnabled(!mapped);
+      code_.setText("");
+   }
+
    // Appearance state ------------------------------------------------------
    // Order: title, x label, y label, colour, size, alpha, theme.
 
@@ -199,6 +215,12 @@ public class ScatterDialog extends ModalDialog<Void>
          return;
       current_ = history_.remove(history_.size() - 1);
       applyAppearance(current_);
+      // a restored fixed colour cannot coexist with an active colour column
+      if (!colour_.isEnabled() && !colour_.getSelectedValue().isEmpty())
+      {
+         select(colour_, "");
+         current_ = readAppearance();
+      }
       code_.setText("");
       updateUndo();
    }
@@ -226,6 +248,8 @@ public class ScatterDialog extends ModalDialog<Void>
       json.put("size", new JSONNumber(Double.parseDouble(values[4])));
       json.put("alpha", new JSONNumber(Double.parseDouble(values[5])));
       json.put("theme", new JSONString(values[6]));
+      // the colour mapping is data, validated against the dataset in R
+      json.put("colour_by", new JSONString(colourBy_.getItemCount() > 0 ? colourBy_.getSelectedValue() : ""));
       return json;
    }
 
@@ -243,6 +267,7 @@ public class ScatterDialog extends ModalDialog<Void>
       datasets_.setEnabled(!busy && datasets_.getItemCount() > 0);
       x_.setEnabled(!busy && x_.getItemCount() > 0);
       y_.setEnabled(!busy && y_.getItemCount() > 0);
+      colourBy_.setEnabled(!busy && colourBy_.getItemCount() > 1);
       refresh_.setEnabled(!busy);
       preview_.setEnabled(!busy && !revision_.isEmpty() && x_.getItemCount() > 0);
       export_.setEnabled(!busy && !revision_.isEmpty() && x_.getItemCount() > 0);
@@ -250,7 +275,7 @@ public class ScatterDialog extends ModalDialog<Void>
    private void refresh()
    {
       revision_ = "";
-      datasets_.clear(); x_.clear(); y_.clear(); code_.setText("");
+      datasets_.clear(); x_.clear(); y_.clear(); colourBy_.clear(); code_.setText("");
       status_.setText(messages_.loading());
       request("list", "", "", "", "", result -> {
          fill(datasets_, result.datasets());
@@ -261,11 +286,16 @@ public class ScatterDialog extends ModalDialog<Void>
    private void inspect()
    {
       revision_ = "";
-      x_.clear(); y_.clear(); code_.setText("");
+      x_.clear(); y_.clear(); colourBy_.clear(); code_.setText("");
       status_.setText(messages_.loading());
       request("inspect", datasets_.getSelectedValue(), "", "", "", result -> {
          revision_ = result.revision();
          fill(x_, result.columns()); fill(y_, result.columns());
+         colourBy_.addItem(messages_.colourByNone(), "");
+         JsArrayString colourColumns = result.colourColumns();
+         for (int i = 0; i < colourColumns.length(); i++)
+            colourBy_.addItem(colourColumns.get(i));
+         colourByChanged();
          if (y_.getItemCount() > 1) y_.setSelectedIndex(1);
          status_.setText(x_.getItemCount() > 0 ? messages_.ready() : messages_.noColumns());
          busy(false);
@@ -340,7 +370,8 @@ public class ScatterDialog extends ModalDialog<Void>
    private final SuperRStudioServerOperations server_;
    private final EventBus events_;
    private final Commands commands_;
-   private final ListBox datasets_ = new ListBox(), x_ = new ListBox(), y_ = new ListBox();
+   private final ListBox datasets_ = new ListBox(), x_ = new ListBox(), y_ = new ListBox(),
+                         colourBy_ = new ListBox();
    private final TextBox title_ = new TextBox(), xLabel_ = new TextBox(), yLabel_ = new TextBox();
    private final ListBox colour_ = new ListBox(), size_ = new ListBox(), alpha_ = new ListBox(),
                          theme_ = new ListBox();

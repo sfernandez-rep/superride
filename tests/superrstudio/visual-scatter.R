@@ -21,7 +21,8 @@ reject <- function(expr, pattern) {
 }
 stopifnot(identical(request('list')$datasets, 'data'))
 selected <- request('inspect')
-stopifnot(identical(selected$columns, c('x', 'y')), selected$rows == 4L)
+stopifnot(identical(selected$columns, c('x', 'y')), selected$rows == 4L,
+          identical(selected$colour_columns, c('x', 'y', 'group')))
 data$x[1] <- 10
 reject(request('code', rev = selected$revision), 'changed')
 data <- original
@@ -114,7 +115,30 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    # Defaults produce exactly the original minimal code.
    plain <- request('code', 'odd name', selected$revision, evil, 'y', defaults)
    stopifnot(identical(plain$code, result$code), !grepl('labs|theme_', plain$code))
-   cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation, appearance\n')
+   # (Runs after the odd-name checks: a new inspect replaces the session's
+   # single active selection.)
+   # Colour mapping: categories get a discrete viridis scale, numbers a
+   # continuous one; invalid or conflicting mappings are rejected.
+   chosen <- request('inspect')
+   byGroup <- request('code', rev = chosen$revision, appearance = list(colour_by = 'group'))
+   cat(byGroup$code)
+   plot <- eval(parse(text = byGroup$code), envir = globalenv())
+   built <- ggplot2::ggplot_build(plot)
+   stopifnot(grepl('colour = .data[["group"]]', byGroup$code, fixed = TRUE),
+             grepl('ggplot2::scale_colour_viridis_d()', byGroup$code, fixed = TRUE),
+             length(unique(built$data[[1]]$colour)) == 4L,
+             identical(byGroup$spec$colour_by, I('group')))
+   byY <- request('code', rev = chosen$revision, appearance = list(colour_by = 'y', size = 2))
+   stopifnot(grepl('ggplot2::scale_colour_viridis_c()', byY$code, fixed = TRUE),
+             grepl('geom_point(size = 2)', byY$code, fixed = TRUE))
+   ggplot2::ggplot_build(eval(parse(text = byY$code), envir = globalenv()))
+   reject(request('code', rev = chosen$revision, appearance = list(colour_by = 'nope')), 'colour by')
+   reject(request('code', rev = chosen$revision, appearance = list(colour_by = c('x', 'y'))), 'colour by')
+   reject(request('code', rev = chosen$revision,
+                  appearance = list(colour_by = 'group', colour = '#000000')), 'not both')
+   stopifnot(identical(request('code', rev = chosen$revision)$spec$colour_by, I('')))
+
+   cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation, appearance, colour mapping\n')
 } else {
    selected <- request('inspect')
    reject(request('code', rev = selected$revision), 'ggplot2 is required')

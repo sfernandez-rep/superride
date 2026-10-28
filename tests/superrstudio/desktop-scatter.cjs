@@ -252,6 +252,33 @@ async function closeDialog(page)
          `identical(fish, fish_original))`,
          'STYLED_CODE_REPRODUCES_APPEARANCE');
 
+      // Colour by a character column: fixed colour is disabled, viridis scale emitted.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'fish');
+      const colourColumns = await page.$$eval('#superrstudio_colour_by option', o => o.map(x => x.value));
+      if (JSON.stringify(colourColumns) !== JSON.stringify(['', 'sample', 'site', 'length cm', 'mass_g', 'observed', 'date', 'note']))
+         throw new Error('unexpected colour columns ' + JSON.stringify(colourColumns));
+      await page.selectOption('#superrstudio_x', 'length cm');
+      await page.selectOption('#superrstudio_y', 'mass_g');
+      await page.selectOption('#superrstudio_colour', '#E69F00');
+      await page.selectOption('#superrstudio_colour_by', 'site');
+      if (await page.locator('#superrstudio_colour').isEnabled() || await page.inputValue('#superrstudio_colour') !== '')
+         throw new Error('fixed colour not disabled/reset while colouring by column');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const mappedCode = await page.locator('#superrstudio_code').inputValue();
+      fs.writeFileSync(path.join(evidence, 'generated-scatter-colour.R'), mappedCode);
+      for (const part of ['colour = .data[["site"]]', 'ggplot2::scale_colour_viridis_d()', '"colour_by":"site"'])
+         if (!mappedCode.includes(part)) throw new Error('mapped code lacks ' + part);
+      await page.waitForTimeout(1500);
+      await shot(page, '2c-colour-by');
+      log('PASS colour by column (fixed colour disabled, discrete viridis scale)');
+      await closeDialog(page);
+      await check(page,
+         `srs_built <- ggplot2::ggplot_build(eval(parse(text = ${JSON.stringify(mappedCode)}))); ` +
+         `stopifnot(length(unique(srs_built$data[[1]]$colour)) == 2L, identical(fish, fish_original))`,
+         'COLOUR_MAPPING_REPRODUCES');
+
       // Export opens the same code in a new, unsaved R script.
       dialog = await openDialog(page);
       await selectDataset(page, 'fish');

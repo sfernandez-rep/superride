@@ -28,7 +28,7 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    `SUPER_RSTUDIO_EXPERIMENTAL=1`: Environment toolbar *Scatter* button, dialog
    to pick a data frame and two numeric columns, ggplot2 preview in the Plots
    pane of the active session, reproducible code exported to a new R script,
-   appearance controls with undo/reset (spec schema 2).
+   appearance controls with undo/reset and colour-by-column (spec schema 2).
    Details, design and evidence: [visual-scatter.md](docs/superrstudio/features/visual-scatter.md).
 2. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
@@ -60,7 +60,7 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | `visual-scatter.R`, R 4.6.1 + ggplot2 | PASS |
 | `visual-scatter.R`, R 3.6.3 | PASS missing-package path; rendering SKIP |
 | Upstream R-session suite on feature build, feature off and on | 654 passed / 655 (1 skipped), same as baseline |
-| Live desktop scatter: ggplot2 (incl. appearance, undo, reset) / no-ggplot2 / disabled | PASS / PASS / PASS |
+| Live desktop scatter: ggplot2 (incl. appearance, undo, reset, colour mapping) / no-ggplot2 / disabled | PASS / PASS / PASS |
 | Debug launch (DevTools 9222, Node inspector 9229), `-Wait` exit code | PASS |
 
 Known failures/limitations (unchanged from baseline unless noted):
@@ -73,13 +73,14 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
 
 1. Done: scatter appearance controls (title, axis titles, Okabe-Ito colour,
    size, opacity, theme, undo/reset; spec schema 2) — desktop-verified.
-2. **Next: colour-by-column** (map a factor/character or numeric column to
-   point colour with a discrete/continuous scale), validated like x/y and
-   emitted inside `aes()` via `.data[[...]]`; then additional plot types
-   (line, histogram, boxplot) behind the same specification.
-3. M4 groundwork: non-modal editor (the modal dialog hides part of the Plots
+2. Done: colour-by-column (viridis discrete/continuous scale), desktop-verified.
+3. **Next: additional plot types** behind the same specification: start with
+   a histogram (one numeric column, bins) and boxplot (numeric by category),
+   then line. Generalize `.rs.superrstudioScatterLayers` into per-kind layer
+   builders and add a plot-type selector; keep the scatter contract tests.
+4. M4 groundwork: non-modal editor (the modal dialog hides part of the Plots
    pane) and saving/loading specifications.
-4. Before release: dependency audit, localized logging test, `es` locale build.
+5. Before release: dependency audit, localized logging test, `es` locale build.
 
 ## Continuing in Codex or Claude Code
 

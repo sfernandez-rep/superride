@@ -11,6 +11,8 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Dataset") String dataset();
    @DefaultMessage("X column") String xColumn();
    @DefaultMessage("Y column") String yColumn();
+   @DefaultMessage("Colour by column (viridis scale)") String colourBy();
+   @DefaultMessage("(none)") String colourByNone();
    @DefaultMessage("Plot title (optional)") String plotTitle();
    @DefaultMessage("X axis title (blank: column name)") String xLabel();
    @DefaultMessage("Y axis title (blank: column name)") String yLabel();

@@ -22,6 +22,12 @@ branch `feature/visual-scatter`. Opt-in: the session must be started with
    light). **Undo** steps back through appearance edits; **Reset appearance**
    restores ggplot2 defaults (and can itself be undone). Only non-default
    settings are emitted, so an unstyled plot still produces the minimal code.
+6. **Colour by column**: map a numeric, character, factor or logical column
+   to point colour, emitted as `colour = .data[["col"]]` inside `aes()` with a
+   colour-blind-safe `scale_colour_viridis_d()` (categories) or
+   `scale_colour_viridis_c()` (numbers). The fixed point colour is disabled
+   while a column is mapped; R rejects requests combining both. Recorded as
+   `colour_by` in the specification.
 
 Generated code (the header records the versioned specification and versions):
 
@@ -58,12 +64,13 @@ left-associated sum.
 | R contract, R 4.6.1 + ggplot2 4.0.3 | `Rscript tests\superrstudio\visual-scatter.R` (isolated `R_LIBS_USER`) | PASS (plot equivalence, injection-shaped column names, stale/deleted data, revisions, limits, RPC wrapper) |
 | R contract, R 3.6.3 (no ggplot2) | same with R 3.6.3 | PASS (missing-package path); rendering SKIP |
 | Upstream R-session suite | `tools\superrstudio\test-session.cmd` (with and without `experimental`) | 654 passed of 655 (1 skipped), as baseline |
-| Live desktop, ggplot2 | `tools\superrstudio\test-gui-scatter.ps1` | PASS: discovery, no-numeric frame, numeric columns, Plots pane shows new plot, dataset unchanged, generated code reproduces plot data, appearance edits + undo + reset, styled code reproduces title/axis/colour/theme, export identical, no client exceptions |
+| Live desktop, ggplot2 | `tools\superrstudio\test-gui-scatter.ps1` | PASS: discovery, no-numeric frame, numeric columns, Plots pane shows new plot, dataset unchanged, generated code reproduces plot data, appearance edits + undo + reset, styled code reproduces title/axis/colour/theme, colour-by-column (2 viridis colours), export identical, no client exceptions |
 | Live desktop, no ggplot2 | same (`no-ggplot2`, empty library) | PASS: clean message in dialog, console unaffected, no device opened |
 | Live desktop, disabled | same (`disabled`) | PASS: button hidden; ordinary IDE |
 
 ![Preview](visual-scatter-preview.png)
 ![Appearance](visual-scatter-appearance.png)
+![Colour by column](visual-scatter-colour-by.png)
 ![Export](visual-scatter-export.png)
 ![Missing ggplot2](visual-scatter-missing-ggplot2.png)
 
