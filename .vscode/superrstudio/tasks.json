@@ -1,0 +1,119 @@
+//
+// SuperRStudio development tasks (Windows). See BUILDING.md, "SuperRStudio
+// development mode". These are "process" tasks, so they are unaffected by the
+// upstream template's vcvarsall shell wrapper; the scripts configure the
+// toolchain themselves. Merge into .vscode/tasks.json (ignored by Git) with:
+//   powershell -File tools\superrstudio\install-vscode.ps1
+//
+{
+  "version": "2.0.0",
+  "tasks": [
+    // >>> superrstudio
+    {
+      "label": "SuperRStudio: Build (incremental)",
+      "detail": "Native session targets + GWT draft; unchanged parts are skipped",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-build.ps1"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "SuperRStudio: Build native session",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-build.ps1", "-Component", "native"],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "SuperRStudio: Build GWT client",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-build.ps1", "-Component", "gwt"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "SuperRStudio: Java compile check",
+      "detail": "ant javac only (fast; produces no JavaScript)",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-build.ps1", "-Component", "javac"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "SuperRStudio: Run desktop (experimental)",
+      "detail": "SUPER_RSTUDIO_EXPERIMENTAL=1, isolated profile; the task ends when the IDE closes",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-run.ps1", "-Experimental", "-Wait"],
+      "problemMatcher": []
+    },
+    {
+      "label": "SuperRStudio: Run desktop (standard)",
+      "detail": "SuperRStudio features off, isolated profile",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-run.ps1", "-Wait"],
+      "problemMatcher": []
+    },
+    {
+      "label": "SuperRStudio: Build and run (experimental)",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev.ps1", "-Experimental", "-Wait"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "SuperRStudio: Run desktop for debugging",
+      "detail": "DevTools on 9222, Electron main inspector on 9229 (used by launch configurations)",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-run.ps1",
+               "-Experimental", "-Wait", "-ProfileName", "debug", "-DebugPort", "9222", "-InspectPort", "9229"],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "superrstudio",
+        "pattern": { "regexp": "^__never_matches__$" },
+        "background": { "activeOnStart": true, "beginsPattern": "^\\[superrstudio\\] Desktop PID", "endsPattern": "^\\[superrstudio\\] Electron output" }
+      }
+    },
+    {
+      "label": "SuperRStudio: Test scatter (R contract)",
+      "type": "process",
+      "command": "C:/R/R-4.6.1/bin/x64/Rscript.exe",
+      "args": ["${workspaceFolder}/tests/superrstudio/visual-scatter.R"],
+      "options": { "env": { "R_LIBS_USER": "${workspaceFolder}/.cache/superrstudio/r-library" } },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "SuperRStudio: Test scatter (live desktop)",
+      "detail": "Launches the desktop three times (ggplot2, no ggplot2, disabled) and drives the dialog",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/test-gui-scatter.ps1"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "SuperRStudio: Test R session suite",
+      "detail": "Upstream rsession --run-tests against the feature build",
+      "type": "process",
+      "command": "cmd.exe",
+      "args": ["/d", "/c", "${workspaceFolder}\\tools\\superrstudio\\test-session.cmd", "experimental"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "SuperRStudio: Clean development profiles",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/superrstudio/dev-clean.ps1", "-AllProfiles"],
+      "problemMatcher": []
+    },
+    // <<< superrstudio
+  ]
+}
