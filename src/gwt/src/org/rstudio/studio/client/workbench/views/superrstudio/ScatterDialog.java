@@ -3,7 +3,9 @@ package org.rstudio.studio.client.workbench.views.superrstudio;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.google.gwt.aria.client.Roles;
 import com.google.gwt.core.client.GWT;
@@ -26,6 +28,8 @@ import org.rstudio.studio.client.workbench.commands.Commands;
 import org.rstudio.studio.client.workbench.views.source.events.NewDocumentWithCodeEvent;
 import org.rstudio.studio.client.workbench.views.source.model.SourcePosition;
 
+// Visual plot editor for the active R session: scatter/lines (with fits),
+// histograms and boxplots, one shared specification and settings table.
 public class ScatterDialog extends ModalDialog<Void>
 {
    // An undoable plot setting: its JSON key, editing widget, value type and
@@ -42,7 +46,7 @@ public class ScatterDialog extends ModalDialog<Void>
 
       String get()
       {
-         if (widget instanceof TextBox) return ((TextBox) widget).getValue();
+         if (widget instanceof TextBox) return ((TextBox) widget).getValue().trim();
          if (widget instanceof CheckBox) return String.valueOf(((CheckBox) widget).getValue());
          return ((ListBox) widget).getSelectedValue();
       }
@@ -57,8 +61,19 @@ public class ScatterDialog extends ModalDialog<Void>
       JSONValue json()
       {
          String value = get();
-         if (TYPE_NUMBER.equals(type)) return new JSONNumber(Double.parseDouble(value));
          if (TYPE_BOOLEAN.equals(type)) return JSONBoolean.getInstance(Boolean.parseBoolean(value));
+         if (TYPE_NUMBER.equals(type))
+         {
+            try
+            {
+               return new JSONNumber(Double.parseDouble(value));
+            }
+            catch (NumberFormatException e)
+            {
+               // sent as text: the session rejects it with a clear message
+               return new JSONString(value);
+            }
+         }
          return new JSONString(value);
       }
 
@@ -83,6 +98,12 @@ public class ScatterDialog extends ModalDialog<Void>
       addLeftButton(refresh_, "superrstudio_refresh");
       addLeftButton(preview_, "superrstudio_preview");
       addLeftButton(export_, "superrstudio_export");
+
+      option(kind_, messages_.kindScatter(), KIND_SCATTER);
+      option(kind_, messages_.kindHistogram(), KIND_HISTOGRAM);
+      option(kind_, messages_.kindBoxplot(), KIND_BOXPLOT);
+      // repopulated lists need their enabled state recomputed (busy(false))
+      kind_.addChangeHandler(e -> { populateColumns(); busy(false); });
       datasets_.addChangeHandler(e -> inspect());
       x_.addChangeHandler(e -> invalidate());
       y_.addChangeHandler(e -> invalidate());
@@ -101,7 +122,9 @@ public class ScatterDialog extends ModalDialog<Void>
          option(fitLevel_, Math.round(Double.parseDouble(level) * 100) + "%", level);
       for (String span : new String[] {"0.25", "0.5", "0.75", "1"})
          option(fitSpan_, span, span);
-      for (ListBox colours : new ListBox[] {colour_, lineColour_, fitColour_})
+      for (String bins : new String[] {"10", "20", "30", "50", "100"})
+         option(bins_, bins, bins);
+      for (ListBox colours : new ListBox[] {colour_, lineColour_, fitColour_, fill_})
          colourOptions(colours);
       for (String size : new String[] {"1", "1.5", "2", "3", "4", "6"})
          option(size_, size, size);
@@ -121,6 +144,8 @@ public class ScatterDialog extends ModalDialog<Void>
       option(theme_, messages_.themeClassic(), "classic");
       option(theme_, messages_.themeLight(), "light");
       fitSe_.setText(messages_.fitSe());
+      showOutliers_.setText(messages_.showOutliers());
+      showPoints_.setText(messages_.showPoints());
 
       settings_.add(new Setting("geometry", geometry_, TYPE_STRING, "points"));
       settings_.add(new Setting("line_order", lineOrder_, TYPE_STRING, "x"));
@@ -128,12 +153,17 @@ public class ScatterDialog extends ModalDialog<Void>
       settings_.add(new Setting("fit_se", fitSe_, TYPE_BOOLEAN, "true"));
       settings_.add(new Setting("fit_level", fitLevel_, TYPE_NUMBER, "0.95"));
       settings_.add(new Setting("fit_span", fitSpan_, TYPE_NUMBER, "0.75"));
+      settings_.add(new Setting("bins", bins_, TYPE_NUMBER, "30"));
+      settings_.add(new Setting("bin_width", binWidth_, TYPE_NUMBER, "0"));
+      settings_.add(new Setting("show_outliers", showOutliers_, TYPE_BOOLEAN, "true"));
+      settings_.add(new Setting("show_points", showPoints_, TYPE_BOOLEAN, "false"));
       settings_.add(new Setting("title", title_, TYPE_STRING, ""));
       settings_.add(new Setting("x_label", xLabel_, TYPE_STRING, ""));
       settings_.add(new Setting("y_label", yLabel_, TYPE_STRING, ""));
       settings_.add(new Setting("colour", colour_, TYPE_STRING, ""));
       settings_.add(new Setting("size", size_, TYPE_NUMBER, "1.5"));
       settings_.add(new Setting("alpha", alpha_, TYPE_NUMBER, "1"));
+      settings_.add(new Setting("fill", fill_, TYPE_STRING, ""));
       settings_.add(new Setting("theme", theme_, TYPE_STRING, "grey"));
       settings_.add(new Setting("line_colour", lineColour_, TYPE_STRING, ""));
       settings_.add(new Setting("line_width", lineWidth_, TYPE_NUMBER, "0.5"));
@@ -145,9 +175,10 @@ public class ScatterDialog extends ModalDialog<Void>
       apply(defaults_);
       current_ = defaults_;
 
-      for (TextBox text : new TextBox[] {title_, xLabel_, yLabel_})
+      for (TextBox text : new TextBox[] {title_, xLabel_, yLabel_, binWidth_})
          text.addValueChangeHandler(e -> settingsChanged());
-      fitSe_.addValueChangeHandler(e -> settingsChanged());
+      for (CheckBox check : new CheckBox[] {fitSe_, showOutliers_, showPoints_})
+         check.addValueChangeHandler(e -> settingsChanged());
       for (Setting setting : settings_)
          if (setting.widget instanceof ListBox)
             ((ListBox) setting.widget).addChangeHandler(e -> settingsChanged());
@@ -166,36 +197,42 @@ public class ScatterDialog extends ModalDialog<Void>
       status_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
       panel.add(status_);
 
-      Grid data = section(messages_.dataHeading(), 5);
+      Grid data = section(messages_.dataHeading(), 6);
       row(data, 0, messages_.dataset(), datasets_, "superrstudio_dataset");
-      row(data, 1, messages_.xColumn(), x_, "superrstudio_x");
-      row(data, 2, messages_.yColumn(), y_, "superrstudio_y");
-      row(data, 3, messages_.colourBy(), colourBy_, "superrstudio_colour_by");
-      row(data, 4, messages_.groupBy(), groupBy_, "superrstudio_group_by");
+      row(data, 1, messages_.plotKind(), kind_, "superrstudio_kind");
+      xRowLabel_ = row(data, 2, messages_.xColumn(), x_, "superrstudio_x");
+      yRowLabel_ = row(data, 3, messages_.yColumn(), y_, "superrstudio_y");
+      colourByLabel_ = row(data, 4, messages_.colourBy(), colourBy_, "superrstudio_colour_by");
+      row(data, 5, messages_.groupBy(), groupBy_, "superrstudio_group_by");
 
-      Grid layers = section(messages_.layersHeading(), 6);
+      Grid layers = section(messages_.layersHeading(), 10);
       row(layers, 0, messages_.geometry(), geometry_, "superrstudio_geometry");
       row(layers, 1, messages_.lineOrder(), lineOrder_, "superrstudio_line_order");
       row(layers, 2, messages_.fit(), fit_, "superrstudio_fit");
       row(layers, 3, "", fitSe_, "superrstudio_fit_se");
       row(layers, 4, messages_.fitLevel(), fitLevel_, "superrstudio_fit_level");
       row(layers, 5, messages_.fitSpan(), fitSpan_, "superrstudio_fit_span");
+      row(layers, 6, messages_.bins(), bins_, "superrstudio_bins");
+      row(layers, 7, messages_.binWidth(), binWidth_, "superrstudio_bin_width");
+      row(layers, 8, "", showOutliers_, "superrstudio_show_outliers");
+      row(layers, 9, "", showPoints_, "superrstudio_show_points");
       orderHint_.getElement().setId("superrstudio_order_hint");
       orderHint_.setWidth("290px");
       orderHint_.getElement().getStyle().setProperty("fontSize", "90%");
 
-      Grid look = section(messages_.appearanceHeading(), 11);
+      Grid look = section(messages_.appearanceHeading(), 12);
       row(look, 0, messages_.plotTitle(), title_, "superrstudio_title");
       row(look, 1, messages_.xLabel(), xLabel_, "superrstudio_xlabel");
       row(look, 2, messages_.yLabel(), yLabel_, "superrstudio_ylabel");
       row(look, 3, messages_.colour(), colour_, "superrstudio_colour");
       row(look, 4, messages_.size(), size_, "superrstudio_size");
-      row(look, 5, messages_.opacity(), alpha_, "superrstudio_alpha");
-      row(look, 6, messages_.lineColour(), lineColour_, "superrstudio_line_colour");
-      row(look, 7, messages_.lineWidth(), lineWidth_, "superrstudio_line_width");
-      row(look, 8, messages_.lineType(), lineType_, "superrstudio_line_type");
-      row(look, 9, messages_.fitColour(), fitColour_, "superrstudio_fit_colour");
-      row(look, 10, messages_.theme(), theme_, "superrstudio_theme");
+      row(look, 5, messages_.fill(), fill_, "superrstudio_fill");
+      row(look, 6, messages_.opacity(), alpha_, "superrstudio_alpha");
+      lineColourLabel_ = row(look, 7, messages_.lineColour(), lineColour_, "superrstudio_line_colour");
+      row(look, 8, messages_.lineWidth(), lineWidth_, "superrstudio_line_width");
+      row(look, 9, messages_.lineType(), lineType_, "superrstudio_line_type");
+      row(look, 10, messages_.fitColour(), fitColour_, "superrstudio_fit_colour");
+      row(look, 11, messages_.theme(), theme_, "superrstudio_theme");
 
       undo_.getElement().setId("superrstudio_undo");
       reset_.getElement().setId("superrstudio_reset");
@@ -254,17 +291,28 @@ public class ScatterDialog extends ModalDialog<Void>
       return label;
    }
 
-   private void row(Grid grid, int row, String text, Widget control, String id)
+   private FormLabel row(Grid grid, int row, String text, Widget control, String id)
    {
       control.getElement().setId(id);
       control.setWidth("190px");
+      FormLabel label = null;
       if (!text.isEmpty())
       {
-         FormLabel label = new FormLabel(text, control);
+         label = new FormLabel(text, control);
          label.setWidth("150px");
          grid.setWidget(row, 0, label);
       }
       grid.setWidget(row, 1, control);
+      rows_.put(control, new Object[] {grid, row});
+      return label;
+   }
+
+   // Show or hide the grid row holding a control.
+   private void showRow(Widget control, boolean visible)
+   {
+      Object[] location = rows_.get(control);
+      if (location != null)
+         ((Grid) location[0]).getRowFormatter().setVisible((Integer) location[1], visible);
    }
 
    private static void option(ListBox list, String label, String value)
@@ -296,41 +344,128 @@ public class ScatterDialog extends ModalDialog<Void>
       return list.getItemCount() > 0 && !list.getSelectedValue().isEmpty();
    }
 
-   // Enable only the controls that affect the selected layers, and keep the
-   // settings R would reject (fixed colour with a colour column, grouping
-   // without lines or a fit) from being combined.
+   private static String value(ListBox list)
+   {
+      return list.getItemCount() > 0 && list.getSelectedValue() != null ? list.getSelectedValue() : "";
+   }
+
+   private String kind()
+   {
+      return value(kind_);
+   }
+
+   // Column lists per plot type; selections are kept when still valid.
+   private void populateColumns()
+   {
+      String kind = kind();
+      String x = value(x_), y = value(y_), colourBy = value(colourBy_);
+      x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear();
+      colourBy_.addItem(messages_.colourByNone(), "");
+      groupBy_.addItem(messages_.colourByNone(), "");
+      if (KIND_SCATTER.equals(kind))
+      {
+         addAll(x_, numericColumns_); addAll(y_, numericColumns_);
+         addAll(colourBy_, colourColumns_); addAll(groupBy_, discreteColumns_);
+         if (y_.getItemCount() > 1) y_.setSelectedIndex(1);
+      }
+      else if (KIND_HISTOGRAM.equals(kind))
+      {
+         addAll(x_, numericColumns_);
+         addAll(colourBy_, discreteColumns_);
+      }
+      else
+      {
+         x_.addItem(messages_.colourByNone(), "");
+         addAll(x_, discreteColumns_); addAll(y_, numericColumns_);
+         addAll(colourBy_, discreteColumns_);
+      }
+      select(x_, x); select(y_, y); select(colourBy_, colourBy);
+      xRowLabel_.setText(KIND_SCATTER.equals(kind) ? messages_.xColumn()
+         : KIND_HISTOGRAM.equals(kind) ? messages_.variable() : messages_.groupOptional());
+      yRowLabel_.setText(KIND_BOXPLOT.equals(kind) ? messages_.response() : messages_.yColumn());
+      colourByLabel_.setText(KIND_SCATTER.equals(kind) ? messages_.colourBy() : messages_.fillBy());
+   }
+
+   private static void addAll(ListBox list, JsArrayString values)
+   {
+      if (values == null) return;
+      for (int i = 0; i < values.length(); i++)
+         list.addItem(values.get(i));
+   }
+
+   // Show only the controls that apply to the plot type, enable only those
+   // that affect the selected layers, and keep combinations R would reject
+   // (fixed colour with a colour column, grouping without lines or a fit)
+   // from being made.
    private void layoutChanged()
    {
+      String kind = kind();
+      boolean scatter = KIND_SCATTER.equals(kind), histogram = KIND_HISTOGRAM.equals(kind),
+              boxplot = KIND_BOXPLOT.equals(kind);
       String geometry = geometry_.getSelectedValue();
-      boolean points = !"lines".equals(geometry);
-      boolean lines = !"points".equals(geometry);
-      boolean fit = !"none".equals(fit_.getSelectedValue());
+      boolean points = scatter ? !"lines".equals(geometry) : boxplot && showPoints_.getValue();
+      boolean lines = scatter && !"points".equals(geometry);
+      boolean fit = scatter && !"none".equals(fit_.getSelectedValue());
       boolean mapped = has(colourBy_);
       boolean dirty = false;
-      if (mapped && !colour_.getSelectedValue().isEmpty())
+      if (mapped && scatter && !colour_.getSelectedValue().isEmpty())
       {
          select(colour_, "");
          dirty = true;
       }
-      if (!lines && !fit && has(groupBy_))
+      if (mapped && !scatter && !fill_.getSelectedValue().isEmpty())
+      {
+         select(fill_, "");
+         dirty = true;
+      }
+      if ((!lines && !fit) && has(groupBy_))
          groupBy_.setSelectedIndex(0);
-      colour_.setEnabled(points && !mapped);
+
+      showRow(y_, !histogram);
+      showRow(groupBy_, scatter);
+      for (Widget scatterOnly : new Widget[] {geometry_, lineOrder_, fit_, fitSe_, fitLevel_, fitSpan_,
+                                              lineWidth_, lineType_, fitColour_})
+         showRow(scatterOnly, scatter);
+      showRow(bins_, histogram);
+      showRow(binWidth_, histogram);
+      showRow(showOutliers_, boxplot);
+      showRow(showPoints_, boxplot);
+      showRow(colour_, !histogram);
+      showRow(size_, !histogram);
+      showRow(fill_, !scatter);
+      lineColourLabel_.setText(scatter ? messages_.lineColour() : messages_.outlineColour());
+
+      colour_.setEnabled(points && !(mapped && scatter));
       size_.setEnabled(points);
-      alpha_.setEnabled(points);
+      alpha_.setEnabled(points || !scatter);
+      fill_.setEnabled(!mapped);
       lineOrder_.setEnabled(lines);
-      lineColour_.setEnabled(lines);
+      lineColour_.setEnabled(lines || !scatter);
       lineWidth_.setEnabled(lines);
       lineType_.setEnabled(lines);
       groupBy_.setEnabled((lines || fit) && groupBy_.getItemCount() > 1);
       fitSe_.setEnabled(fit);
       fitLevel_.setEnabled(fit && fitSe_.getValue());
-      fitSpan_.setEnabled("loess".equals(fit_.getSelectedValue()));
+      fitSpan_.setEnabled(fit && "loess".equals(fit_.getSelectedValue()));
       fitColour_.setEnabled(fit);
+      bins_.setEnabled(histogram && isZero(binWidth_.getValue()));
       orderHint_.setText(!lines ? "" : "x".equals(lineOrder_.getSelectedValue())
          ? messages_.lineOrderHintX() : messages_.lineOrderHintData());
       if (dirty)
          settingsChanged();
       invalidate();
+   }
+
+   private static boolean isZero(String text)
+   {
+      try
+      {
+         return Double.parseDouble(text.trim()) == 0;
+      }
+      catch (NumberFormatException e)
+      {
+         return false;
+      }
    }
 
    private void invalidate()
@@ -400,43 +535,70 @@ public class ScatterDialog extends ModalDialog<Void>
       JSONObject json = new JSONObject();
       for (Setting setting : settings_)
          json.put(setting.key, setting.json());
-      // column mappings are data, validated against the dataset in R
-      json.put("colour_by", new JSONString(has(colourBy_) ? colourBy_.getSelectedValue() : ""));
-      json.put("group_by", new JSONString(has(groupBy_) ? groupBy_.getSelectedValue() : ""));
+      // the plot type and column mappings are data, validated against the dataset in R
+      json.put("kind", new JSONString(kind().isEmpty() ? KIND_SCATTER : kind()));
+      json.put("colour_by", new JSONString(value(colourBy_)));
+      json.put("group_by", new JSONString(value(groupBy_)));
       return json;
    }
 
    private void showModel(ScatterResult result)
    {
-      JsArray<ScatterResult.FitEntry> entries = result.fitSummary();
-      if (entries.length() == 0)
+      StringBuilder text = new StringBuilder();
+      JsArray<ScatterResult.SummaryEntry> summary = result.summary();
+      if (summary.length() > 0)
       {
-         model_.setText("");
-         return;
-      }
-      StringBuilder text = new StringBuilder(messages_.modelHeading()).append(":\n");
-      boolean linear = false;
-      for (int i = 0; i < entries.length(); i++)
-      {
-         ScatterResult.FitEntry entry = entries.get(i);
-         String group = "all".equals(entry.group()) && entries.length() == 1
-            ? messages_.allObservations() : entry.group();
-         if ("loess".equals(entry.method()))
-            text.append(messages_.loessSummary(group, entry.n(), entry.span()));
-         else if (!entry.hasStatistics())
-            text.append(messages_.tooFewSummary(group, entry.n()));
-         else
+         text.append(messages_.summaryHeading()).append(":\n");
+         boolean boxes = false;
+         for (int i = 0; i < summary.length(); i++)
          {
-            linear = true;
-            text.append(messages_.lmSummary(group, entry.n(), entry.equation(), entry.rSquared(),
-               entry.adjRSquared(), entry.slopePValue(), entry.sigma()));
-            if (!entry.note().isEmpty())
-               text.append(" (").append(entry.note()).append(")");
+            ScatterResult.SummaryEntry entry = summary.get(i);
+            String group = "all".equals(entry.group()) && summary.length() == 1
+               ? messages_.allObservations() : entry.group();
+            if (KIND_HISTOGRAM.equals(kind()))
+               text.append(messages_.histSummary(entry.n(), entry.removed(), entry.hasBins()
+                  ? messages_.binsText(entry.bins()) : messages_.binWidthText(entry.binWidth())));
+            else if (entry.hasBox())
+            {
+               boxes = true;
+               text.append(messages_.boxSummary(group, entry.n(), entry.median(), entry.q1(), entry.q3(),
+                  entry.lowerWhisker(), entry.upperWhisker(), entry.outliers()));
+            }
+            else
+               text.append(messages_.boxEmpty(group));
+            text.append("\n");
          }
-         text.append("\n");
+         if (boxes)
+            text.append(messages_.boxNote());
       }
-      if (linear)
-         text.append(messages_.lmCaveat());
+
+      JsArray<ScatterResult.FitEntry> entries = result.fitSummary();
+      if (entries.length() > 0)
+      {
+         text.append(messages_.modelHeading()).append(":\n");
+         boolean linear = false;
+         for (int i = 0; i < entries.length(); i++)
+         {
+            ScatterResult.FitEntry entry = entries.get(i);
+            String group = "all".equals(entry.group()) && entries.length() == 1
+               ? messages_.allObservations() : entry.group();
+            if ("loess".equals(entry.method()))
+               text.append(messages_.loessSummary(group, entry.n(), entry.span()));
+            else if (!entry.hasStatistics())
+               text.append(messages_.tooFewSummary(group, entry.n()));
+            else
+            {
+               linear = true;
+               text.append(messages_.lmSummary(group, entry.n(), entry.equation(), entry.rSquared(),
+                  entry.adjRSquared(), entry.slopePValue(), entry.sigma()));
+               if (!entry.note().isEmpty())
+                  text.append(" (").append(entry.note()).append(")");
+            }
+            text.append("\n");
+         }
+         if (linear)
+            text.append(messages_.lmCaveat());
+      }
       model_.setText(text.toString());
    }
 
@@ -449,15 +611,24 @@ public class ScatterDialog extends ModalDialog<Void>
    }
    @Override protected Void collectInput() { return null; }
 
+   private boolean columnsChosen()
+   {
+      String kind = kind();
+      if (KIND_HISTOGRAM.equals(kind)) return x_.getItemCount() > 0;
+      if (KIND_BOXPLOT.equals(kind)) return y_.getItemCount() > 0;
+      return x_.getItemCount() > 0 && y_.getItemCount() > 0;
+   }
+
    private void busy(boolean busy)
    {
       datasets_.setEnabled(!busy && datasets_.getItemCount() > 0);
+      kind_.setEnabled(!busy && !revision_.isEmpty());
       x_.setEnabled(!busy && x_.getItemCount() > 0);
       y_.setEnabled(!busy && y_.getItemCount() > 0);
       colourBy_.setEnabled(!busy && colourBy_.getItemCount() > 1);
       refresh_.setEnabled(!busy);
-      preview_.setEnabled(!busy && !revision_.isEmpty() && x_.getItemCount() > 0);
-      export_.setEnabled(!busy && !revision_.isEmpty() && x_.getItemCount() > 0);
+      preview_.setEnabled(!busy && !revision_.isEmpty() && columnsChosen());
+      export_.setEnabled(!busy && !revision_.isEmpty() && columnsChosen());
       if (!busy)
          layoutChanged();
    }
@@ -474,6 +645,7 @@ public class ScatterDialog extends ModalDialog<Void>
    }
    private void clearColumns()
    {
+      numericColumns_ = discreteColumns_ = colourColumns_ = null;
       x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear();
       invalidate();
    }
@@ -482,45 +654,39 @@ public class ScatterDialog extends ModalDialog<Void>
       revision_ = "";
       clearColumns();
       status_.setText(messages_.loading());
-      request("inspect", datasets_.getSelectedValue(), "", "", "", result -> {
+      request("inspect", value(datasets_), "", "", "", result -> {
          revision_ = result.revision();
-         fill(x_, result.columns()); fill(y_, result.columns());
-         if (y_.getItemCount() > 1) y_.setSelectedIndex(1);
-         colourBy_.addItem(messages_.colourByNone(), "");
-         groupBy_.addItem(messages_.colourByNone(), "");
-         JsArrayString colourColumns = result.colourColumns();
-         for (int i = 0; i < colourColumns.length(); i++)
-            colourBy_.addItem(colourColumns.get(i));
-         JsArrayString discreteColumns = result.discreteColumns();
-         for (int i = 0; i < discreteColumns.length(); i++)
-            groupBy_.addItem(discreteColumns.get(i));
-         status_.setText(x_.getItemCount() > 0 ? messages_.ready() : messages_.noColumns());
+         numericColumns_ = result.columns();
+         discreteColumns_ = result.discreteColumns();
+         colourColumns_ = result.colourColumns();
+         populateColumns();
+         status_.setText(numericColumns_.length() > 0 ? messages_.ready() : messages_.noColumns());
          busy(false);
       });
    }
    private void generate(boolean export)
    {
       status_.setText(messages_.working());
-      request(export ? "code" : "preview", datasets_.getSelectedValue(), revision_,
-         x_.getSelectedValue(), y_.getSelectedValue(), result -> {
-            String code = result.provenance() + result.code() +
-               (result.modelCode().isEmpty() ? "" : "\n" + result.modelCode() + "\n");
-            code_.setText(code);
-            showModel(result);
-            status_.setText(messages_.plotted() + (result.warnings().isEmpty() ? "" : "\n" + result.warnings()));
-            if (export)
-            {
-               closeDialog();
-               events_.fireEvent(new NewDocumentWithCodeEvent(
-                  NewDocumentWithCodeEvent.R_SCRIPT, code, SourcePosition.create(1, 1), false));
-            }
-            else
-            {
-               // plots rendered during an RPC don't activate the Plots pane
-               // on their own (see SessionPlots.cpp detectChanges)
-               commands_.activatePlots().execute();
-            }
-         });
+      String y = KIND_HISTOGRAM.equals(kind()) ? "" : value(y_);
+      request(export ? "code" : "preview", value(datasets_), revision_, value(x_), y, result -> {
+         String code = result.provenance() + result.code() +
+            (result.modelCode().isEmpty() ? "" : "\n" + result.modelCode() + "\n");
+         code_.setText(code);
+         showModel(result);
+         status_.setText(messages_.plotted() + (result.warnings().isEmpty() ? "" : "\n" + result.warnings()));
+         if (export)
+         {
+            closeDialog();
+            events_.fireEvent(new NewDocumentWithCodeEvent(
+               NewDocumentWithCodeEvent.R_SCRIPT, code, SourcePosition.create(1, 1), false));
+         }
+         else
+         {
+            // plots rendered during an RPC don't activate the Plots pane
+            // on their own (see SessionPlots.cpp detectChanges)
+            commands_.activatePlots().execute();
+         }
+      });
    }
    private void fill(ListBox control, JsArrayString values)
    {
@@ -567,25 +733,33 @@ public class ScatterDialog extends ModalDialog<Void>
    private static final String TYPE_STRING = "string";
    private static final String TYPE_NUMBER = "number";
    private static final String TYPE_BOOLEAN = "boolean";
+   private static final String KIND_SCATTER = "scatter";
+   private static final String KIND_HISTOGRAM = "histogram";
+   private static final String KIND_BOXPLOT = "boxplot";
 
    private final SuperRStudioServerOperations server_;
    private final EventBus events_;
    private final Commands commands_;
-   private final ListBox datasets_ = new ListBox(), x_ = new ListBox(), y_ = new ListBox(),
-                         colourBy_ = new ListBox(), groupBy_ = new ListBox();
+   private final ListBox datasets_ = new ListBox(), kind_ = new ListBox(), x_ = new ListBox(),
+                         y_ = new ListBox(), colourBy_ = new ListBox(), groupBy_ = new ListBox();
    private final ListBox geometry_ = new ListBox(), lineOrder_ = new ListBox(), fit_ = new ListBox(),
-                         fitLevel_ = new ListBox(), fitSpan_ = new ListBox();
-   private final CheckBox fitSe_ = new CheckBox();
-   private final TextBox title_ = new TextBox(), xLabel_ = new TextBox(), yLabel_ = new TextBox();
+                         fitLevel_ = new ListBox(), fitSpan_ = new ListBox(), bins_ = new ListBox();
+   private final CheckBox fitSe_ = new CheckBox(), showOutliers_ = new CheckBox(),
+                          showPoints_ = new CheckBox();
+   private final TextBox title_ = new TextBox(), xLabel_ = new TextBox(), yLabel_ = new TextBox(),
+                         binWidth_ = new TextBox();
    private final ListBox colour_ = new ListBox(), size_ = new ListBox(), alpha_ = new ListBox(),
-                         theme_ = new ListBox(), lineColour_ = new ListBox(), lineWidth_ = new ListBox(),
-                         lineType_ = new ListBox(), fitColour_ = new ListBox();
+                         fill_ = new ListBox(), theme_ = new ListBox(), lineColour_ = new ListBox(),
+                         lineWidth_ = new ListBox(), lineType_ = new ListBox(), fitColour_ = new ListBox();
    private final TextArea code_ = new TextArea();
    private final Label status_ = new Label(), model_ = new Label(), orderHint_ = new Label();
+   private FormLabel xRowLabel_, yRowLabel_, colourByLabel_, lineColourLabel_;
    private final ThemedButton preview_, export_, refresh_, undo_, reset_;
+   private final Map<Widget, Object[]> rows_ = new HashMap<>();
    private final List<Setting> settings_ = new ArrayList<>();
    private final List<String[]> history_ = new ArrayList<>();
    private final String[] defaults_;
+   private JsArrayString numericColumns_, discreteColumns_, colourColumns_;
    private String[] current_;
    private boolean restoring_ = false;
    private String revision_ = "";

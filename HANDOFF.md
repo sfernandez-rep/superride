@@ -30,7 +30,8 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    pane of the active session, reproducible code exported to a new R script,
    appearance controls with undo/reset, colour-by-column, connected lines with
    explicit order and grouping, lm/LOESS fits with confidence bands and a
-   fitted-model panel validated against reference R (spec schema 3).
+   fitted-model panel validated against reference R, and histogram/boxplot
+   plot types in the same editor (spec schema 3, `kind`).
    Details, design and evidence: [visual-scatter.md](docs/superrstudio/features/visual-scatter.md).
 2. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
@@ -62,7 +63,7 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | `visual-scatter.R`, R 4.6.1 + ggplot2 | PASS |
 | `visual-scatter.R`, R 3.6.3 | PASS missing-package path; rendering SKIP |
 | Upstream R-session suite on feature build, feature off and on | 654 passed / 655 (1 skipped), same as baseline |
-| Live desktop scatter: ggplot2 (incl. appearance, undo, reset, colour mapping, lines, lm/loess fits) / no-ggplot2 / disabled | PASS / PASS / PASS |
+| Live desktop scatter: ggplot2 (incl. appearance, undo, reset, colour mapping, lines, lm/loess fits, histogram, boxplot) / no-ggplot2 / disabled | PASS / PASS / PASS |
 | Debug launch (DevTools 9222, Node inspector 9229), `-Wait` exit code | PASS |
 
 Known failures/limitations (unchanged from baseline unless noted):
@@ -77,12 +78,13 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    size, opacity, theme, undo/reset; spec schema 2) — desktop-verified.
 2. Done: colour-by-column (viridis discrete/continuous scale), desktop-verified.
 3. Done: lines, ordering, grouping, lm/LOESS fits and model statistics.
-   **Next: additional plot types** (histogram, boxplot first; then line,
-   bar, density) behind the same specification: generalize the layer
-   builder by `kind` and adapt the dialog's controls per kind.
-4. M4 groundwork: non-modal editor (the modal dialog hides part of the Plots
-   pane) and saving/loading specifications.
-5. Before release: dependency audit, localized logging test, `es` locale build.
+   Done: histogram and boxplot kinds (statistics equal ggplot2's).
+4. **Next (Milestone 3): non-modal editor** so the Plots pane stays
+   visible (the modal dialog covers it); then line/bar/density kinds,
+   tibble/data.table discovery, and development branding.
+5. M4 groundwork: saving/loading specifications and contextual editing on a
+   structured specification (not on the raster image).
+6. Before release: dependency audit, localized logging test, `es` locale build.
 
 ## Continuing in Codex or Claude Code
 

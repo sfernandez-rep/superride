@@ -13,7 +13,7 @@ data <- data.frame(x = c(1, 2, NA, 4), y = c(3, 5, 7, 9), group = letters[1:4])
 original <- data
 request <- function(op, name = 'data', rev = '', x = 'x', y = 'y', appearance = list())
    toolsEnv$.rs.superrstudioData(op, name, as.character(rev), x, y,
-      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref'), ls(globalenv())), appearance)
+      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes'), ls(globalenv())), appearance)
 reject <- function(expr, pattern) {
    error <- tryCatch({force(expr); NULL}, error = identity)
    if (!inherits(error, 'error') || !grepl(pattern, conditionMessage(error)))
@@ -53,7 +53,8 @@ look <- toolsEnv$.rs.superrstudioScatterAppearance
 defaults <- look(list())
 stopifnot(identical(defaults, list(title = '', x_label = '', y_label = '', colour = '',
                                    size = 1.5, alpha = 1, theme = 'grey', line_colour = '',
-                                   line_width = 0.5, line_type = 'solid', fit_colour = '')),
+                                   line_width = 0.5, line_type = 'solid', fit_colour = '',
+                                   fill = '')),
           identical(look(NULL), defaults),
           identical(look(list(size = 3L))$size, 3),
           identical(look(list(colour = '#0072B2'))$colour, '#0072B2'),
@@ -67,15 +68,24 @@ reject(look(list(alpha = 1.5)), 'opacity')
 reject(look(list(theme = 'void')), 'theme')
 reject(look(list(title = strrep('a', 201L))), '200')
 reject(look(list(title = c('a', 'b'))), 'text')
-reject(look(list(fill = 'red')), 'Unknown appearance setting: fill')
+reject(look(list(stroke = 'red')), 'Unknown appearance setting: stroke')
 reject(look(list('red')), 'named')
 reject(look(list(line_type = 'wavy')), 'line type')
 reject(look(list(line_width = 9)), 'Line width')
 reject(look(list(fit_colour = 'nope')), 'Fit colour')
 # Layer options: geometry, explicit line order, fit method and parameters.
 opts <- toolsEnv$.rs.superrstudioScatterOptions
-stopifnot(identical(opts(list()), list(geometry = 'points', line_order = 'x', fit = 'none',
-                                       fit_se = TRUE, fit_level = 0.95, fit_span = 0.75)))
+stopifnot(identical(opts(list()), list(kind = 'scatter', geometry = 'points', line_order = 'x',
+                                       fit = 'none', fit_se = TRUE, fit_level = 0.95, fit_span = 0.75,
+                                       bins = 30, bin_width = 0, show_outliers = TRUE,
+                                       show_points = FALSE)))
+reject(opts(list(kind = 'pie')), 'Plot type')
+reject(opts(list(bins = 0)), 'bins')
+reject(opts(list(bins = 2.5)), 'bins')
+reject(opts(list(bins = 500)), 'bins')
+reject(opts(list(bin_width = -1)), 'Bin width')
+reject(opts(list(show_outliers = 'no')), 'Outlier')
+reject(look(list(fill = 'nope')), 'Fill colour')
 reject(opts(list(geometry = 'bars')), 'Geometry')
 reject(opts(list(line_order = 'random')), 'Line order')
 reject(opts(list(fit = 'glm')), 'Fit must be')
@@ -86,8 +96,8 @@ reject(opts(list(colour = 'red')), 'Unknown layer setting')
 layers <- toolsEnv$.rs.superrstudioScatterLayers('data', 'x', 'y', defaults)
 stopifnot(length(layers) == 2L, identical(layers[[2L]], quote(ggplot2::geom_point())))
 selected <- request('inspect')
-reject(request('code', rev = selected$revision, appearance = list(theme = 'void')),
-       if (requireNamespace('ggplot2', quietly = TRUE)) 'theme' else 'ggplot2 is required')
+# invalid settings are rejected before (and regardless of) the ggplot2 check
+reject(request('code', rev = selected$revision, appearance = list(theme = 'void')), 'theme')
 cat('PASS: appearance validation (types, ranges, colours, themes, unknown keys, defaults)\n')
 
 if (requireNamespace('ggplot2', quietly = TRUE)) {
@@ -234,6 +244,64 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    tiny <- toolsEnv$.rs.superrstudioFitSummary(data.frame(a = c(1, 2), b = c(3, 4)), 'a', 'b', 'lm')
    stopifnot(is.null(tiny[[1L]]$r_squared), grepl('Too few', tiny[[1L]]$note))
    cat('PASS: fits (lm and closed-form estimates, R-squared, p-value, confidence band, per-group, loess, too-few)\n')
+
+   # Histogram: explicit bins or bin width, counts of finite values, optional
+   # discrete fill column; invalid column combinations are rejected.
+   chosen <- request('inspect', 'ref')
+   hist5 <- request('code', 'ref', chosen$revision, 'u', '', list(kind = 'histogram', bins = 5))
+   cat(hist5$code)
+   stopifnot(grepl('ggplot2::geom_histogram(bins = 5)', hist5$code, fixed = TRUE),
+             identical(hist5$spec$kind, I('histogram')), identical(names(hist5$spec$layers), c('kind', 'bins', 'bin_width')),
+             hist5$summary[[1L]]$n == 8L, hist5$summary[[1L]]$removed == 1L, hist5$summary[[1L]]$bins == 5L)
+   built <- suppressWarnings(ggplot2::ggplot_build(eval(parse(text = hist5$code), envir = globalenv())))
+   stopifnot(sum(built$data[[1]]$count) == 8, nrow(built$data[[1]]) == 5L)
+   histWidth <- request('code', 'ref', chosen$revision, 'u', '',
+                        list(kind = 'histogram', bin_width = 2, fill = '#56B4E9', line_colour = 'black', alpha = 0.8))
+   stopifnot(grepl('geom_histogram(binwidth = 2, fill = "#56B4E9", colour = "black", alpha = 0.8)', histWidth$code, fixed = TRUE),
+             is.null(histWidth$summary[[1L]]$bins), histWidth$summary[[1L]]$bin_width == 2)
+   histFill <- request('code', 'ref', chosen$revision, 'u', '', list(kind = 'histogram', colour_by = 'g'))
+   stopifnot(grepl('fill = .data[["g"]]', histFill$code, fixed = TRUE),
+             grepl('ggplot2::scale_fill_viridis_d()', histFill$code, fixed = TRUE))
+   suppressWarnings(ggplot2::ggplot_build(eval(parse(text = histFill$code), envir = globalenv())))
+   reject(request('code', 'ref', chosen$revision, 'u', 'w', list(kind = 'histogram')), 'no Y column')
+   reject(request('code', 'ref', chosen$revision, 'g', '', list(kind = 'histogram')), 'one ordinary numeric')
+   reject(request('code', 'ref', chosen$revision, 'u', '', list(kind = 'histogram', colour_by = 'w')), 'Fill by')
+   reject(request('code', 'ref', chosen$revision, 'u', '', list(kind = 'histogram', colour_by = 'g', fill = 'red')), 'not both')
+   cat('PASS: histogram (explicit bins/width, counts, fill column, validation)\n')
+
+   # Boxplot: statistics equal ggplot2's stat_boxplot (quantile type 7,
+   # 1.5 IQR outliers, whiskers over quartiles and non-outliers).
+   boxes <<- data.frame(v = c(1, 2, 3, 4, 5, 6, 7, 30, NA), g = c('a', 'a', 'a', 'a', 'b', 'b', 'b', 'b', 'b'))
+   chosen <- request('inspect', 'boxes')
+   byGroup <- request('code', 'boxes', chosen$revision, 'g', 'v', list(kind = 'boxplot'))
+   cat(byGroup$code)
+   stopifnot(grepl('ggplot2::ggplot(boxes, ggplot2::aes(x = .data[["g"]], y = .data[["v"]])) +\n  ggplot2::geom_boxplot()',
+                   byGroup$code, fixed = TRUE))
+   built <- suppressWarnings(ggplot2::ggplot_build(eval(parse(text = byGroup$code), envir = globalenv())))$data[[1]]
+   for (i in 1:2)
+   {
+      entry <- byGroup$summary[[i]]
+      stopifnot(isTRUE(all.equal(c(entry$lower_whisker, entry$q1, entry$median, entry$q3, entry$upper_whisker),
+                                 unlist(built[i, c('ymin', 'lower', 'middle', 'upper', 'ymax')]), check.attributes = FALSE)),
+                entry$outliers == length(built$outliers[[i]]))
+   }
+   stopifnot(byGroup$summary[[2L]]$outliers == 1L, byGroup$summary[[2L]]$n == 4L)
+   styled <- request('code', 'boxes', chosen$revision, 'g', 'v',
+                     list(kind = 'boxplot', show_outliers = FALSE, show_points = TRUE, colour_by = 'g'))
+   stopifnot(grepl('geom_boxplot(outlier.shape = NA)', styled$code, fixed = TRUE),
+             grepl('position = ggplot2::position_jitter(width = 0.15, height = 0, seed = 1)', styled$code, fixed = TRUE),
+             grepl('ggplot2::scale_fill_viridis_d()', styled$code, fixed = TRUE))
+   one <- suppressWarnings(ggplot2::ggplot_build(eval(parse(text = styled$code), envir = globalenv())))$data[[2]]
+   two <- suppressWarnings(ggplot2::ggplot_build(eval(parse(text = styled$code), envir = globalenv())))$data[[2]]
+   stopifnot(identical(one$x, two$x))
+   single <- request('code', 'boxes', chosen$revision, '', 'v', list(kind = 'boxplot'))
+   stopifnot(grepl('axis.text.x = ggplot2::element_blank()', single$code, fixed = TRUE),
+             identical(single$summary[[1L]]$group, I('all')), single$summary[[1L]]$n == 8L)
+   suppressWarnings(ggplot2::ggplot_build(eval(parse(text = single$code), envir = globalenv())))
+   reject(request('code', 'boxes', chosen$revision, 'v', 'v', list(kind = 'boxplot')), 'numeric response')
+   reject(request('code', 'boxes', chosen$revision, 'g', 'g', list(kind = 'boxplot')), 'numeric response')
+   reject(request('code', 'boxes', chosen$revision, 'g', 'v', list(kind = 'boxplot', group_by = 'g')), 'scatter plots only')
+   cat('PASS: boxplot (stat_boxplot-equal statistics, outliers, seeded jitter, single box, validation)\n')
 
    cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation, appearance, colour mapping\n')
 } else {

@@ -308,6 +308,60 @@ async function closeDialog(page)
          `stopifnot(isTRUE(all.equal(srs_smooth$ymin, unname(srs_ref[, 'lwr']))))`,
          'FIT_MATCHES_REFERENCE_LM');
 
+      // Histogram: one numeric variable, explicit bins, fill by a category.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'growth');
+      await page.selectOption('#superrstudio_kind', 'histogram');
+      if (await page.locator('#superrstudio_y').isVisible()) throw new Error('Y shown for a histogram');
+      if (!(await page.locator('#superrstudio_bins').isVisible())) throw new Error('bins hidden for a histogram');
+      if (await page.locator('#superrstudio_fit').isVisible()) throw new Error('fit shown for a histogram');
+      await page.selectOption('#superrstudio_x', 'size');
+      await page.selectOption('#superrstudio_bins', '10');
+      await page.selectOption('#superrstudio_colour_by', 'site');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const histCode = await page.locator('#superrstudio_code').inputValue();
+      fs.writeFileSync(path.join(evidence, 'generated-histogram.R'), histCode);
+      for (const part of ['SuperRStudio histogram v3', 'ggplot2::aes(x = .data[["size"]], fill = .data[["site"]])',
+                          'ggplot2::geom_histogram(bins = 10)', 'ggplot2::scale_fill_viridis_d()'])
+         if (!histCode.includes(part)) throw new Error('histogram code lacks ' + part);
+      const histText = await page.locator('#superrstudio_model').innerText();
+      if (!/n = 8 finite values \(0 non-finite removed\); 10 bins/.test(histText)) throw new Error('histogram summary: ' + histText);
+      await page.waitForTimeout(1500);
+      await shot(page, '2e-histogram');
+      log('PASS histogram (variable, bins, fill column, summary)');
+
+      // Boxplot: numeric response by a group, outliers hidden, observations overlaid.
+      await page.selectOption('#superrstudio_kind', 'boxplot');
+      if (!(await page.locator('#superrstudio_show_outliers').isVisible())) throw new Error('outlier option hidden');
+      await page.selectOption('#superrstudio_x', 'site');
+      await page.selectOption('#superrstudio_y', 'size');
+      await page.selectOption('#superrstudio_colour_by', '');
+      await page.locator('#superrstudio_show_points input').check();   // GWT CheckBox: id on the wrapper span
+      await page.selectOption('#superrstudio_fill', '#56B4E9');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const boxCode = await page.locator('#superrstudio_code').inputValue();
+      fs.writeFileSync(path.join(evidence, 'generated-boxplot.R'), boxCode);
+      for (const part of ['SuperRStudio boxplot v3', 'ggplot2::aes(x = .data[["site"]], y = .data[["size"]])',
+                          'ggplot2::geom_boxplot(fill = "#56B4E9")',
+                          'ggplot2::geom_point(position = ggplot2::position_jitter(width = 0.15, height = 0, seed = 1))'])
+         if (!boxCode.includes(part)) throw new Error('boxplot code lacks ' + part);
+      const boxText = await page.locator('#superrstudio_model').innerText();
+      log('box summary:\n' + boxText);
+      const medians = [...boxText.matchAll(/^(north|south): n = 4; median ([0-9.e-]+)/gm)].map(m => [m[1], m[2]]);
+      if (medians.length !== 2 || !/stats::quantile type 7/.test(boxText)) throw new Error('box summary: ' + boxText);
+      await page.waitForTimeout(1500);
+      await shot(page, '2f-boxplot');
+      await closeDialog(page);
+      await check(page,
+         medians.map(([site, median]) =>
+            `stopifnot(isTRUE(all.equal(${median}, signif(stats::quantile(growth$size[growth$site == '${site}'], 0.5, type = 7, names = FALSE), 4))))`).join('; ') +
+         `; srs_box <- ggplot2::ggplot_build(eval(parse(text = ${JSON.stringify(boxCode)})))$data[[1]]; ` +
+         `stopifnot(isTRUE(all.equal(srs_box$middle, as.vector(tapply(growth$size, growth$site, stats::median)))), identical(growth, growth_original))`,
+         'BOXPLOT_MATCHES_REFERENCE');
+      log('PASS boxplot (group, overlay, fill, statistics equal quantile type 7)');
+
       // Colour by a character column: fixed colour is disabled, viridis scale emitted.
       dialog = await openDialog(page);
       await selectDataset(page, 'fish');

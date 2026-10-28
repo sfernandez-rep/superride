@@ -49,6 +49,24 @@ branch `feature/visual-scatter`. Opt-in: the session must be started with
    The exported script adds a `summary(stats::lm(...))` block that reproduces
    the model(s).
 
+9. **Plot types** (same editor and specification, `kind`): *Scatter / lines*
+   (everything above), *Histogram* and *Boxplot*. The editor relabels the
+   column lists and shows only the controls that apply to the selected type.
+   - Histogram: one numeric variable; the binning is always explicit
+     (`bins = n`, default 30, or `binwidth = w`); fill colour, outline colour
+     and opacity; optional discrete fill column (stacked counts,
+     `scale_fill_viridis_d()`). Summary: finite n, non-finite values removed,
+     binning used.
+   - Boxplot: numeric response, optional discrete group; fill and outline
+     colours; outliers can be hidden (`outlier.shape = NA`, they still count);
+     observations can be overlaid with a seeded jitter
+     (`position_jitter(width = 0.15, height = 0, seed = 1)`, deterministic).
+     Summary per group: n, median, quartiles, whiskers and outlier count,
+     computed exactly as ggplot2's `stat_boxplot()` (quantile type 7, 1.5 IQR).
+   - Invalid combinations (Y for a histogram, numeric group, grouping lines on
+     non-scatter kinds, fixed fill with a fill column) are rejected with a
+     message; they are validated before the ggplot2 availability check.
+
 Generated code (the header records the versioned specification and versions):
 
 ```r
@@ -81,10 +99,10 @@ left-associated sum.
 | Check | Command | Result |
 | --- | --- | --- |
 | C++/GWT build | `tools\superrstudio\dev-build.ps1` | PASS |
-| R contract, R 4.6.1 + ggplot2 4.0.3 | `Rscript tests\superrstudio\visual-scatter.R` (isolated `R_LIBS_USER`) | PASS (line order/grouping; lm estimates vs `lm()` and closed-form least squares, R-squared vs `cor()^2`, p-value, confidence band vs `predict()`, per-group fits, LOESS vs `stats::loess()`, too-few withheld; plot equivalence, injection-shaped column names, stale/deleted data, revisions, limits, RPC wrapper) |
+| R contract, R 4.6.1 + ggplot2 4.0.3 | `Rscript tests\superrstudio\visual-scatter.R` (isolated `R_LIBS_USER`) | PASS (line order/grouping; lm estimates vs `lm()` and closed-form least squares, R-squared vs `cor()^2`, p-value, confidence band vs `predict()`, per-group fits, LOESS vs `stats::loess()`, too-few withheld; histogram bins/counts; box statistics equal `ggplot_build()`; seeded jitter deterministic; plot equivalence, injection-shaped column names, stale/deleted data, revisions, limits, RPC wrapper) |
 | R contract, R 3.6.3 (no ggplot2) | same with R 3.6.3 | PASS (missing-package path); rendering SKIP |
 | Upstream R-session suite | `tools\superrstudio\test-session.cmd` (with and without `experimental`) | 654 passed of 655 (1 skipped), as baseline |
-| Live desktop, ggplot2 | `tools\superrstudio\test-gui-scatter.ps1` | PASS: lines + points with explicit order hint, lm fit with 90 % band (dialog R-squared equals `summary(lm())`, band equals `predict(..., interval = "confidence")`), LOESS summary, discovery, no-numeric frame, numeric columns, Plots pane shows new plot, dataset unchanged, generated code reproduces plot data, appearance edits + undo + reset, styled code reproduces title/axis/colour/theme, colour-by-column (2 viridis colours), export identical, no client exceptions |
+| Live desktop, ggplot2 | `tools\superrstudio\test-gui-scatter.ps1` | PASS: histogram (bins, fill column, summary), boxplot (group, overlay, medians equal `quantile(type = 7)`, middles equal `median()`), lines + points with explicit order hint, lm fit with 90 % band (dialog R-squared equals `summary(lm())`, band equals `predict(..., interval = "confidence")`), LOESS summary, discovery, no-numeric frame, numeric columns, Plots pane shows new plot, dataset unchanged, generated code reproduces plot data, appearance edits + undo + reset, styled code reproduces title/axis/colour/theme, colour-by-column (2 viridis colours), export identical, no client exceptions |
 | Live desktop, no ggplot2 | same (`no-ggplot2`, empty library) | PASS: clean message in dialog, console unaffected, no device opened |
 | Live desktop, disabled | same (`disabled`) | PASS: button hidden; ordinary IDE |
 
@@ -92,6 +110,8 @@ left-associated sum.
 ![Appearance](visual-scatter-appearance.png)
 ![Colour by column](visual-scatter-colour-by.png)
 ![Lines and linear fit](visual-scatter-lines-fit.png)
+![Histogram](visual-plot-histogram.png)
+![Boxplot](visual-plot-boxplot.png)
 ![Export](visual-scatter-export.png)
 ![Missing ggplot2](visual-scatter-missing-ggplot2.png)
 

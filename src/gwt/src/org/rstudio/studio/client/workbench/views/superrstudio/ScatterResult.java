@@ -15,6 +15,7 @@ public class ScatterResult extends JavaScriptObject
    public final native String code() /*-{ return this.code || ''; }-*/;
    public final native String modelCode() /*-{ return this.model_code || ''; }-*/;
    public final native JsArray<FitEntry> fitSummary() /*-{ return this.fit_summary || []; }-*/;
+   public final native JsArray<SummaryEntry> summary() /*-{ return this.summary || []; }-*/;
    public final native String warnings() /*-{ return (this.warnings || []).join('\n'); }-*/;
    public final native String provenance() /*-{
       return '# SuperRStudio ' + this.spec.kind + ' v' + this.spec.schema_version +
@@ -40,6 +41,26 @@ public class ScatterResult extends JavaScriptObject
       }-*/;
       public final native String sigma() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.sigma); }-*/;
       public final native String span() /*-{ return String(this.span); }-*/;
+   }
+
+   // Histogram counts or one boxplot group (see .rs.superrstudioPlotResult):
+   // box statistics are computed exactly as ggplot2's stat_boxplot().
+   public static class SummaryEntry extends JavaScriptObject
+   {
+      protected SummaryEntry() {}
+      public final native String group() /*-{ return this.group || ''; }-*/;
+      public final native int n() /*-{ return this.n || 0; }-*/;
+      public final native int removed() /*-{ return this.removed || 0; }-*/;
+      public final native boolean hasBins() /*-{ return typeof this.bins === 'number'; }-*/;
+      public final native int bins() /*-{ return this.bins || 0; }-*/;
+      public final native String binWidth() /*-{ return String(this.bin_width); }-*/;
+      public final native boolean hasBox() /*-{ return typeof this.median === 'number'; }-*/;
+      public final native String median() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.median); }-*/;
+      public final native String q1() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.q1); }-*/;
+      public final native String q3() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.q3); }-*/;
+      public final native String lowerWhisker() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.lower_whisker); }-*/;
+      public final native String upperWhisker() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.upper_whisker); }-*/;
+      public final native int outliers() /*-{ return this.outliers || 0; }-*/;
    }
 
    // Four significant digits, as R's signif(x, 4).
