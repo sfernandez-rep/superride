@@ -75,3 +75,6 @@ spec/
 # Never wanted in a commit.
 /r-version.txt
 /r-outcome.txt
+
+# SuperRStudio shares project instructions with every contributor.
+!/AGENTS.md

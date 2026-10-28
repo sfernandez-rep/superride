@@ -1,0 +1,7 @@
+-- Using project root: D:\Git\SuperRStudio
+-- Using RStudio tools root: C:\rstudio-tools
+^!^! ERROR: Could not find a Visual Studio installation with the C++ toolset.
+-- Using JDK:
+"VsDevCmd.bat" no se reconoce como un comando interno o externo,
+programa o archivo por lotes ejecutable.
+El sistema no encuentra la etiqueta por lotes especificada: error

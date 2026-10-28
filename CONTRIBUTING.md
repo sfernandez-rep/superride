@@ -1,3 +1,27 @@
+# Contributing to SuperRStudio
+
+Use [the SuperRStudio repository](https://github.com/sfernandez-rep/superrstudio)
+for fork-specific issues and changes. Read [AGENTS.md](AGENTS.md),
+[BUILDING.md](BUILDING.md) and [COMPATIBILITY.md](COMPATIBILITY.md) first.
+The unmodified Windows baseline has not yet compiled; establish it before
+implementing application extensions.
+
+Branch from `develop` into `feature/*`; use `upstream-sync/*` for baseline
+upgrades. Submit small, focused changes with actual build/test results,
+platforms, known limitations and reproducibility implications. Preserve upstream
+license notices and source history. Never commit credentials, private datasets,
+binaries or dependency caches. Scientific methods need explicit assumptions,
+NA behavior, parameters and trusted reference results.
+
+For the current foundation, run `python tools/superrstudio/check-baseline.py
+--pristine` and, when R is available, `Rscript --vanilla
+tests/superrstudio/runtime-smoke.R`. Record blocked checks honestly.
+Follow affected upstream test conventions for application changes.
+
+The original upstream contribution guide follows. Its contribution agreement
+instructions concern submissions to Posit upstream, not a claim that Posit has
+accepted or endorsed this fork.
+
 ## Filing Bugs
 
 If you're experiencing behavior that appears to be a bug in RStudio, you're welcome to [file an issue](https://github.com/rstudio/rstudio/issues/new). Before you do, please go through this pre-flight checklist:

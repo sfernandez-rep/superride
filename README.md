@@ -1,3 +1,31 @@
+SuperRStudio
+=============================================================================
+
+An independent fork of RStudio Desktop for reproducible visual scientific
+workflows, with a focus on biology, ecology and fisheries research.
+
+**Status: baseline investigation.** The source is pinned to RStudio
+**2026.10.0+233** (`e961c6137d92315437caf5af53959f7110b517f9`). The first local
+Windows configure attempt failed because the required MSVC toolchain is absent.
+No enhanced application, successful build or compatibility certification is
+claimed. Visual dataset and ggplot2 editors remain planned.
+
+- [Fork and upstream pin](UPSTREAM.md)
+- [Build instructions and actual blockers](BUILDING.md)
+- [Architecture and extension decisions](ARCHITECTURE.md)
+- [Milestones and next tasks](ROADMAP.md)
+- [Compatibility matrix and test plan](COMPATIBILITY.md)
+- [Initial execution evidence](docs/superrstudio/baseline/2026-10-27.md)
+- [Contribution instructions](CONTRIBUTING.md) and [agent instructions](AGENTS.md)
+
+Preserve the traditional RStudio workbench and active R session. Add visual
+operations incrementally, using established R packages and reproducible code.
+Existing research datasets and project environments must never change silently.
+
+Upstream AGPLv3 and third-party terms remain in [COPYING](COPYING) and
+[NOTICE](NOTICE). This fork is not endorsed by Posit. The original upstream
+README is preserved below.
+
 RStudio
 =============================================================================
 

@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/rstudio/rstudio",
+  "version": "2026.10.0+233",
+  "tag": "v2026.10.0+233",
+  "commit": "e961c6137d92315437caf5af53959f7110b517f9",
+  "release_date": "2026-10-14",
+  "verified_date": "2026-10-27",
+  "assessment": "pending-baseline-build"
+}
