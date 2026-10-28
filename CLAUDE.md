@@ -7,7 +7,9 @@ roadmap milestones when feasible. Graphify analysis has priority; no external
 code transmission or automatic agent transfer is authorized by this handoff.
 The Windows 11 development baseline now passes the live desktop smoke. Local
 Graphify is available through `tools/superrstudio/graphify-local.ps1`; see its
-review record for limits. Continue the real visual-scatter feature next.
+review record for limits. The visual scatter slice is desktop-verified; continue
+with scatter appearance controls (see the handoff's next tasks). Build and run
+with `tools/superrstudio/dev-*.ps1` as described in BUILDING.md.
 
 Follow [AGENTS.md](AGENTS.md) for fork-specific instructions and current gates.
 Read [UPSTREAM.md](UPSTREAM.md) and the current

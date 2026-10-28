@@ -17,6 +17,10 @@ The host toolchain has been provisioned and the full native/Electron build passe
 `docs/superrstudio/baseline/windows-dependencies-2026-10-27.md` for the current
 assessment. Use `tools/superrstudio/enter-windows.cmd` in Command Prompt. Do not
 infer that MSVC is still missing from the historical initial failure report.
+For day-to-day work use `tools/superrstudio/dev-build.ps1` / `dev-run.ps1`
+(incremental, isolated profiles; see BUILDING.md) and verify visual features in
+the live desktop (`tools/superrstudio/test-gui-scatter.ps1` is the pattern).
+SuperRStudio features stay opt-in behind `SUPER_RSTUDIO_EXPERIMENTAL=1`.
 
 - This is an RStudio fork. Preserve the existing GWT workbench, Electron shell,
   C++/R session, `.Rproj`, packages, themes, shortcuts and reporting workflows.
