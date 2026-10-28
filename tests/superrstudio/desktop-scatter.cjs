@@ -119,6 +119,8 @@ async function closeDialog(page)
       `fish <- read.csv('${project}/tests/superrstudio/scientific.csv', check.names = FALSE); ` +
       `fish_original <- fish; labels_only <- data.frame(site = c('A', 'B')); ` +
       `dupes <- data.frame(a = 1:2, b = 3:4); names(dupes) <- c('a', 'a'); not_a_frame <- 1:3; ` +
+      `growth <- data.frame(age = c(1, 2, 3, 4, 5, 6, 7, 8), size = c(10.2, 19.8, 30.5, 39.6, 50.4, 59.1, 70.6, 79.8), ` +
+      `site = rep(c('north', 'south'), 4)); growth_original <- growth; ` +
       `invisible(grDevices::graphics.off()); ` +
       `stopifnot(${mode === 'ggplot2' ? '' : '!'}requireNamespace('ggplot2', quietly = TRUE))`,
       'SCATTER_SETUP_OK');
@@ -230,7 +232,7 @@ async function closeDialog(page)
       fs.writeFileSync(path.join(evidence, 'generated-scatter-styled.R'), styledCode);
       for (const part of ['ggplot2::geom_point(colour = "#0072B2", size = 3, alpha = 0.6)',
                           'ggplot2::labs(title = "Fish \\"length\\" vs mass", x = "Length (cm)")',
-                          'ggplot2::theme_classic()', 'SuperRStudio scatter v2'])
+                          'ggplot2::theme_classic()', 'SuperRStudio scatter v3'])
          if (!styledCode.includes(part)) throw new Error('styled code lacks ' + part);
       let styledSrc = null;
       for (let i = 0; i < 60 && (!styledSrc || styledSrc === imageBeforeStyled); i++)
@@ -251,6 +253,60 @@ async function closeDialog(page)
          `identical(srs_plot$layers[[1]]$aes_params$colour, '#0072B2'), isTRUE(all.equal(srs_plot$theme, ggplot2::theme_classic())), ` +
          `identical(fish, fish_original))`,
          'STYLED_CODE_REPRODUCES_APPEARANCE');
+
+      // Lines with points plus a linear regression with a 90% band; the
+      // statistics shown must equal summary(lm()) computed in the console.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'growth');
+      await page.selectOption('#superrstudio_x', 'age');
+      await page.selectOption('#superrstudio_y', 'size');
+      if (await page.locator('#superrstudio_line_order').isEnabled()) throw new Error('line order enabled for points');
+      await page.selectOption('#superrstudio_geometry', 'lines_points');
+      if (!(await page.locator('#superrstudio_line_order').isEnabled())) throw new Error('line order disabled for lines');
+      const hint = await page.locator('#superrstudio_order_hint').innerText();
+      if (!/increasing X/.test(hint)) throw new Error('order hint missing: ' + hint);
+      await page.selectOption('#superrstudio_line_type', 'dashed');
+      await page.selectOption('#superrstudio_fit', 'lm');
+      await page.selectOption('#superrstudio_fit_level', '0.9');
+      await page.selectOption('#superrstudio_fit_colour', '#D55E00');
+      const imageBeforeFit = await plotImage();
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const fitCode = await page.locator('#superrstudio_code').inputValue();
+      fs.writeFileSync(path.join(evidence, 'generated-scatter-fit.R'), fitCode);
+      for (const part of ['ggplot2::geom_line(linetype = "dashed")', 'ggplot2::geom_point()',
+                          'ggplot2::geom_smooth(method = "lm", formula = y ~ x, level = 0.9, colour = "#D55E00")',
+                          'summary(stats::lm(y ~ x, data = data.frame(x = growth[["age"]], y = growth[["size"]])))'])
+         if (!fitCode.includes(part)) throw new Error('fit code lacks ' + part);
+      const modelText = await page.locator('#superrstudio_model').innerText();
+      log('model summary:\n' + modelText);
+      const r2 = /R² = ([0-9.e-]+)/.exec(modelText);
+      if (!r2 || !/size = .+ \* age/.test(modelText) || !/Exploratory/.test(modelText))
+         throw new Error('model summary incomplete: ' + modelText);
+      let fitSrc = null;
+      for (let i = 0; i < 60 && (!fitSrc || fitSrc === imageBeforeFit); i++)
+      {
+         await page.waitForTimeout(500);
+         fitSrc = await plotImage();
+      }
+      if (!fitSrc || fitSrc === imageBeforeFit) throw new Error('fit plot not rendered');
+      await shot(page, '2d-lines-fit');
+      await page.selectOption('#superrstudio_fit', 'loess');
+      if (!(await page.locator('#superrstudio_fit_span').isEnabled())) throw new Error('span disabled for loess');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const loessText = await page.locator('#superrstudio_model').innerText();
+      if (!/LOESS span 0.75/.test(loessText) || /R² =/.test(loessText)) throw new Error('loess summary wrong: ' + loessText);
+      log('PASS lines + lm fit (code, equation, R² shown) and loess summary');
+      await closeDialog(page);
+      await check(page,
+         `srs_model <- summary(stats::lm(size ~ age, data = growth)); ` +
+         `stopifnot(isTRUE(all.equal(${r2[1]}, signif(srs_model$r.squared, 4))), identical(growth, growth_original)); ` +
+         `srs_plot <- eval(parse(text = ${JSON.stringify(fitCode.split('\n# Linear model')[0])})); ` +
+         `srs_smooth <- ggplot2::ggplot_build(srs_plot)$data[[3]]; ` +
+         `srs_ref <- stats::predict(stats::lm(size ~ age, data = growth), data.frame(age = srs_smooth$x), interval = 'confidence', level = 0.9); ` +
+         `stopifnot(isTRUE(all.equal(srs_smooth$ymin, unname(srs_ref[, 'lwr']))))`,
+         'FIT_MATCHES_REFERENCE_LM');
 
       // Colour by a character column: fixed colour is disabled, viridis scale emitted.
       dialog = await openDialog(page);
@@ -286,7 +342,7 @@ async function closeDialog(page)
       await page.selectOption('#superrstudio_y', 'mass_g');
       await page.locator('#rstudio_superrstudio_export').click();
       await page.getByRole('dialog').waitFor({state: 'detached'});
-      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v2'));
+      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v3'));
       const script = await page.evaluate(() => window.rstudio.documents.activeEditor().getValue());
       if (script !== code) throw new Error('exported script differs from previewed code:\n' + script);
       log('PASS export opens identical code in a new R script');

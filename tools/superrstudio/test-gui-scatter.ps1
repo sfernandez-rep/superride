@@ -18,13 +18,18 @@
 #>
 [CmdletBinding()]
 param(
-   [ValidateSet('ggplot2', 'no-ggplot2', 'disabled')]
+   # ggplot2, no-ggplot2 and/or disabled (comma-separated works with -File too)
    [string[]]$Scenario = @('ggplot2', 'no-ggplot2', 'disabled'),
    [int]$Port = 19381,
    [string]$Node = 'D:\Git\rstudio-tools\dependencies\common\node\22.22.2\node.exe'
 )
 
 . (Join-Path $PSScriptRoot 'dev-common.ps1')
+$Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+foreach ($name in $Scenario)
+{
+   if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled') { throw "Unknown scenario: $name" }
+}
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
 $env:SUPER_RSTUDIO_CDP_PORT = "$Port"
 if (-not (Test-Path (Join-Path $env:NODE_PATH 'playwright'))) { throw "Playwright client missing under $env:NODE_PATH" }
