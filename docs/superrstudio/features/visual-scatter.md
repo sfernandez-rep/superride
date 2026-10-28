@@ -67,6 +67,14 @@ branch `feature/visual-scatter`. Opt-in: the session must be started with
      non-scatter kinds, fixed fill with a fill column) are rejected with a
      message; they are validated before the ggplot2 availability check.
 
+10. **Non-modal editor window** (*Plot editor* button). The editor is a
+   draggable, non-modal window opened at the left of the workbench, so the
+   Plots pane, console and the rest of the IDE stay usable while it is open;
+   only one editor is open at a time (the button brings it to the front). It
+   is not a `ModalDialog`: there is no glass overlay, it is not registered with
+   `ModalDialogTracker`, and Escape is handled only inside the editor. Data
+   changed in the console while it is open is detected and must be refreshed.
+
 Generated code (the header records the versioned specification and versions):
 
 ```r
@@ -120,11 +128,9 @@ left-associated sum.
 - Spanish strings exist but are not compiled: the GWT module only builds
   `en,fr` (`RStudio.gwt.xml`). Adding `es` needs a locale permutation and the
   `ui_language` preference value; tracked for M7.
-- Stale-data rejection is covered by the R contract test, not driven in the GUI
-  (the modal dialog blocks console input).
 - Only global-environment data frames; tibbles/data.tables (classed frames) are
   intentionally excluded in this slice.
-- The modal dialog must be closed to use the console and partly covers the
-  Plots pane; a non-modal editor is planned for the ggplot2 editor milestone (M4).
+- The editor is a floating window, not yet a dockable workbench pane;
+  contextual (right-click) editing of plot elements is not implemented yet.
 - Text appearance fields commit on blur/Enter (GWT value-change semantics);
   undo history is per dialog and not persisted.

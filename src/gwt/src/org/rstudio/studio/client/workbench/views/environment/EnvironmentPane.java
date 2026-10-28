@@ -565,7 +565,7 @@ public class EnvironmentPane extends WorkbenchPane
             messages.toolbarLabel(),
             messages.title(),
             (ImageResource) null,
-            event -> new ScatterDialog(server_, events_, commands_).showModal());
+            event -> ScatterDialog.open(server_, events_, commands_));
       ElementIds.assignElementId(button, ElementIds.SUPERRSTUDIO_SCATTER);
       button.setVisible(false);
 

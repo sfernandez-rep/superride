@@ -11,14 +11,17 @@ import com.google.gwt.aria.client.Roles;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArray;
 import com.google.gwt.core.client.JsArrayString;
+import com.google.gwt.event.dom.client.KeyCodes;
+import com.google.gwt.event.dom.client.KeyDownEvent;
 import com.google.gwt.json.client.JSONBoolean;
 import com.google.gwt.json.client.JSONNumber;
 import com.google.gwt.json.client.JSONObject;
 import com.google.gwt.json.client.JSONString;
 import com.google.gwt.json.client.JSONValue;
 import com.google.gwt.user.client.ui.*;
+import org.rstudio.core.client.ElementIds;
+import org.rstudio.core.client.theme.res.ThemeStyles;
 import org.rstudio.core.client.widget.FormLabel;
-import org.rstudio.core.client.widget.ModalDialog;
 import org.rstudio.core.client.widget.OperationWithInput;
 import org.rstudio.core.client.widget.ThemedButton;
 import org.rstudio.studio.client.application.events.EventBus;
@@ -30,8 +33,29 @@ import org.rstudio.studio.client.workbench.views.source.model.SourcePosition;
 
 // Visual plot editor for the active R session: scatter/lines (with fits),
 // histograms and boxplots, one shared specification and settings table.
-public class ScatterDialog extends ModalDialog<Void>
+//
+// A non-modal, draggable window (not a ModalDialog): the Plots pane, the
+// console and the rest of the IDE stay usable while it is open. It is not
+// registered with ModalDialogTracker, and handles Escape only for its own
+// content, so global shortcuts and console keys are unaffected.
+public class ScatterDialog extends DialogBox
 {
+   // Opens the editor, or brings the already open one to the front.
+   public static void open(SuperRStudioServerOperations server, EventBus events, Commands commands)
+   {
+      if (instance_ != null && instance_.isShowing())
+      {
+         instance_.show();
+         instance_.focusFirst();
+         return;
+      }
+      instance_ = new ScatterDialog(server, events, commands);
+      instance_.show();
+      instance_.setPopupPosition(16, 40);
+      instance_.focusFirst();
+      instance_.refresh();
+   }
+
    // An undoable plot setting: its JSON key, editing widget, value type and
    // default. Values are handled as strings and typed when sent to R.
    private static class Setting
@@ -81,23 +105,30 @@ public class ScatterDialog extends ModalDialog<Void>
       final Widget widget;
    }
 
-   public ScatterDialog(SuperRStudioServerOperations server, EventBus events, Commands commands)
+   private ScatterDialog(SuperRStudioServerOperations server, EventBus events, Commands commands)
    {
-      super(messages_.title(), Roles.getDialogRole(), (OperationWithInput<Void>) null);
+      super(false, false);   // no auto-hide, not modal
+      setGlassEnabled(false);
+      setText(messages_.title());
+      addStyleDependentName("ModalDialog");   // same look and z-order as RStudio dialogs
+      Roles.getDialogRole().set(getElement());
+      getElement().setAttribute("aria-modal", "false");
       server_ = server;
       events_ = events;
       commands_ = commands;
-      // A single Close action: the cancel button (also bound to Escape).
-      setOkButtonVisible(false);
-      setCancelButtonCaption(messages_.close());
       preview_ = new ThemedButton(messages_.preview(), e -> generate(false));
       export_ = new ThemedButton(messages_.exportCode(), e -> generate(true));
       refresh_ = new ThemedButton(messages_.refresh(), e -> refresh());
+      close_ = new ThemedButton(messages_.close(), e -> closeDialog());
       undo_ = new ThemedButton(messages_.undo(), e -> undo());
       reset_ = new ThemedButton(messages_.reset(), e -> reset());
-      addLeftButton(refresh_, "superrstudio_refresh");
-      addLeftButton(preview_, "superrstudio_preview");
-      addLeftButton(export_, "superrstudio_export");
+      addDomHandler(e -> {
+         if (e.getNativeKeyCode() == KeyCodes.KEY_ESCAPE)
+         {
+            e.preventDefault();
+            closeDialog();
+         }
+      }, KeyDownEvent.getType());
 
       option(kind_, messages_.kindScatter(), KIND_SCATTER);
       option(kind_, messages_.kindHistogram(), KIND_HISTOGRAM);
@@ -182,13 +213,24 @@ public class ScatterDialog extends ModalDialog<Void>
       for (Setting setting : settings_)
          if (setting.widget instanceof ListBox)
             ((ListBox) setting.widget).addChangeHandler(e -> settingsChanged());
+      setWidget(createMainWidget());
    }
 
-   @Override protected Widget createMainWidget()
+   private void focusFirst()
+   {
+      datasets_.setFocus(true);
+   }
+
+   private void closeDialog()
+   {
+      hide();
+   }
+
+   private Widget createMainWidget()
    {
       VerticalPanel panel = new VerticalPanel();
       panel.setSpacing(4);
-      panel.setWidth("930px");
+      panel.setWidth("720px");
       panel.add(new Label(messages_.help()));
       status_.getElement().setId("superrstudio_status");
       status_.getElement().setAttribute("role", "status");
@@ -259,7 +301,7 @@ public class ScatterDialog extends ModalDialog<Void>
 
       code_.setReadOnly(true);
       code_.setVisibleLines(6);
-      code_.setWidth("910px");
+      code_.setWidth("700px");
       code_.getElement().setId("superrstudio_code");
       panel.add(new FormLabel(messages_.codeLabel(), code_));
       panel.add(code_);
@@ -267,11 +309,32 @@ public class ScatterDialog extends ModalDialog<Void>
       model_.getElement().setAttribute("role", "status");
       model_.getElement().setAttribute("aria-live", "polite");
       model_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
-      model_.setWidth("910px");
+      model_.setWidth("700px");
       panel.add(model_);
+
+      HorizontalPanel buttons = new HorizontalPanel();
+      buttons.setStyleName(ThemeStyles.INSTANCE.dialogBottomPanel());
+      buttons.setWidth("100%");
+      HorizontalPanel leftButtons = new HorizontalPanel();
+      button(leftButtons, refresh_, "superrstudio_refresh");
+      button(leftButtons, preview_, "superrstudio_preview");
+      button(leftButtons, export_, "superrstudio_export");
+      buttons.add(leftButtons);
+      HorizontalPanel rightButtons = new HorizontalPanel();
+      button(rightButtons, close_, "superrstudio_close");
+      buttons.add(rightButtons);
+      buttons.setCellHorizontalAlignment(rightButtons, HasHorizontalAlignment.ALIGN_RIGHT);
+      panel.add(buttons);
       layoutChanged();
       updateUndo();
       return panel;
+   }
+
+   private static void button(HorizontalPanel panel, ThemedButton button, String id)
+   {
+      button.addStyleDependentName("DialogAction");
+      ElementIds.assignElementId(button, id);
+      panel.add(button);
    }
 
    private Grid section(String heading, int rows)
@@ -294,7 +357,7 @@ public class ScatterDialog extends ModalDialog<Void>
    private FormLabel row(Grid grid, int row, String text, Widget control, String id)
    {
       control.getElement().setId(id);
-      control.setWidth("190px");
+      control.setWidth("180px");
       FormLabel label = null;
       if (!text.isEmpty())
       {
@@ -604,13 +667,6 @@ public class ScatterDialog extends ModalDialog<Void>
 
    // Session requests --------------------------------------------------------
 
-   @Override protected void onDialogShown()
-   {
-      super.onDialogShown();
-      refresh();
-   }
-   @Override protected Void collectInput() { return null; }
-
    private boolean columnsChosen()
    {
       String kind = kind();
@@ -754,7 +810,7 @@ public class ScatterDialog extends ModalDialog<Void>
    private final TextArea code_ = new TextArea();
    private final Label status_ = new Label(), model_ = new Label(), orderHint_ = new Label();
    private FormLabel xRowLabel_, yRowLabel_, colourByLabel_, lineColourLabel_;
-   private final ThemedButton preview_, export_, refresh_, undo_, reset_;
+   private final ThemedButton preview_, export_, refresh_, close_, undo_, reset_;
    private final Map<Widget, Object[]> rows_ = new HashMap<>();
    private final List<Setting> settings_ = new ArrayList<>();
    private final List<String[]> history_ = new ArrayList<>();
@@ -764,5 +820,6 @@ public class ScatterDialog extends ModalDialog<Void>
    private boolean restoring_ = false;
    private String revision_ = "";
    private int requestId_ = 0;
+   private static ScatterDialog instance_;
    private static final ScatterMessages messages_ = GWT.create(ScatterMessages.class);
 }

@@ -31,7 +31,7 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    appearance controls with undo/reset, colour-by-column, connected lines with
    explicit order and grouping, lm/LOESS fits with confidence bands and a
    fitted-model panel validated against reference R, and histogram/boxplot
-   plot types in the same editor (spec schema 3, `kind`).
+   plot types in the same non-modal editor window (spec schema 3, `kind`).
    Details, design and evidence: [visual-scatter.md](docs/superrstudio/features/visual-scatter.md).
 2. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
@@ -79,9 +79,10 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
 2. Done: colour-by-column (viridis discrete/continuous scale), desktop-verified.
 3. Done: lines, ordering, grouping, lm/LOESS fits and model statistics.
    Done: histogram and boxplot kinds (statistics equal ggplot2's).
-4. **Next (Milestone 3): non-modal editor** so the Plots pane stays
-   visible (the modal dialog covers it); then line/bar/density kinds,
-   tibble/data.table discovery, and development branding.
+4. Done: non-modal, draggable editor window (Plots pane and console usable
+   while it is open; stale data detected). **Next:** tibble/data.table
+   discovery (Milestone 4), then bar/density kinds, a property-editor
+   foundation for contextual editing, and development branding (Milestone 6).
 5. M4 groundwork: saving/loading specifications and contextual editing on a
    structured specification (not on the raster image).
 6. Before release: dependency audit, localized logging test, `es` locale build.

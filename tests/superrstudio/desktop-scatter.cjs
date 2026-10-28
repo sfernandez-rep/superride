@@ -193,8 +193,24 @@ async function closeDialog(page)
       log('PASS Plots pane visible with new plot:', src);
       await shot(page, '2-preview');
 
-      // (Stale/deleted-data rejection is covered by tests/superrstudio/visual-scatter.R;
-      // the modal dialog blocks console input, so it is not driven here.)
+      // The editor is non-modal: no glass overlay, and the console works while
+      // it is open. Changing the data there makes the selection stale, which
+      // the editor refuses until the data is refreshed.
+      const glass = await page.evaluate(() => [...document.querySelectorAll('.gwt-PopupPanelGlass')]
+         .some(g => g.offsetParent !== null));
+      if (glass) throw new Error('a modal glass overlay is shown');
+      await check(page, `fish$mass_g[1] <- 99`, 'CONSOLE_USABLE_WITH_EDITOR_OPEN');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      const stale = await waitStatus(page, /Dataset changed after selection/);
+      log('PASS stale data refused while the editor stays open:', stale);
+      await check(page, `fish <- fish_original`, 'DATA_RESTORED');
+      await page.locator('#rstudio_superrstudio_refresh').click();
+      await selectDataset(page, 'fish');
+      await page.selectOption('#superrstudio_x', 'length cm');
+      await page.selectOption('#superrstudio_y', 'mass_g');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      log('PASS refresh after the change; preview works again (non-modal editor)');
       await closeDialog(page);
       await check(page, `stopifnot(identical(fish, fish_original), !is.null(grDevices::dev.list()))`, 'PREVIEW_SOURCE_UNCHANGED');
 
@@ -388,6 +404,12 @@ async function closeDialog(page)
          `srs_built <- ggplot2::ggplot_build(eval(parse(text = ${JSON.stringify(mappedCode)}))); ` +
          `stopifnot(length(unique(srs_built$data[[1]]$colour)) == 2L, identical(fish, fish_original))`,
          'COLOUR_MAPPING_REPRODUCES');
+
+      // Escape closes the editor (handled only for its own content).
+      dialog = await openDialog(page);
+      await page.locator('#superrstudio_dataset').press('Escape');
+      await page.getByRole('dialog').waitFor({state: 'detached'});
+      log('PASS Escape closes the editor');
 
       // Export opens the same code in a new, unsaved R script.
       dialog = await openDialog(page);

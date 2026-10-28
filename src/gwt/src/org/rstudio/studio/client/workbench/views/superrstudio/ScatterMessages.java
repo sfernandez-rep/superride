@@ -3,9 +3,9 @@ package org.rstudio.studio.client.workbench.views.superrstudio;
 import com.google.gwt.i18n.client.Messages;
 public interface ScatterMessages extends Messages
 {
-   @DefaultMessage("Visual scatter plot") String title();
-   @DefaultMessage("Scatter") String toolbarLabel();
-   @DefaultMessage("Plot two numeric columns from a data frame in the current R session. The source data is preserved.") String help();
+   @DefaultMessage("Visual plot editor") String title();
+   @DefaultMessage("Plot editor") String toolbarLabel();
+   @DefaultMessage("Create a ggplot2 plot from a data frame in the current R session. The source data is preserved; this window can stay open while you work.") String help();
    @DefaultMessage("Data") String dataHeading();
    @DefaultMessage("Layers") String layersHeading();
    @DefaultMessage("Appearance") String appearanceHeading();
