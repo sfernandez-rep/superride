@@ -153,6 +153,19 @@ public class EnvironmentPane extends WorkbenchPane
       toolbar.addLeftWidget(commands_.saveWorkspace().createToolbarButton());
       toolbar.addLeftSeparator();
       toolbar.addLeftWidget(createImportMenu());
+      server_.superrstudioData("status", "", "", "", "",
+         new ServerRequestCallback<org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult>() {
+            @Override public void onResponseReceived(org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult result)
+            {
+               if (!result.enabled()) return;
+               org.rstudio.core.client.widget.ThemedButton button = new org.rstudio.core.client.widget.ThemedButton(
+                  ((org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages) GWT.create(org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages.class)).title(),
+                  event -> new org.rstudio.studio.client.workbench.views.superrstudio.ScatterDialog(server_, events_).showModal());
+               button.getElement().setId("superrstudio_scatter");
+               toolbar.addLeftWidget(button);
+            }
+            @Override public void onError(ServerError error) { /* Older/disabled backend: keep the ordinary IDE. */ }
+         });
       toolbar.addLeftSeparator();
       memUsage_ = new MemUsageWidget(session_.getSessionInfo().getMemoryUsage(), prefs_);
       toolbar.addLeftWidget(memUsage_);

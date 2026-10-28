@@ -222,6 +222,7 @@
 #include "modules/viewer/SessionViewer.hpp"
 #include "modules/SessionDiagnostics.hpp"
 #include "modules/SessionMarkers.hpp"
+#include "modules/SessionSuperRStudio.hpp"
 #include "modules/SessionSnippets.hpp"
 #include "modules/SessionUserCommands.hpp"
 #include "modules/SessionRAddins.hpp"
@@ -789,6 +790,7 @@ Error rInit(const rstudio::r::session::RInitInfo& rInitInfo)
       (modules::chat::initialize)
       (modules::trust::initialize)
       (modules::air::initialize)
+      (modules::superrstudio::initialize)
 
       // workers
       (workers::web_request::initialize)
