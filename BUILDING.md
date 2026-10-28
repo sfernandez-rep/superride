@@ -8,8 +8,10 @@ they do not change upstream build requirements.
 ## Observed environment, 2026-10-27
 
 Windows 11 Pro for Workstations x64, version `10.0.26300`; non-administrator
-session. Git 2.48.1.windows.1, authenticated GitHub CLI, Oracle JDK/javac 21.0.7,
-MSYS2 Python 3.11.9 and 7-Zip are present. VS 2022 Build Tools 17.14.36518.9 and
+session. Git 2.48.1.windows.1, authenticated GitHub CLI 2.96.0, Oracle JDK/javac
+21.0.7, MSYS2 Python 3.11.9 and 7-Zip 24.09 are present. MSYS2 MinGW GCC/G++
+14.2.0 is installed, but upstream's Windows build requires MSVC. VS 2022 Build
+Tools 17.14.36518.9 and
 Community 17.10.35122.118 are installed **without** the VC++ workload. `vswhere`
 finds no C++ toolset. No Windows R, Node/npm, Ant, Quarto or SDK was located in
 PATH or the inspected standard locations. This inventory is not a whole-disk scan.
@@ -135,7 +137,9 @@ environment blocker, not evidence of a SuperRStudio source regression.
 ## Ubuntu 24.04 strategy
 
 Use a native x64 VM for desktop validation (WSLg does not establish native
-desktop compatibility). In an unmodified baseline checkout, review and run:
+desktop compatibility). Use a fresh Linux checkout on the Linux filesystem;
+do not reuse this Windows CRLF checkout with Linux Git's different line-ending
+configuration. In an unmodified baseline checkout, review and run:
 
 ```bash
 cd dependencies/linux

@@ -11,7 +11,7 @@ among R versions, packages, native libraries and project lockfiles.
 | Windows 11 x64 | Attempted; configure failed: missing MSVC | Blocked | Not run | Primary target, unverified |
 | Windows 10 x64 | Not attempted | Not run | Not run | Experimental only |
 | Ubuntu 24.04 x64 | Not attempted | Not run | Not run | Secondary target, unverified |
-| WSL Ubuntu 24.04.3 | Environment inspected only | Not run | Not run | Does not certify native Linux |
+| WSL Ubuntu 24.04.3 | No build; shared Windows checkout integrity scan failed under different Git EOL settings | Not run | Not run | Does not certify native Linux |
 
 Posit's [current user guide](https://docs.posit.co/ide/user/) lists Windows 11.
 Windows 10 requires separate validation of the exact Electron/Chromium runtime,
