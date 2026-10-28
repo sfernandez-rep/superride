@@ -31,7 +31,8 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    appearance controls with undo/reset, colour-by-column, connected lines with
    explicit order and grouping, lm/LOESS fits with confidence bands and a
    fitted-model panel validated against reference R, and histogram/boxplot
-   plot types in the same non-modal editor window (spec schema 3, `kind`).
+   plot types plus bar (counts) and density, in the same non-modal editor
+   window (spec schema 3, `kind`); tibbles and data.tables supported.
    Details, design and evidence: [visual-scatter.md](docs/superrstudio/features/visual-scatter.md).
 2. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
@@ -52,7 +53,7 @@ tools\superrstudio\test-gui-scatter.ps1          # live desktop acceptance (3 sc
 
 Build tree: `build\superrstudio-windows` (Ninja, RelWithDebInfo, GWT_BUILD=OFF).
 The Electron desktop build and runtime are reused from the baseline worktree /
-`.cache\superrstudio\electron-runtime`. ggplot2 4.0.3 is only in the isolated
+`.cache\superrstudio\electron-runtime`. ggplot2 4.0.3, tibble 3.3.1 and data.table 1.18.6.1 are only in the isolated
 library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 
 ## Latest test results (2026-10-28)
@@ -81,9 +82,10 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    Done: histogram and boxplot kinds (statistics equal ggplot2's).
 4. Done: non-modal, draggable editor window (Plots pane and console usable
    while it is open; stale data detected). Done: tibble/data.table
-   support with copy-free staleness checks (Milestone 4). **Next:** bar and
-   density kinds, a property-editor foundation for contextual editing, and
-   development branding (Milestone 6).
+   support with copy-free staleness checks (Milestone 4). Done: bar (counts) and
+   density kinds. **Next:** a property-editor foundation for contextual
+   editing on the structured specification, saving/loading specifications,
+   and development branding (Milestone 6).
 5. M4 groundwork: saving/loading specifications and contextual editing on a
    structured specification (not on the raster image).
 6. Before release: dependency audit, localized logging test, `es` locale build.

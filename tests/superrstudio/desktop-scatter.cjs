@@ -396,6 +396,39 @@ async function closeDialog(page)
          'BOXPLOT_MATCHES_REFERENCE');
       log('PASS boxplot (group, overlay, fill, statistics equal quantile type 7)');
 
+      // Bar chart of counts and a density curve.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'growth');
+      await page.selectOption('#superrstudio_kind', 'bar');
+      if (await page.locator('#superrstudio_y').isVisible()) throw new Error('Y shown for a bar chart');
+      await page.selectOption('#superrstudio_x', 'site');
+      await page.selectOption('#superrstudio_bar_position', 'dodge');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const barCode = await page.locator('#superrstudio_code').inputValue();
+      const barText = await page.locator('#superrstudio_model').innerText();
+      if (!barCode.includes('ggplot2::geom_bar(position = "dodge")') || !/north: n = 4\nsouth: n = 4/.test(barText))
+         throw new Error('bar chart: ' + barCode + '\n' + barText);
+      await page.selectOption('#superrstudio_kind', 'density');
+      if (!(await page.locator('#superrstudio_adjust').isVisible())) throw new Error('adjust hidden for density');
+      await page.selectOption('#superrstudio_x', 'size');
+      await page.selectOption('#superrstudio_adjust', '1.5');
+      await page.selectOption('#superrstudio_fill', '#009E73');
+      await page.selectOption('#superrstudio_alpha', '0.6');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const densityCode = await page.locator('#superrstudio_code').inputValue();
+      const densityText = await page.locator('#superrstudio_model').innerText();
+      const bandwidth = /n = 8; bandwidth ([0-9.e-]+)/.exec(densityText);
+      if (!densityCode.includes('ggplot2::geom_density(adjust = 1.5, fill = "#009E73", alpha = 0.6)') || !bandwidth)
+         throw new Error('density: ' + densityCode + '\n' + densityText);
+      await page.waitForTimeout(1500);
+      await shot(page, '2g-density');
+      await closeDialog(page);
+      await check(page, `stopifnot(isTRUE(all.equal(${bandwidth[1]}, signif(stats::bw.nrd0(growth$size) * 1.5, 4))))`,
+         'DENSITY_BANDWIDTH_MATCHES_REFERENCE');
+      log('PASS bar chart (counts, dodge) and density (adjust, bandwidth equals bw.nrd0 × 1.5)');
+
       // Colour by a character column: fixed colour is disabled, viridis scale emitted.
       dialog = await openDialog(page);
       await selectDataset(page, 'fish');

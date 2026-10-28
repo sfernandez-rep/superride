@@ -116,7 +116,9 @@ opts <- toolsEnv$.rs.superrstudioScatterOptions
 stopifnot(identical(opts(list()), list(kind = 'scatter', geometry = 'points', line_order = 'x',
                                        fit = 'none', fit_se = TRUE, fit_level = 0.95, fit_span = 0.75,
                                        bins = 30, bin_width = 0, show_outliers = TRUE,
-                                       show_points = FALSE)))
+                                       show_points = FALSE, bar_position = 'stack', adjust = 1)))
+reject(opts(list(bar_position = 'pile')), 'Bar position')
+reject(opts(list(adjust = 10)), 'Bandwidth')
 reject(opts(list(kind = 'pie')), 'Plot type')
 reject(opts(list(bins = 0)), 'bins')
 reject(opts(list(bins = 2.5)), 'bins')
@@ -340,6 +342,41 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    reject(request('code', 'boxes', chosen$revision, 'g', 'g', list(kind = 'boxplot')), 'numeric response')
    reject(request('code', 'boxes', chosen$revision, 'g', 'v', list(kind = 'boxplot', group_by = 'g')), 'scatter plots only')
    cat('PASS: boxplot (stat_boxplot-equal statistics, outliers, seeded jitter, single box, validation)\n')
+
+   # Bar chart: counts of a category (NA as its own bar), positions, and the
+   # proportion axis label for position = "fill".
+   chosen <- request('inspect', 'boxes')
+   bars <- request('code', 'boxes', chosen$revision, 'g', '', list(kind = 'bar'))
+   cat(bars$code)
+   stopifnot(grepl('ggplot2::geom_bar()', bars$code, fixed = TRUE),
+             identical(vapply(bars$summary, function(e) as.integer(e$n), 1L), as.vector(table(boxes$g))))
+   built <- ggplot2::ggplot_build(eval(parse(text = bars$code), envir = globalenv()))$data[[1]]
+   stopifnot(identical(as.integer(built$count), as.vector(table(boxes$g))))
+   proportions <- request('code', 'boxes', chosen$revision, 'g', '',
+                          list(kind = 'bar', bar_position = 'fill', colour_by = 'g'))
+   stopifnot(grepl('geom_bar(position = "fill")', proportions$code, fixed = TRUE),
+             grepl('ggplot2::labs(y = "proportion")', proportions$code, fixed = TRUE))
+   ggplot2::ggplot_build(eval(parse(text = proportions$code), envir = globalenv()))
+   reject(request('code', 'boxes', chosen$revision, 'v', '', list(kind = 'bar')), 'bar chart counts')
+   reject(request('code', 'boxes', chosen$revision, 'g', 'v', list(kind = 'bar')), 'bar chart counts')
+   cat('PASS: bar chart (counts vs table(), positions, proportion label, validation)\n')
+
+   # Density: bandwidth equals stats::bw.nrd0() * adjust and the curve equals
+   # stats::density() on the same grid; per-group curves with a fill column.
+   chosen <- request('inspect', 'ref')
+   dens <- request('code', 'ref', chosen$revision, 'w', '', list(kind = 'density', adjust = 1.5, alpha = 0.6))
+   cat(dens$code)
+   complete <- ref$w[is.finite(ref$w)]
+   stopifnot(grepl('ggplot2::geom_density(adjust = 1.5, alpha = 0.6)', dens$code, fixed = TRUE),
+             isTRUE(all.equal(as.numeric(dens$summary[[1L]]$bandwidth), stats::bw.nrd0(complete) * 1.5)))
+   built <- ggplot2::ggplot_build(eval(parse(text = dens$code), envir = globalenv()))$data[[1]]
+   reference <- stats::density(complete, bw = 'nrd0', adjust = 1.5, n = nrow(built),
+                               from = min(complete), to = max(complete))
+   stopifnot(isTRUE(all.equal(built$x, reference$x)), isTRUE(all.equal(built$density, reference$y)))
+   perGroup <- request('code', 'ref', chosen$revision, 'w', '', list(kind = 'density', colour_by = 'g'))
+   stopifnot(length(perGroup$summary) == 2L, grepl('fill = .data[["g"]]', perGroup$code, fixed = TRUE))
+   reject(request('code', 'ref', chosen$revision, 'g', '', list(kind = 'density')), 'density plot')
+   cat('PASS: density (bandwidth vs bw.nrd0, curve vs stats::density, groups, validation)\n')
 
    cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation, appearance, colour mapping\n')
 } else {

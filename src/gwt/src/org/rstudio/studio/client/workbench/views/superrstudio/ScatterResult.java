@@ -62,6 +62,8 @@ public class ScatterResult extends JavaScriptObject
       public final native String lowerWhisker() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.lower_whisker); }-*/;
       public final native String upperWhisker() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.upper_whisker); }-*/;
       public final native int outliers() /*-{ return this.outliers || 0; }-*/;
+      public final native boolean hasBandwidth() /*-{ return typeof this.bandwidth === 'number'; }-*/;
+      public final native String bandwidth() /*-{ return @org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult::format(D)(this.bandwidth); }-*/;
    }
 
    // Four significant digits, as R's signif(x, 4).

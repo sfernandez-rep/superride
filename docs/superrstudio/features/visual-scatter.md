@@ -50,7 +50,8 @@ branch `feature/visual-scatter`. Opt-in: the session must be started with
    the model(s).
 
 9. **Plot types** (same editor and specification, `kind`): *Scatter / lines*
-   (everything above), *Histogram* and *Boxplot*. The editor relabels the
+   (everything above; a line chart is the connected-lines geometry), *Histogram*,
+   *Boxplot*, *Bar chart (counts)* and *Density*. The editor relabels the
    column lists and shows only the controls that apply to the selected type.
    - Histogram: one numeric variable; the binning is always explicit
      (`bins = n`, default 30, or `binwidth = w`); fill colour, outline colour
@@ -63,6 +64,14 @@ branch `feature/visual-scatter`. Opt-in: the session must be started with
      (`position_jitter(width = 0.15, height = 0, seed = 1)`, deterministic).
      Summary per group: n, median, quartiles, whiskers and outlier count,
      computed exactly as ggplot2's `stat_boxplot()` (quantile type 7, 1.5 IQR).
+   - Bar chart: counts of one categorical column (`geom_bar`, NA as its own
+     bar), stacked, side by side (`position = "dodge"`) or as proportions
+     (`position = "fill"`, y axis labelled "proportion"). Bars of summed values
+     (`geom_col` over several rows per category) are deliberately not offered.
+   - Density: kernel density of one numeric column (`geom_density`, ggplot2's
+     default `nrd0` bandwidth times an explicit adjustment); per-group curves
+     with a fill column. Summary: n and bandwidth per group (groups with fewer
+     than two values are reported, not drawn).
    - Invalid combinations (Y for a histogram, numeric group, grouping lines on
      non-scatter kinds, fixed fill with a fill column) are rejected with a
      message; they are validated before the ggplot2 availability check.
@@ -117,7 +126,7 @@ left-associated sum.
 | Check | Command | Result |
 | --- | --- | --- |
 | C++/GWT build | `tools\superrstudio\dev-build.ps1` | PASS |
-| R contract, R 4.6.1 + ggplot2 4.0.3 | `Rscript tests\superrstudio\visual-scatter.R` (isolated `R_LIBS_USER`) | PASS (line order/grouping; lm estimates vs `lm()` and closed-form least squares, R-squared vs `cor()^2`, p-value, confidence band vs `predict()`, per-group fits, LOESS vs `stats::loess()`, too-few withheld; histogram bins/counts; box statistics equal `ggplot_build()`; seeded jitter deterministic; plot equivalence, injection-shaped column names, stale/deleted data, revisions, limits, RPC wrapper) |
+| R contract, R 4.6.1 + ggplot2 4.0.3 | `Rscript tests\superrstudio\visual-scatter.R` (isolated `R_LIBS_USER`) | PASS (line order/grouping; lm estimates vs `lm()` and closed-form least squares, R-squared vs `cor()^2`, p-value, confidence band vs `predict()`, per-group fits, LOESS vs `stats::loess()`, too-few withheld; histogram bins/counts; box statistics equal `ggplot_build()`; bar counts vs `table()`; density bandwidth vs `bw.nrd0()` and curve vs `stats::density()`; seeded jitter deterministic; plot equivalence, injection-shaped column names, stale/deleted data, revisions, limits, RPC wrapper) |
 | R contract, R 3.6.3 (no ggplot2) | same with R 3.6.3 | PASS (missing-package path); rendering SKIP |
 | Upstream R-session suite | `tools\superrstudio\test-session.cmd` (with and without `experimental`) | 654 passed of 655 (1 skipped), as baseline |
 | Live desktop, ggplot2 | `tools\superrstudio\test-gui-scatter.ps1` | PASS: histogram (bins, fill column, summary), boxplot (group, overlay, medians equal `quantile(type = 7)`, middles equal `median()`), lines + points with explicit order hint, lm fit with 90 % band (dialog R-squared equals `summary(lm())`, band equals `predict(..., interval = "confidence")`), LOESS summary, discovery, no-numeric frame, numeric columns, Plots pane shows new plot, dataset unchanged, generated code reproduces plot data, appearance edits + undo + reset, styled code reproduces title/axis/colour/theme, colour-by-column (2 viridis colours), export identical, no client exceptions |
@@ -130,6 +139,7 @@ left-associated sum.
 ![Lines and linear fit](visual-scatter-lines-fit.png)
 ![Histogram](visual-plot-histogram.png)
 ![Boxplot](visual-plot-boxplot.png)
+![Density](visual-plot-density.png)
 ![Export](visual-scatter-export.png)
 ![Missing ggplot2](visual-scatter-missing-ggplot2.png)
 

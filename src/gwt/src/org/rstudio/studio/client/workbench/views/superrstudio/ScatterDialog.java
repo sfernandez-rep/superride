@@ -133,6 +133,8 @@ public class ScatterDialog extends DialogBox
       option(kind_, messages_.kindScatter(), KIND_SCATTER);
       option(kind_, messages_.kindHistogram(), KIND_HISTOGRAM);
       option(kind_, messages_.kindBoxplot(), KIND_BOXPLOT);
+      option(kind_, messages_.kindBar(), KIND_BAR);
+      option(kind_, messages_.kindDensity(), KIND_DENSITY);
       // repopulated lists need their enabled state recomputed (busy(false))
       kind_.addChangeHandler(e -> { populateColumns(); busy(false); });
       datasets_.addChangeHandler(e -> inspect());
@@ -155,6 +157,11 @@ public class ScatterDialog extends DialogBox
          option(fitSpan_, span, span);
       for (String bins : new String[] {"10", "20", "30", "50", "100"})
          option(bins_, bins, bins);
+      option(barPosition_, messages_.barStack(), "stack");
+      option(barPosition_, messages_.barDodge(), "dodge");
+      option(barPosition_, messages_.barFill(), "fill");
+      for (String adjust : new String[] {"0.5", "1", "1.5", "2"})
+         option(adjust_, adjust, adjust);
       for (ListBox colours : new ListBox[] {colour_, lineColour_, fitColour_, fill_})
          colourOptions(colours);
       for (String size : new String[] {"1", "1.5", "2", "3", "4", "6"})
@@ -188,6 +195,8 @@ public class ScatterDialog extends DialogBox
       settings_.add(new Setting("bin_width", binWidth_, TYPE_NUMBER, "0"));
       settings_.add(new Setting("show_outliers", showOutliers_, TYPE_BOOLEAN, "true"));
       settings_.add(new Setting("show_points", showPoints_, TYPE_BOOLEAN, "false"));
+      settings_.add(new Setting("bar_position", barPosition_, TYPE_STRING, "stack"));
+      settings_.add(new Setting("adjust", adjust_, TYPE_NUMBER, "1"));
       settings_.add(new Setting("title", title_, TYPE_STRING, ""));
       settings_.add(new Setting("x_label", xLabel_, TYPE_STRING, ""));
       settings_.add(new Setting("y_label", yLabel_, TYPE_STRING, ""));
@@ -247,7 +256,7 @@ public class ScatterDialog extends DialogBox
       colourByLabel_ = row(data, 4, messages_.colourBy(), colourBy_, "superrstudio_colour_by");
       row(data, 5, messages_.groupBy(), groupBy_, "superrstudio_group_by");
 
-      Grid layers = section(messages_.layersHeading(), 10);
+      Grid layers = section(messages_.layersHeading(), 12);
       row(layers, 0, messages_.geometry(), geometry_, "superrstudio_geometry");
       row(layers, 1, messages_.lineOrder(), lineOrder_, "superrstudio_line_order");
       row(layers, 2, messages_.fit(), fit_, "superrstudio_fit");
@@ -258,6 +267,8 @@ public class ScatterDialog extends DialogBox
       row(layers, 7, messages_.binWidth(), binWidth_, "superrstudio_bin_width");
       row(layers, 8, "", showOutliers_, "superrstudio_show_outliers");
       row(layers, 9, "", showPoints_, "superrstudio_show_points");
+      row(layers, 10, messages_.barPosition(), barPosition_, "superrstudio_bar_position");
+      row(layers, 11, messages_.adjust(), adjust_, "superrstudio_adjust");
       orderHint_.getElement().setId("superrstudio_order_hint");
       orderHint_.setWidth("290px");
       orderHint_.getElement().getStyle().setProperty("fontSize", "90%");
@@ -431,9 +442,14 @@ public class ScatterDialog extends DialogBox
          addAll(colourBy_, colourColumns_); addAll(groupBy_, discreteColumns_);
          if (y_.getItemCount() > 1) y_.setSelectedIndex(1);
       }
-      else if (KIND_HISTOGRAM.equals(kind))
+      else if (KIND_HISTOGRAM.equals(kind) || KIND_DENSITY.equals(kind))
       {
          addAll(x_, numericColumns_);
+         addAll(colourBy_, discreteColumns_);
+      }
+      else if (KIND_BAR.equals(kind))
+      {
+         addAll(x_, discreteColumns_);
          addAll(colourBy_, discreteColumns_);
       }
       else
@@ -444,7 +460,8 @@ public class ScatterDialog extends DialogBox
       }
       select(x_, x); select(y_, y); select(colourBy_, colourBy);
       xRowLabel_.setText(KIND_SCATTER.equals(kind) ? messages_.xColumn()
-         : KIND_HISTOGRAM.equals(kind) ? messages_.variable() : messages_.groupOptional());
+         : KIND_BOXPLOT.equals(kind) ? messages_.groupOptional()
+         : KIND_BAR.equals(kind) ? messages_.category() : messages_.variable());
       yRowLabel_.setText(KIND_BOXPLOT.equals(kind) ? messages_.response() : messages_.yColumn());
       colourByLabel_.setText(KIND_SCATTER.equals(kind) ? messages_.colourBy() : messages_.fillBy());
    }
@@ -464,7 +481,10 @@ public class ScatterDialog extends DialogBox
    {
       String kind = kind();
       boolean scatter = KIND_SCATTER.equals(kind), histogram = KIND_HISTOGRAM.equals(kind),
-              boxplot = KIND_BOXPLOT.equals(kind);
+              boxplot = KIND_BOXPLOT.equals(kind), bar = KIND_BAR.equals(kind),
+              density = KIND_DENSITY.equals(kind);
+      // kinds that use one X column only and no points
+      boolean single = histogram || bar || density;
       String geometry = geometry_.getSelectedValue();
       boolean points = scatter ? !"lines".equals(geometry) : boxplot && showPoints_.getValue();
       boolean lines = scatter && !"points".equals(geometry);
@@ -484,7 +504,7 @@ public class ScatterDialog extends DialogBox
       if ((!lines && !fit) && has(groupBy_))
          groupBy_.setSelectedIndex(0);
 
-      showRow(y_, !histogram);
+      showRow(y_, !single);
       showRow(groupBy_, scatter);
       for (Widget scatterOnly : new Widget[] {geometry_, lineOrder_, fit_, fitSe_, fitLevel_, fitSpan_,
                                               lineWidth_, lineType_, fitColour_})
@@ -493,8 +513,10 @@ public class ScatterDialog extends DialogBox
       showRow(binWidth_, histogram);
       showRow(showOutliers_, boxplot);
       showRow(showPoints_, boxplot);
-      showRow(colour_, !histogram);
-      showRow(size_, !histogram);
+      showRow(barPosition_, bar);
+      showRow(adjust_, density);
+      showRow(colour_, !single);
+      showRow(size_, !single);
       showRow(fill_, !scatter);
       lineColourLabel_.setText(scatter ? messages_.lineColour() : messages_.outlineColour());
 
@@ -621,6 +643,12 @@ public class ScatterDialog extends DialogBox
             if (KIND_HISTOGRAM.equals(kind()))
                text.append(messages_.histSummary(entry.n(), entry.removed(), entry.hasBins()
                   ? messages_.binsText(entry.bins()) : messages_.binWidthText(entry.binWidth())));
+            else if (KIND_BAR.equals(kind()))
+               text.append(messages_.barSummary(group, entry.n()));
+            else if (KIND_DENSITY.equals(kind()))
+               text.append(entry.hasBandwidth()
+                  ? messages_.densitySummary(group, entry.n(), entry.bandwidth())
+                  : messages_.densityTooFew(group, entry.n()));
             else if (entry.hasBox())
             {
                boxes = true;
@@ -670,7 +698,7 @@ public class ScatterDialog extends DialogBox
    private boolean columnsChosen()
    {
       String kind = kind();
-      if (KIND_HISTOGRAM.equals(kind)) return x_.getItemCount() > 0;
+      if (!KIND_SCATTER.equals(kind) && !KIND_BOXPLOT.equals(kind)) return x_.getItemCount() > 0;
       if (KIND_BOXPLOT.equals(kind)) return y_.getItemCount() > 0;
       return x_.getItemCount() > 0 && y_.getItemCount() > 0;
    }
@@ -728,7 +756,8 @@ public class ScatterDialog extends DialogBox
    private void generate(boolean export)
    {
       status_.setText(messages_.working());
-      String y = KIND_HISTOGRAM.equals(kind()) ? "" : value(y_);
+      String kind = kind();
+      String y = KIND_SCATTER.equals(kind) || KIND_BOXPLOT.equals(kind) ? value(y_) : "";
       request(export ? "code" : "preview", value(datasets_), revision_, value(x_), y, result -> {
          String code = result.provenance() + result.code() +
             (result.modelCode().isEmpty() ? "" : "\n" + result.modelCode() + "\n");
@@ -797,6 +826,8 @@ public class ScatterDialog extends DialogBox
    private static final String KIND_SCATTER = "scatter";
    private static final String KIND_HISTOGRAM = "histogram";
    private static final String KIND_BOXPLOT = "boxplot";
+   private static final String KIND_BAR = "bar";
+   private static final String KIND_DENSITY = "density";
 
    private final SuperRStudioServerOperations server_;
    private final EventBus events_;
@@ -804,7 +835,8 @@ public class ScatterDialog extends DialogBox
    private final ListBox datasets_ = new ListBox(), kind_ = new ListBox(), x_ = new ListBox(),
                          y_ = new ListBox(), colourBy_ = new ListBox(), groupBy_ = new ListBox();
    private final ListBox geometry_ = new ListBox(), lineOrder_ = new ListBox(), fit_ = new ListBox(),
-                         fitLevel_ = new ListBox(), fitSpan_ = new ListBox(), bins_ = new ListBox();
+                         fitLevel_ = new ListBox(), fitSpan_ = new ListBox(), bins_ = new ListBox(),
+                         barPosition_ = new ListBox(), adjust_ = new ListBox();
    private final CheckBox fitSe_ = new CheckBox(), showOutliers_ = new CheckBox(),
                           showPoints_ = new CheckBox();
    private final TextBox title_ = new TextBox(), xLabel_ = new TextBox(), yLabel_ = new TextBox(),

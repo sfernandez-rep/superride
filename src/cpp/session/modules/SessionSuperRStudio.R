@@ -88,11 +88,17 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    fail <- function(message) stop(message, call. = FALSE)
    defaults <- list(kind = 'scatter', geometry = 'points', line_order = 'x', fit = 'none',
                     fit_se = TRUE, fit_level = 0.95, fit_span = 0.75,
-                    bins = 30, bin_width = 0, show_outliers = TRUE, show_points = FALSE)
+                    bins = 30, bin_width = 0, show_outliers = TRUE, show_points = FALSE,
+                    bar_position = 'stack', adjust = 1)
    result <- .rs.superrstudioSettings(options, defaults, 'Layer')
    flag <- function(value) is.logical(value) && length(value) == 1L && !is.na(value)
-   if (!.rs.superrstudioIsText(result$kind) || !result$kind %in% c('scatter', 'histogram', 'boxplot'))
-      fail('Plot type must be scatter, histogram or boxplot.')
+   if (!.rs.superrstudioIsText(result$kind) ||
+       !result$kind %in% c('scatter', 'histogram', 'boxplot', 'bar', 'density'))
+      fail('Plot type must be scatter, histogram, boxplot, bar or density.')
+   if (!.rs.superrstudioIsText(result$bar_position) || !result$bar_position %in% c('stack', 'dodge', 'fill'))
+      fail('Bar position must be stack, dodge or fill.')
+   if (!.rs.superrstudioIsNumber(result$adjust, 0.25, 4))
+      fail('Bandwidth adjustment must be between 0.25 and 4.')
    if (!.rs.superrstudioIsNumber(result$bins, 1, 200) || result$bins != round(result$bins))
       fail('Number of bins must be a whole number between 1 and 200.')
    if (!.rs.superrstudioIsNumber(result$bin_width, 0, Inf))
@@ -115,6 +121,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    result$fit_span <- as.numeric(result$fit_span)
    result$bins <- as.numeric(result$bins)   # whole number; deparses as 30, not 30L
    result$bin_width <- as.numeric(result$bin_width)
+   result$adjust <- as.numeric(result$adjust)
    result[names(defaults)]
 })
 
@@ -184,17 +191,62 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    c(layers, .rs.superrstudioCommonLayers(appearance, blank_x = !nzchar(group)))
 })
 
+#' Bar chart of counts of a categorical variable (geom_bar). Bars of summed
+#' values (geom_col over several rows per category) are deliberately not
+#' offered; "fill" shows proportions within each bar.
+.rs.addFunction('superrstudioBarLayers', function(dataset, x, appearance, options, fill_by = '')
+{
+   aesthetics <- list(x = substitute(.data[[X]], list(X = x)))
+   if (nzchar(fill_by)) aesthetics$fill <- substitute(.data[[F]], list(F = fill_by))
+   layers <- list(substitute(ggplot2::ggplot(DATA, MAPPING),
+                             list(DATA = as.name(dataset),
+                                  MAPPING = as.call(c(quote(ggplot2::aes), aesthetics)))))
+   bars <- list()
+   if (options$bar_position != 'stack') bars$position <- options$bar_position
+   if (nzchar(appearance$fill)) bars$fill <- appearance$fill
+   if (nzchar(appearance$line_colour)) bars$colour <- appearance$line_colour
+   if (appearance$alpha != 1) bars$alpha <- appearance$alpha
+   layers <- c(layers, as.call(c(quote(ggplot2::geom_bar), bars)))
+   if (nzchar(fill_by)) layers <- c(layers, quote(ggplot2::scale_fill_viridis_d()))
+   # proportions are not counts: label the axis accordingly unless set
+   if (options$bar_position == 'fill' && !nzchar(appearance$y_label)) appearance$y_label <- 'proportion'
+   c(layers, .rs.superrstudioCommonLayers(appearance))
+})
+
+#' Kernel density estimate (geom_density, ggplot2's default "nrd0"
+#' bandwidth times `adjust`); a fill column gives one curve per group.
+.rs.addFunction('superrstudioDensityLayers', function(dataset, x, appearance, options, fill_by = '')
+{
+   aesthetics <- list(x = substitute(.data[[X]], list(X = x)))
+   if (nzchar(fill_by)) aesthetics$fill <- substitute(.data[[F]], list(F = fill_by))
+   layers <- list(substitute(ggplot2::ggplot(DATA, MAPPING),
+                             list(DATA = as.name(dataset),
+                                  MAPPING = as.call(c(quote(ggplot2::aes), aesthetics)))))
+   curve <- list()
+   if (options$adjust != 1) curve$adjust <- options$adjust
+   if (nzchar(appearance$fill)) curve$fill <- appearance$fill
+   if (nzchar(appearance$line_colour)) curve$colour <- appearance$line_colour
+   if (appearance$alpha != 1) curve$alpha <- appearance$alpha
+   layers <- c(layers, as.call(c(quote(ggplot2::geom_density), curve)))
+   if (nzchar(fill_by)) layers <- c(layers, quote(ggplot2::scale_fill_viridis_d()))
+   c(layers, .rs.superrstudioCommonLayers(appearance))
+})
+
+#' Group keys as ggplot2 forms them: missing values form their own group
+.rs.addFunction('superrstudioGroupKey', function(data, column)
+{
+   if (!nzchar(column)) return(factor(rep('all', nrow(data))))
+   value <- as.character(data[[column]])
+   value[is.na(value)] <- 'NA'
+   factor(value)
+})
+
 #' Box statistics exactly as ggplot2's stat_boxplot() computes them:
 #' quantile(type = 7) quartiles, outliers beyond 1.5 IQR, and whiskers spanning
 #' range(c(quartiles, non-outlying values)).
 .rs.addFunction('superrstudioBoxSummary', function(data, group, y)
 {
-   key <- if (nzchar(group)) {
-      value <- as.character(data[[group]])
-      value[is.na(value)] <- 'NA'
-      factor(value)
-   } else factor(rep('all', nrow(data)))
-   values <- split(data[[y]], key, drop = TRUE)
+   values <- split(data[[y]], .rs.superrstudioGroupKey(data, group), drop = TRUE)
    lapply(names(values), function(name)
    {
       v <- values[[name]]
@@ -400,7 +452,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (!is.list(appearance)) fail('Appearance settings must be named.')
    mappingKeys <- c('colour_by', 'group_by')
    optionKeys <- c('kind', 'geometry', 'line_order', 'fit', 'fit_se', 'fit_level', 'fit_span',
-                   'bins', 'bin_width', 'show_outliers', 'show_points')
+                   'bins', 'bin_width', 'show_outliers', 'show_points', 'bar_position', 'adjust')
    mapping <- appearance[intersect(names(appearance), mappingKeys)]
    options <- .rs.superrstudioScatterOptions(appearance[intersect(names(appearance), optionKeys)])
    appearance <- .rs.superrstudioScatterAppearance(appearance[setdiff(names(appearance), c(mappingKeys, optionKeys))])
@@ -421,6 +473,10 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       fail('A histogram needs one ordinary numeric column (X) and no Y column.')
    if (kind == 'boxplot' && (!y %in% columns || !(x == '' || x %in% discreteColumns)))
       fail('A boxplot needs a numeric response (Y) and optionally a character, factor or logical group (X).')
+   if (kind == 'bar' && (!x %in% discreteColumns || nzchar(y)))
+      fail('A bar chart counts one character, factor or logical column (X) and has no Y column.')
+   if (kind == 'density' && (!x %in% columns || nzchar(y)))
+      fail('A density plot needs one ordinary numeric column (X) and no Y column.')
    # invalid selections are reported first, whatever packages are installed
    if (!requireNamespace('ggplot2', quietly = TRUE))
       fail('ggplot2 is required in the active R library. Install it explicitly, then retry.')
@@ -490,17 +546,20 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    switch(kind,
           scatter = c('kind', 'geometry', 'line_order', 'fit', 'fit_se', 'fit_level', 'fit_span'),
           histogram = c('kind', 'bins', 'bin_width'),
-          boxplot = c('kind', 'show_outliers', 'show_points'))
+          boxplot = c('kind', 'show_outliers', 'show_points'),
+          bar = c('kind', 'bar_position'),
+          density = c('kind', 'adjust'))
 })
 
 #' Code, preview and summary for the histogram and boxplot kinds
 .rs.addFunction('superrstudioPlotResult', function(operation, kind, dataset, data, x, y, fill_by,
                                                  options, appearance)
 {
-   layers <- if (kind == 'histogram')
-      .rs.superrstudioHistogramLayers(dataset, x, appearance, options, fill_by)
-   else
-      .rs.superrstudioBoxplotLayers(dataset, x, y, appearance, options, fill_by)
+   layers <- switch(kind,
+      histogram = .rs.superrstudioHistogramLayers(dataset, x, appearance, options, fill_by),
+      boxplot = .rs.superrstudioBoxplotLayers(dataset, x, y, appearance, options, fill_by),
+      bar = .rs.superrstudioBarLayers(dataset, x, appearance, options, fill_by),
+      density = .rs.superrstudioDensityLayers(dataset, x, appearance, options, fill_by))
    expression <- Reduce(function(lhs, rhs) call('+', lhs, rhs), layers)
    code <- paste(vapply(layers, function(layer)
       paste(deparse(layer, width.cutoff = 90L, backtick = TRUE), collapse = '\n'), ''),
@@ -514,7 +573,26 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          bins = if (options$bin_width == 0) I(options$bins),
          bin_width = if (options$bin_width > 0) I(options$bin_width))))
    }
-   else .rs.superrstudioBoxSummary(data, x, y)
+   else if (kind == 'boxplot') .rs.superrstudioBoxSummary(data, x, y)
+   else if (kind == 'bar')
+   {
+      # one bar per category, NA included as ggplot2 draws it
+      counts <- table(.rs.superrstudioGroupKey(data, x))
+      lapply(names(counts), function(name) list(group = I(name), n = I(as.integer(counts[[name]]))))
+   }
+   else
+   {
+      # bandwidth as stats::density(bw = "nrd0", adjust) uses it; ggplot2
+      # drops groups with fewer than two finite values
+      values <- split(data[[x]], .rs.superrstudioGroupKey(data, fill_by), drop = TRUE)
+      lapply(names(values), function(name)
+      {
+         v <- values[[name]]
+         v <- v[is.finite(v)]
+         if (length(v) < 2L) return(list(group = I(name), n = I(length(v))))
+         list(group = I(name), n = I(length(v)), bandwidth = I(stats::bw.nrd0(v) * options$adjust))
+      })
+   }
    warnings <- character()
    if (operation == 'preview')
    {

@@ -14,6 +14,17 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Scatter / lines") String kindScatter();
    @DefaultMessage("Histogram") String kindHistogram();
    @DefaultMessage("Boxplot") String kindBoxplot();
+   @DefaultMessage("Bar chart (counts)") String kindBar();
+   @DefaultMessage("Density") String kindDensity();
+   @DefaultMessage("Category") String category();
+   @DefaultMessage("Bars") String barPosition();
+   @DefaultMessage("Stacked") String barStack();
+   @DefaultMessage("Side by side") String barDodge();
+   @DefaultMessage("Proportions") String barFill();
+   @DefaultMessage("Bandwidth adjustment") String adjust();
+   @DefaultMessage("{0}: n = {1}") String barSummary(String group, int n);
+   @DefaultMessage("{0}: n = {1}; bandwidth {2} (nrd0 × adjustment)") String densitySummary(String group, int n, String bandwidth);
+   @DefaultMessage("{0}: n = {1}; too few values for a density curve") String densityTooFew(String group, int n);
    @DefaultMessage("Variable") String variable();
    @DefaultMessage("Group (optional)") String groupOptional();
    @DefaultMessage("Response (numeric)") String response();
