@@ -2,6 +2,6 @@
 -- Using MSVC 19.51.36248.0 [toolset msvc145]
 -- Found LibR: C:/R/R-3.6.3
 -- Using node.js: D:/Git/rstudio-tools/dependencies/common/node/22.22.2/node.exe
--- Configuring done (66.5s)
+-- Configuring done (24.1s)
 -- Generating done (0.4s)
 -- Build files have been written to: D:/Git/SuperRStudio-baseline/build/baseline-windows

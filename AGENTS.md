@@ -1,11 +1,12 @@
 # SuperRStudio agent instructions
 
 Read `UPSTREAM.md`, `BUILDING.md`, `ARCHITECTURE.md`, `COMPATIBILITY.md` and
-`docs/superrstudio/baseline/2026-10-27.md` before work. The initial Windows
-baseline has NOT compiled or launched. Application features are gated on a
-verified unmodified baseline build and smoke test.
+`docs/superrstudio/baseline/2026-10-27.md` before work. The Windows baseline now
+builds and its headless version checks/R-session tests run; full desktop GUI
+workflows are still unverified. Application extensions remain gated on baseline
+acceptance, including review of the known test/audit findings.
 
-The host toolchain has since been provisioned and CMake configure passes. Read
+The host toolchain has been provisioned and the full native/Electron build passes. Read
 `docs/superrstudio/baseline/windows-dependencies-2026-10-27.md` for the current
 assessment. Use `tools/superrstudio/enter-windows.cmd` in Command Prompt. Do not
 infer that MSVC is still missing from the historical initial failure report.

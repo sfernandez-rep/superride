@@ -8,7 +8,7 @@ among R versions, packages, native libraries and project lockfiles.
 
 | Platform | Source configure/build | Desktop + R startup | Workflow regressions | Support claim |
 | --- | --- | --- | --- | --- |
-| Windows 11 x64 | Dependencies provisioned; fresh configure PASS; full build under assessment | Not run | Standalone R fixture PASS with R 3.6.3/4.6.1; IDE tests not run | Primary target, unverified |
+| Windows 11 x64 | Full native/GWT/Electron build PASS | Desktop version CLI PASS; embedded R-session tests PASS on 3.6.3/4.6.1; GUI not run | Native suites executed; one English-message assertion fails; GUI workflows not run | Primary target, partial validation |
 | Windows 10 x64 | Not attempted | Not run | Not run | Experimental only |
 | Ubuntu 24.04 x64 | Not attempted | Not run | Not run | Secondary target, unverified |
 | WSL Ubuntu 24.04.3 | No build; shared Windows checkout integrity scan failed under different Git EOL settings | Not run | Not run | Does not certify native Linux |
@@ -21,7 +21,9 @@ an Electron version number alone.
 
 ## Acceptance matrix
 
-All rows below are **not run** against a built IDE. Use an isolated test profile
+GUI workflows below are **not run** against a live desktop window. Native/R-session
+suite results are recorded in the [provisioning report](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
+Use an isolated test profile
 and disposable projects, never real research data or the user's preferences.
 
 | Area | Required observable result | Existing coverage / next test |

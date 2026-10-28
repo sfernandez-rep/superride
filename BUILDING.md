@@ -8,7 +8,9 @@ they do not change upstream build requirements.
 ## Current provisioning update
 
 The Windows host prerequisites are now installed and verified, including VS 2026,
-MSVC 145, SDK 26100, Java 17 and both R runtimes. See the
+MSVC 145, SDK 26100, Java 17 and both R runtimes. The unmodified native, GWT and
+Electron build completed successfully on Windows 11; R-session suites passed
+on both R versions. Desktop GUI acceptance is still pending. See the
 [dependency provisioning record](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md)
 for actual versions, checks and the current baseline assessment. From Command
 Prompt, call `tools\superrstudio\enter-windows.cmd` before building.
@@ -31,7 +33,8 @@ PATH or the inspected standard locations. This inventory is not a whole-disk sca
 Portable CMake **3.31.10** and Ninja **1.13.1** were downloaded from their official
 GitHub releases, SHA-256 verified and run under `.cache/superrstudio/tools/`.
 [tools/superrstudio/bootstrap-tools.ps1](tools/superrstudio/bootstrap-tools.ps1)
-repeats this without administrator rights or persistent PATH changes.
+now provides the compatible CMake 4.3.4 replacement without administrator rights
+or persistent PATH changes.
 
 WSL Ubuntu 24.04.3 is available with GCC 13.3.0 and Python 3.12.3. It has no
 CMake, Node or R on PATH; `sudo -n true` requests a password. No sudo password

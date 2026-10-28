@@ -3,7 +3,9 @@
 Use [the SuperRStudio repository](https://github.com/sfernandez-rep/superrstudio)
 for fork-specific issues and changes. Read [AGENTS.md](AGENTS.md),
 [BUILDING.md](BUILDING.md) and [COMPATIBILITY.md](COMPATIBILITY.md) first.
-The unmodified Windows baseline has not yet compiled; establish it before
+The unmodified Windows baseline now builds. Review the
+[current assessment](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md);
+desktop GUI acceptance and the known test/audit findings remain gates before
 implementing application extensions.
 
 Branch from `develop` into `feature/*`; use `upstream-sync/*` for baseline

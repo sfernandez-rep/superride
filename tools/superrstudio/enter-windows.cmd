@@ -23,6 +23,8 @@ pushd "%SUPER_R_ROOT%"
 call src\cpp\tools\windows-dev.cmd
 if errorlevel 1 goto failed
 popd
+rem Match MSVC's UTF-8 diagnostics when CMake probes localized include prefixes.
+chcp 65001 >nul
 set "PATH=%JAVA_HOME%\bin;%RSTUDIO_TOOLS_ROOT%\dependencies\common\node\%RSTUDIO_NODE_VERSION%;%PATH%"
 where /q cl.exe
 if errorlevel 1 exit /b 1

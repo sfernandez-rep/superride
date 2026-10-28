@@ -5,7 +5,7 @@ All acceptance checks require recorded execution, not just compilation.
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
 | 0. Upstream investigation | Initial assessment recorded | Verified source pin, architecture, license inventory, host/toolchain evidence and risks; complete dependency/build assessment with M1 |
-| 1. Reproducible baseline | Windows toolchain provisioned; configure passes; full build under assessment | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
+| 1. Reproducible baseline | Windows source build PASS; R-session suites pass; GUI acceptance/test-audit review pending | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
 | 2. Foundation | Planned; gated on M1 | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
 | 3. Visual dataset workflow | Planned | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
 | 4. ggplot2 editor | Planned | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
@@ -19,9 +19,9 @@ All acceptance checks require recorded execution, not just compilation.
 1. Use the provisioned Windows toolchain through
    `tools/superrstudio/enter-windows.cmd`; exact versions and checks are in the
    [provisioning record](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
-2. Complete the unmodified baseline build assessment. Keep R 3.6.3 build inputs
-   distinct from the R 4.6.1 runtime used for modern scientific packages.
-3. Launch **unmodified** `baseline/rstudio-2026.10.0`, record logs and
+2. Review the upstream locale-sensitive logging test and npm audit findings.
+   Keep R 3.6.3 build inputs distinct from the R 4.6.1 runtime.
+3. Launch and exercise the GUI of **unmodified** `baseline/rstudio-2026.10.0`, record logs and
    execute the [compatibility plan](COMPATIBILITY.md). Classify dependency or
    upstream failures before editing build logic.
 4. Run the existing source-build CI workflows explicitly against that baseline

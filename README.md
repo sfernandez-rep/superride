@@ -4,14 +4,13 @@ SuperRStudio
 An independent fork of RStudio Desktop for reproducible visual scientific
 workflows, with a focus on biology, ecology and fisheries research.
 
-**Status: baseline investigation.** The source is pinned to RStudio
-**2026.10.0+233** (`e961c6137d92315437caf5af53959f7110b517f9`). The first local
-Windows configure attempt failed because the required MSVC toolchain is absent.
-No enhanced application, successful build or compatibility certification is
-claimed. Visual dataset and ggplot2 editors remain planned.
-
-The Windows toolchain and upstream dependencies have since been installed;
-fresh baseline configuration now passes. See the
+**Status: unmodified baseline builds on Windows 11.** The source is pinned to
+RStudio **2026.10.0+233** (`e961c6137d92315437caf5af53959f7110b517f9`). The
+toolchain, upstream dependencies, GWT, native backend and Electron package have
+built successfully. R-session tests pass with R 3.6.3 and 4.6.1; one core test
+assumes English Windows error messages and fails on this Spanish host. Desktop
+GUI workflows and full compatibility remain unverified. Visual dataset and
+ggplot2 editors remain planned. See the
 [current provisioning and build assessment](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
 
 - [Fork and upstream pin](UPSTREAM.md)
