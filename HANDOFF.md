@@ -83,8 +83,11 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
 4. Done: non-modal, draggable editor window (Plots pane and console usable
    while it is open; stale data detected). Done: tibble/data.table
    support with copy-free staleness checks (Milestone 4). Done: bar (counts) and
-   density kinds. **Next:** a property-editor foundation for contextual
-   editing on the structured specification and saving/loading specifications.
+   density kinds. Done: *Load from script* restores a plot's specification
+   from its generated code (foundation for structured editing).
+   **Next:** right-click/contextual editing needs an interactive rendering of
+   the plot (e.g. SVG with element ids mapped to specification paths); then
+   faceting and scale controls (log axes, limits) in the specification.
    Branding (Milestone 6) is investigated in
    [BRANDING.md](docs/superrstudio/BRANDING.md) and **blocked on an owner
    decision**: the public name contains the RStudio trademark.

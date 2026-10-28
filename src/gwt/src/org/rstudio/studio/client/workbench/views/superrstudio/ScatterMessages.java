@@ -94,6 +94,11 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Classic") String themeClassic();
    @DefaultMessage("Light") String themeLight();
    @DefaultMessage("Undo") String undo();
+   @DefaultMessage("Load from script") String loadSpec();
+   @DefaultMessage("The active script contains no SuperRStudio plot specification.") String loadNone();
+   @DefaultMessage("Unsupported specification (version {0}).") String loadUnsupported(String version);
+   @DefaultMessage("Dataset {0} from the script is not available in this session.") String loadMissing(String dataset);
+   @DefaultMessage("Settings loaded from the active script. Preview to render the plot.") String loaded();
    @DefaultMessage("Reset settings") String reset();
    @DefaultMessage("Preview in Plots") String preview();
    @DefaultMessage("Open R code") String exportCode();

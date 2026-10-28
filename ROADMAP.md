@@ -7,7 +7,7 @@ All acceptance checks require recorded execution, not just compilation.
 | 0. Upstream investigation | Initial assessment recorded | Verified source pin, architecture, license inventory, host/toolchain evidence and risks; complete dependency/build assessment with M1 |
 | 1. Reproducible baseline | Windows 11 development baseline accepted; GUI smoke PASS; distribution audit remains open | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
 | 2. Foundation | Planned; gated on M1 | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
-| 3. Visual dataset workflow | **First slice desktop-verified** (opt-in scatter: live data/columns, same-session ggplot2 preview, R code export, stale-data tests, appearance with undo, colour mapping; [record](docs/superrstudio/features/visual-scatter.md)); more plot types next | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
+| 3. Visual dataset workflow | **First slice desktop-verified** (opt-in scatter: live data/columns, same-session ggplot2 preview, R code export, stale-data tests, appearance with undo, colour mapping, lines and lm/LOESS fits with model statistics, histogram/boxplot/bar/density, tibble/data.table, non-modal editor, load from script; [record](docs/superrstudio/features/visual-scatter.md)) | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
 | 4. ggplot2 editor | Planned | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
 | 5. Statistical interface | Planned | Guided methods/assumptions and diagnostics, trusted numerical references and complete reproducibility records |
 | 6. Biological extensions | Planned | Evaluate vegan/FSA/TropFishR methods individually with reference datasets, applicability and version checks |
@@ -33,8 +33,10 @@ All acceptance checks require recorded execution, not just compilation.
    incremental development workflow (BUILDING.md).
 7. Done 2026-10-28: scatter appearance controls (title, axis labels, point
    colour/size/opacity, theme, undo/reset) in specification schema 2.
-8. Done 2026-10-28: colour-by-column. Next: more plot types (histogram, boxplot, line),
-   toward the M4 ggplot2 editor (non-modal, saved specifications).
+8. Done 2026-10-28: colour-by-column, lines/fits, five plot types, tibble/
+   data.table, non-modal editor, load from script. Next: contextual editing on
+   an interactive (SVG) rendering, faceting and scales (M4 ggplot2 editor).
+9. M8 branding is blocked on the public-name decision (docs/superrstudio/BRANDING.md).
 
 No dataset editor, full plot editor, statistical module, package-management
 extension, modernized workbench, installer or Linux build is implemented yet.

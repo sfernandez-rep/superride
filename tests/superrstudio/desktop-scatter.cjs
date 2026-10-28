@@ -474,6 +474,30 @@ async function closeDialog(page)
       if (script !== code) throw new Error('exported script differs from previewed code:\n' + script);
       log('PASS export opens identical code in a new R script');
       await shot(page, '3-exported-script');
+
+      // Reopen a plot from its code: the active script holds the earlier
+      // boxplot's generated code; loading restores its specification and a
+      // preview reproduces exactly the same code.
+      await page.evaluate(text => window.rstudio.documents.activeEditor().setValue(text, 1), boxCode);
+      dialog = await openDialog(page);
+      await page.locator('#superrstudio_load').click();
+      await waitStatus(page, /Settings loaded from the active script/);
+      const restored = {
+         dataset: await page.inputValue('#superrstudio_dataset'), kind: await page.inputValue('#superrstudio_kind'),
+         x: await page.inputValue('#superrstudio_x'), y: await page.inputValue('#superrstudio_y'),
+         fill: await page.inputValue('#superrstudio_fill'),
+         points: await page.locator('#superrstudio_show_points input').isChecked()};
+      if (JSON.stringify(restored) !== JSON.stringify({dataset: 'growth', kind: 'boxplot', x: 'site', y: 'size',
+                                                        fill: '#56B4E9', points: true}))
+         throw new Error('specification not restored: ' + JSON.stringify(restored));
+      if (!(await page.locator('#superrstudio_undo').isEnabled())) throw new Error('loading is not undoable');
+      await page.locator('#rstudio_superrstudio_preview').click();
+      await waitStatus(page, /Plot created/);
+      const reloaded = await page.locator('#superrstudio_code').inputValue();
+      if (reloaded !== boxCode) throw new Error('reloaded code differs:\n' + reloaded + '\n---\n' + boxCode);
+      await shot(page, '4-loaded-from-script');
+      await closeDialog(page);
+      log('PASS load from script restores the specification; preview reproduces identical code');
       await page.evaluate(() => window.rstudio.documents.closeAllNoSave());
    }
 

@@ -94,6 +94,14 @@ branch `feature/visual-scatter`. Opt-in: the session must be started with
    (serialized) instead. Verified with tibble 3.3.1 and data.table 1.18.6.1
    installed only in the isolated test library.
 
+12. **Reopen a plot from its code** (*Load from script*). The editor reads the
+   `# Specification: {...}` header of generated code in the active script
+   (schema versions 1-3; missing settings keep their defaults), selects the
+   dataset, and restores plot type, columns, layers and appearance as one
+   undoable step; a preview then reproduces the same code. This is the
+   structured-specification foundation for contextual editing: plot elements
+   are edited through the specification, not by clicking a raster image.
+
 Generated code (the header records the versioned specification and versions):
 
 ```r
@@ -140,6 +148,7 @@ left-associated sum.
 ![Histogram](visual-plot-histogram.png)
 ![Boxplot](visual-plot-boxplot.png)
 ![Density](visual-plot-density.png)
+![Loaded from script](visual-plot-load-spec.png)
 ![Export](visual-scatter-export.png)
 ![Missing ggplot2](visual-scatter-missing-ggplot2.png)
 

@@ -16,6 +16,7 @@ import com.google.gwt.event.dom.client.KeyDownEvent;
 import com.google.gwt.json.client.JSONBoolean;
 import com.google.gwt.json.client.JSONNumber;
 import com.google.gwt.json.client.JSONObject;
+import com.google.gwt.json.client.JSONParser;
 import com.google.gwt.json.client.JSONString;
 import com.google.gwt.json.client.JSONValue;
 import com.google.gwt.user.client.ui.*;
@@ -24,10 +25,14 @@ import org.rstudio.core.client.theme.res.ThemeStyles;
 import org.rstudio.core.client.widget.FormLabel;
 import org.rstudio.core.client.widget.OperationWithInput;
 import org.rstudio.core.client.widget.ThemedButton;
+import org.rstudio.studio.client.RStudioGinjector;
 import org.rstudio.studio.client.application.events.EventBus;
 import org.rstudio.studio.client.server.ServerError;
 import org.rstudio.studio.client.server.ServerRequestCallback;
 import org.rstudio.studio.client.workbench.commands.Commands;
+import org.rstudio.studio.client.workbench.views.source.SourceColumn;
+import org.rstudio.studio.client.workbench.views.source.editors.EditingTarget;
+import org.rstudio.studio.client.workbench.views.source.editors.text.TextEditingTarget;
 import org.rstudio.studio.client.workbench.views.source.events.NewDocumentWithCodeEvent;
 import org.rstudio.studio.client.workbench.views.source.model.SourcePosition;
 
@@ -122,6 +127,7 @@ public class ScatterDialog extends DialogBox
       close_ = new ThemedButton(messages_.close(), e -> closeDialog());
       undo_ = new ThemedButton(messages_.undo(), e -> undo());
       reset_ = new ThemedButton(messages_.reset(), e -> reset());
+      load_ = new ThemedButton(messages_.loadSpec(), e -> loadFromScript());
       addDomHandler(e -> {
          if (e.getNativeKeyCode() == KeyCodes.KEY_ESCAPE)
          {
@@ -289,10 +295,12 @@ public class ScatterDialog extends DialogBox
 
       undo_.getElement().setId("superrstudio_undo");
       reset_.getElement().setId("superrstudio_reset");
+      load_.getElement().setId("superrstudio_load");
       HorizontalPanel history = new HorizontalPanel();
       history.setSpacing(2);
       history.add(undo_);
       history.add(reset_);
+      history.add(load_);
 
       VerticalPanel left = new VerticalPanel();
       left.add(heading(messages_.dataHeading()));
@@ -559,6 +567,118 @@ public class ScatterDialog extends DialogBox
       model_.setText("");
    }
 
+   // Loading a specification ------------------------------------------------
+
+   // Restores the editor from the "# Specification: {...}" header of code it
+   // generated (schema versions 1 to 3) in the active script. The dataset is
+   // selected first; the rest is applied once its columns are known.
+   private void loadFromScript()
+   {
+      JSONObject spec = activeScriptSpec();
+      if (spec == null)
+      {
+         status_.setText(messages_.loadNone());
+         return;
+      }
+      double version = number(spec, "schema_version", 0);
+      if (version < 1 || version > 3)
+      {
+         status_.setText(messages_.loadUnsupported(String.valueOf(version)));
+         return;
+      }
+      String dataset = string(spec, "dataset");
+      boolean found = false;
+      for (int i = 0; i < datasets_.getItemCount(); i++)
+         found |= datasets_.getValue(i).equals(dataset);
+      if (!found)
+      {
+         status_.setText(messages_.loadMissing(dataset));
+         return;
+      }
+      pendingSpec_ = spec;
+      select(datasets_, dataset);
+      inspect();
+   }
+
+   private JSONObject activeScriptSpec()
+   {
+      SourceColumn column = RStudioGinjector.INSTANCE.getSourceColumnManager().getActive();
+      EditingTarget target = column == null ? null : column.getActiveEditor();
+      if (!(target instanceof TextEditingTarget))
+         return null;
+      String code = ((TextEditingTarget) target).getDocDisplay().getCode();
+      for (String line : code.split("\n"))
+      {
+         String prefix = "# Specification: ";
+         if (!line.startsWith(prefix))
+            continue;
+         try
+         {
+            JSONValue value = JSONParser.parseStrict(line.substring(prefix.length()).trim());
+            return value.isObject();
+         }
+         catch (Exception e)
+         {
+            return null;
+         }
+      }
+      return null;
+   }
+
+   private void applySpec(JSONObject spec)
+   {
+      String kind = string(spec, "kind");
+      select(kind_, kind.isEmpty() ? KIND_SCATTER : kind);
+      populateColumns();
+      select(x_, string(spec, "x"));
+      select(y_, string(spec, "y"));
+      String mapped = string(spec, "colour_by");
+      select(colourBy_, mapped.isEmpty() ? string(spec, "fill_by") : mapped);
+      select(groupBy_, string(spec, "group_by"));
+
+      // settings missing from older schemas keep their defaults
+      String[] values = Arrays.copyOf(defaults_, defaults_.length);   // GWT has no array clone()
+      JSONObject layers = spec.get("layers") == null ? null : spec.get("layers").isObject();
+      JSONObject appearance = spec.get("appearance") == null ? null : spec.get("appearance").isObject();
+      for (int i = 0; i < settings_.size(); i++)
+      {
+         String key = settings_.get(i).key;
+         JSONValue value = layers != null && layers.get(key) != null ? layers.get(key)
+            : appearance != null ? appearance.get(key) : null;
+         if (value != null)
+            values[i] = text(value);
+      }
+      apply(values);
+      settingsChanged();   // one undoable step
+      busy(false);
+      status_.setText(messages_.loaded());
+   }
+
+   private static String string(JSONObject object, String key)
+   {
+      JSONValue value = object.get(key);
+      return value != null && value.isString() != null ? value.isString().stringValue() : "";
+   }
+
+   private static double number(JSONObject object, String key, double fallback)
+   {
+      JSONValue value = object.get(key);
+      return value != null && value.isNumber() != null ? value.isNumber().doubleValue() : fallback;
+   }
+
+   // JSON value as the string form used by the settings table (30, not 30.0)
+   private static String text(JSONValue value)
+   {
+      if (value.isString() != null) return value.isString().stringValue();
+      if (value.isBoolean() != null) return String.valueOf(value.isBoolean().booleanValue());
+      if (value.isNumber() != null)
+      {
+         double number = value.isNumber().doubleValue();
+         return number == Math.rint(number) ? String.valueOf((long) number) : String.valueOf(number);
+      }
+      return "";
+   }
+
    // Undoable settings -------------------------------------------------------
 
    private String[] read()
@@ -751,6 +871,12 @@ public class ScatterDialog extends DialogBox
          populateColumns();
          status_.setText(numericColumns_.length() > 0 ? messages_.ready() : messages_.noColumns());
          busy(false);
+         if (pendingSpec_ != null)
+         {
+            JSONObject spec = pendingSpec_;
+            pendingSpec_ = null;
+            applySpec(spec);
+         }
       });
    }
    private void generate(boolean export)
@@ -847,7 +973,8 @@ public class ScatterDialog extends DialogBox
    private final TextArea code_ = new TextArea();
    private final Label status_ = new Label(), model_ = new Label(), orderHint_ = new Label();
    private FormLabel xRowLabel_, yRowLabel_, colourByLabel_, lineColourLabel_;
-   private final ThemedButton preview_, export_, refresh_, close_, undo_, reset_;
+   private final ThemedButton preview_, export_, refresh_, close_, undo_, reset_, load_;
+   private JSONObject pendingSpec_;
    private final Map<Widget, Object[]> rows_ = new HashMap<>();
    private final List<Setting> settings_ = new ArrayList<>();
    private final List<String[]> history_ = new ArrayList<>();
