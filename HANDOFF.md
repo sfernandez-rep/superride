@@ -14,7 +14,7 @@ No visual SuperRStudio feature has been implemented yet; no mockup counts as one
 
 - Official fork: https://github.com/sfernandez-rep/superrstudio (already created).
 - Active branch at this checkpoint: `feature/windows-build-environment`.
-- Latest verified implementation commit: `80554f51e1ceeeb7fe90fd206c768beb9cc919a1`.
+- Prior implementation checkpoint: `abb1a48023` (continuity instructions).
   This handoff is committed after that checkpoint; `git log -1 --oneline` is the
   authoritative current HEAD, avoiding a self-referential commit hash in this file.
 - Upstream tag: `v2026.10.0+233`, RStudio Desktop 2026.10.0, Blue Mistflower.
@@ -75,7 +75,7 @@ unnecessary reconfiguration that would discard its installed npm dependencies.
 | UTF-8 R-session suite, R 4.6.1 | 654 pass, 1 skip, exit 0 |
 | Standalone R fixture, both R versions | PASS: import/NA/types/transform/lm/PDF |
 | Source provenance and license check | PASS |
-| Live desktop GUI / console / project workflows | NOT YET RUN |
+| Live desktop GUI / console / project workflows | PASS: R 4.6.1, import, lm, plot, CSV/PDF, editor save, project open; no client exceptions |
 
 The one core failure is `LoggingTest.CanJsonLogError`, `LoggingTests.cpp:773`:
 the test expects an English Windows system message; this host returns the
@@ -87,22 +87,23 @@ No installer, GUI compatibility certification or scientific UI exists yet.
 
 ## Current work and exact next action
 
-1. Investigate the actual Graphify repository/package before execution. Prefer a
-   deterministic local code-only mode. Do not enable hosted/model extraction,
-   telemetry, credentials or code transmission without explicit authorization.
-   Do not install Ponytail; Graphify is prioritized for code structure analysis.
-2. Complete a real GUI smoke test of the **existing** Windows baseline with a
-   fresh isolated RStudio profile: window readiness, R 4.6.1 console arithmetic,
-   synthetic dataset viewing, plot creation, and disposable `.Rproj` open/save.
-   Prefer the existing in-repo Playwright/CDP APIs after inspecting their setup;
-   do not provision/copy AI credentials or install unrelated test packages.
-3. Resolve/classify baseline issues with evidence; then continue the roadmap.
-   Once the GUI baseline is accepted, implement a minimal real dataset/column
-   selection to ggplot2 workflow using the same R session and reproducible code.
-   Keep all core RStudio workflows available. No framework rewrite or fake UI.
+1. Implement the next real feature on `feature/visual-scatter`: an opt-in C++/R
+   session module and GWT dataset/column dialog, same-session ggplot2 preview and
+   generated R code. Read-only data initially; validate stale objects and cancel.
+2. Reuse existing build/dependencies; build changed source in the main checkout,
+   keeping the detached baseline source pristine. Install ggplot2 only in the
+   isolated test library if required; do not alter a research project's renv.
+3. Keep the documented dependency audit open before distribution. The single
+   logging-test failure is an OS-language expectation, not a demonstrated runtime
+   failure; fix its test portably in a separate change when appropriate.
 
-At the start of this continuation there were no uncommitted changes. This
-handoff and continuity instructions are new work; Graphify is not yet installed.
+Graphify Labs `graphifyy==0.9.97` is installed in a project-local venv. See
+`docs/superrstudio/graphify.md` and `tools/superrstudio/graphify-local.ps1`.
+Full local `src` graph: 87,531 nodes / 241,592 edges, 4,586 code files scanned.
+No cloud/model/MCP/global skill was enabled. Parsing is incomplete (especially
+R helpers); graph hits must be checked against source. Do not install Ponytail.
+GUI smoke scripts: `tools/superrstudio/launch-desktop-smoke.cjs` and
+`tests/superrstudio/desktop-smoke.cjs`. See the GUI acceptance record for commands.
 Runtime logs, installer records and audit JSON are in `.cache/superrstudio/`;
 small committed evidence is in `docs/superrstudio/baseline/`.
 

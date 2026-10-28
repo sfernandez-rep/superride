@@ -217,3 +217,10 @@ UPSTREAM and AGENTS. Added this report and the two small evidence logs. No
 upstream application/build source or licensing files changed. The next gates are
 desktop GUI smoke/workflow tests, the localized test assertion review, npm
 advisory assessment and the remaining compatibility matrix.
+# GUI continuation, 2026-10-28
+
+The existing baseline has now passed a live desktop smoke with R 4.6.1,
+including data viewer, plots, script save and `.Rproj` open. The development
+baseline is accepted; distribution/audit issues remain open. See
+[the GUI acceptance record](windows-gui-2026-10-28.md) for exact scope and commands.
+

@@ -9,9 +9,9 @@ transmission requires user authorization. Do not install Ponytail at this stage.
 
 Read `UPSTREAM.md`, `BUILDING.md`, `ARCHITECTURE.md`, `COMPATIBILITY.md` and
 `docs/superrstudio/baseline/2026-10-27.md` before work. The Windows baseline now
-builds and its headless version checks/R-session tests run; full desktop GUI
-workflows are still unverified. Application extensions remain gated on baseline
-acceptance, including review of the known test/audit findings.
+builds; its version checks, R-session suites and live desktop GUI smoke pass.
+The development baseline is accepted. The localized logging-test failure and
+dependency audit remain documented release issues, not reasons to repeat setup.
 
 The host toolchain has been provisioned and the full native/Electron build passes. Read
 `docs/superrstudio/baseline/windows-dependencies-2026-10-27.md` for the current

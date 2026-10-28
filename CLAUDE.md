@@ -5,6 +5,9 @@ Read [HANDOFF.md](HANDOFF.md) first, then
 Keep the handoff current, do not repeat verified work, and continue through
 roadmap milestones when feasible. Graphify analysis has priority; no external
 code transmission or automatic agent transfer is authorized by this handoff.
+The Windows 11 development baseline now passes the live desktop smoke. Local
+Graphify is available through `tools/superrstudio/graphify-local.ps1`; see its
+review record for limits. Continue the real visual-scatter feature next.
 
 Follow [AGENTS.md](AGENTS.md) for fork-specific instructions and current gates.
 Read [UPSTREAM.md](UPSTREAM.md) and the current

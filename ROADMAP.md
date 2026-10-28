@@ -5,7 +5,7 @@ All acceptance checks require recorded execution, not just compilation.
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
 | 0. Upstream investigation | Initial assessment recorded | Verified source pin, architecture, license inventory, host/toolchain evidence and risks; complete dependency/build assessment with M1 |
-| 1. Reproducible baseline | Windows source build PASS; R-session suites pass; GUI acceptance/test-audit review pending | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
+| 1. Reproducible baseline | Windows 11 development baseline accepted; GUI smoke PASS; distribution audit remains open | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
 | 2. Foundation | Planned; gated on M1 | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
 | 3. Visual dataset workflow | Planned | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
 | 4. ggplot2 editor | Planned | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
