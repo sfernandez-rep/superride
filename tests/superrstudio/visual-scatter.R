@@ -483,6 +483,65 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(facet_ncol = 1.5)), 'whole number')
    cat('PASS: axes and facets (log10 fits vs lm on log values, filter vs zoom, panel ranges, per-panel fits, formats, gridlines, log boxplot/density, validation)\n')
 
+   # Export: the files themselves are checked (signatures, pixel/page sizes),
+   # and the returned export script reproduces them.
+   folder <- gsub('\\', '/', tempfile('srs-export-'), fixed = TRUE)   # as the export path is normalized
+   dir.create(folder)
+   exportSettings <- function(format, path, extra = list())
+      c(list(title = 'Exported', export_path = path, export_format = format), extra)
+   pngPath <- file.path(folder, 'plot.png')
+   exported <- request('export', 'axdat', chosen$revision, 'u', 'w',
+                       exportSettings('png', pngPath, list(export_width = 10, export_height = 5,
+                                                           export_units = 'cm', export_dpi = 150)))
+   bytes <- readBin(pngPath, 'raw', file.size(pngPath))
+   dimension <- function(at) sum(as.integer(bytes[at:(at + 3L)]) * 256^(3:0))
+   stopifnot(identical(bytes[1:8], as.raw(c(0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A))),
+             abs(dimension(17L) - 10 / 2.54 * 150) < 1, abs(dimension(21L) - 5 / 2.54 * 150) < 1,
+             exported$saved$bytes == file.size(pngPath),
+             grepl('ggplot2::ggsave(filename = ', exported$export_code, fixed = TRUE),
+             grepl('units = "cm", dpi = 150)', exported$export_code, fixed = TRUE))
+   # the export script reproduces the same file
+   again <- sub(pngPath, file.path(folder, 'again.png'), exported$export_code, fixed = TRUE)
+   local(eval(parse(text = again)), envir = new.env(parent = globalenv()))
+   stopifnot(identical(unname(tools::md5sum(pngPath)), unname(tools::md5sum(file.path(folder, 'again.png')))))
+   svgPath <- file.path(folder, 'plot.svg')
+   exported <- request('export', 'axdat', chosen$revision, 'u', 'w',
+                       exportSettings('svg', svgPath, list(export_width = 4, export_height = 3, export_units = 'in')))
+   svgText <- paste(readLines(svgPath, warn = FALSE), collapse = '\n')
+   stopifnot(grepl('width="288pt" height="216pt"', svgText, fixed = TRUE),
+             grepl('device = grDevices::svg', exported$export_code, fixed = TRUE))
+   again <- sub(svgPath, file.path(folder, 'again.svg'), exported$export_code, fixed = TRUE)
+   local(eval(parse(text = again)), envir = new.env(parent = globalenv()))
+   stopifnot(identical(unname(tools::md5sum(svgPath)), unname(tools::md5sum(file.path(folder, 'again.svg')))))
+   pdfPath <- file.path(folder, 'plot.pdf')
+   exported <- request('export', 'axdat', chosen$revision, 'u', 'w',
+                       exportSettings('pdf', pdfPath, list(export_width = 180, export_height = 120, export_units = 'mm')))
+   # cairo writes PDF 1.7 object streams: inflate each stream to find the page box
+   pdfBytes <- readBin(pdfPath, 'raw', file.size(pdfPath))
+   starts <- grepRaw('stream\n', pdfBytes, fixed = TRUE, all = TRUE) + 7L
+   ends <- grepRaw('endstream', pdfBytes, fixed = TRUE, all = TRUE)
+   inflated <- unlist(lapply(seq_along(starts), function(i) {
+      part <- tryCatch(memDecompress(pdfBytes[starts[i]:(ends[ends > starts[i]][1L] - 1L)], 'gzip'),
+                       error = function(e) raw())
+      part[part >= as.raw(32) & part < as.raw(127)]
+   }))
+   at <- grepRaw('/MediaBox', c(pdfBytes, inflated), fixed = TRUE)[1L]
+   mediaBox <- rawToChar(c(pdfBytes, inflated)[at:(at + 60L)])
+   box <- as.numeric(regmatches(mediaBox, gregexpr('[0-9.]+', mediaBox))[[1L]])
+   stopifnot(identical(rawToChar(pdfBytes[1:5]), '%PDF-'),
+             isTRUE(all.equal(box[3:4], c(180, 120) / 25.4 * 72, tolerance = 1e-3)),
+             grepl('device = grDevices::cairo_pdf', exported$export_code, fixed = TRUE))
+   # nothing is written for invalid requests
+   reject(request('export', 'axdat', chosen$revision, 'u', 'w', exportSettings('png', file.path(folder, 'plot.pdf'))), 'end in .png')
+   reject(request('export', 'axdat', chosen$revision, 'u', 'w', exportSettings('png', file.path(folder, 'missing', 'p.png'))), 'folder')
+   reject(request('export', 'axdat', chosen$revision, 'u', 'w', exportSettings('png', file.path(folder, 'p.png'),
+                                                                                 list(export_width = 500))), 'between')
+   reject(request('export', 'axdat', chosen$revision, 'u', 'w', exportSettings('tiff', file.path(folder, 'p.tiff'))), 'PNG, SVG or PDF')
+   reject(request('export', 'axdat', chosen$revision, 'u', 'w', exportSettings('png', '')), 'Choose a file')
+   stopifnot(!file.exists(file.path(folder, 'p.png')), identical(axdat, get('axdat')))
+   unlink(folder, recursive = TRUE)
+   cat('PASS: export (PNG pixel size at dpi, SVG and PDF page sizes, scripts reproduce identical PNG/SVG, validation)\n')
+
    # Interactive preview: an SVG plus an element map located through the
    # gtable layout and ggplot_build() data. Checked against ggplot2's
    # documented 5% continuous expansion, independently of the mapping code.

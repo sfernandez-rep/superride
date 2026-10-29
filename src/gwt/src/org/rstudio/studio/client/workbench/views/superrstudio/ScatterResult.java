@@ -20,6 +20,9 @@ public class ScatterResult extends JavaScriptObject
    public final native String warnings() /*-{ return (this.warnings || []).join('\n'); }-*/;
    public final native PlotMap interactive() /*-{ return this.interactive || null; }-*/;
    public final native String notes() /*-{ return (this.notes || []).join('\n'); }-*/;
+   public final native String exportCode() /*-{ return this.export_code || ''; }-*/;
+   public final native String savedPath() /*-{ return this.saved ? this.saved.path : ''; }-*/;
+   public final native double savedBytes() /*-{ return this.saved ? this.saved.bytes : 0; }-*/;
    public final native String provenance() /*-{
       return '# SuperRStudio ' + this.spec.kind + ' v' + this.spec.schema_version +
          '\n# Specification: ' + JSON.stringify(this.spec) +

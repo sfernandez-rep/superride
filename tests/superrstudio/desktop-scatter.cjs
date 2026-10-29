@@ -635,6 +635,30 @@ async function closeDialog(page)
       await freshPreview();
       await shot(page, '6-axes-facets');
       log('PASS axes and facets: log Y, facet panels with per-panel fits, strip and Y axis edited by right-click');
+
+      // Export the same plot as PNG (size, resolution) and PDF; the files are
+      // checked from R and the export script is shown in the editor.
+      const exportDir = evidence.replaceAll('\\', '/');
+      for (const name of ['exported.png', 'exported.pdf'])
+         fs.rmSync(path.join(evidence, name), {force: true});
+      await page.selectOption('#superrstudio_export_format', 'png');
+      await page.fill('#superrstudio_export_path', exportDir + '/exported.png');
+      await page.fill('#superrstudio_export_width', '12');
+      await page.fill('#superrstudio_export_height', '9');
+      await page.selectOption('#superrstudio_export_dpi', '150');
+      await page.locator('#superrstudio_export_image').click();
+      await waitStatus(page, /^Saved .+exported\.png \(\d+ KB\)/);
+      const exportScript = await page.locator('#superrstudio_code').inputValue();
+      if (!exportScript.includes(`ggplot2::ggsave(filename = "${exportDir}/exported.png",`) || !/width = 12,/.test(exportScript) ||
+          !exportScript.includes('dpi = 150)') || !exportScript.includes('plot <- ggplot2::ggplot(growth'))
+         throw new Error('export script: ' + exportScript);
+      await page.selectOption('#superrstudio_export_format', 'pdf');
+      if (await page.inputValue('#superrstudio_export_path') !== exportDir + '/exported.pdf')
+         throw new Error('extension not updated with the format');
+      await page.locator('#superrstudio_export_image').click();
+      await waitStatus(page, /^Saved .+exported\.pdf/);
+      await shot(page, '6b-export');
+      log('PASS export PNG and PDF from the editor; export script shown');
       await closeDialog(page);
       fs.writeFileSync(path.join(evidence, 'generated-axes-facets.R'), axisCode);
       await check(page,
@@ -645,6 +669,13 @@ async function closeDialog(page)
          `unname(stats::coef(stats::lm(y ~ x, data = srs_built$data[[2]][srs_built$data[[2]]$PANEL == 1, c('x', 'y')]))[2]))), ` +
          `identical(growth, growth_original))`,
          'AXES_FACETS_REPRODUCE');
+      await check(page,
+         `srs_png <- readBin('${exportDir}/exported.png', 'raw', 64L); ` +
+         `srs_dim <- function(at) sum(as.integer(srs_png[at:(at + 3L)]) * 256^(3:0)); ` +
+         `stopifnot(identical(srs_png[2:4], charToRaw('PNG')), abs(srs_dim(17L) - 12 / 2.54 * 150) < 1, ` +
+         `abs(srs_dim(21L) - 9 / 2.54 * 150) < 1, ` +
+         `identical(rawToChar(readBin('${exportDir}/exported.pdf', 'raw', 5L)), '%PDF-'))`,
+         'EXPORTED_FILES_VALID');
 
       // Escape closes the editor (handled only for its own content).
       dialog = await openDialog(page);

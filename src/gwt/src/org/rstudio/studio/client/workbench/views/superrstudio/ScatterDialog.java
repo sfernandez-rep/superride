@@ -22,6 +22,9 @@ import com.google.gwt.json.client.JSONValue;
 import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.ui.*;
 import org.rstudio.core.client.ElementIds;
+import org.rstudio.core.client.files.FileSystemItem;
+import org.rstudio.core.client.widget.ProgressIndicator;
+import org.rstudio.core.client.widget.ProgressOperationWithInput;
 import org.rstudio.core.client.theme.res.ThemeStyles;
 import org.rstudio.core.client.widget.FormLabel;
 import org.rstudio.core.client.widget.MiniPopupPanel;
@@ -434,12 +437,108 @@ public class ScatterDialog extends DialogBox
       editSelected_.getElement().setId("superrstudio_edit_selected");
       editSelected_.setEnabled(false);
       preview.add(editSelected_);
+      preview.add(heading(messages_.exportHeading()));
+      preview.add(createExportPanel());
       HorizontalPanel main = new HorizontalPanel();
       // top-aligned: the preview must not move when the settings column grows
       main.setVerticalAlignment(HasVerticalAlignment.ALIGN_TOP);
       main.add(panel);
       main.add(preview);
       return main;
+   }
+
+   // Export -----------------------------------------------------------------
+
+   private Widget createExportPanel()
+   {
+      option(exportFormat_, messages_.exportPng(), "png");
+      option(exportFormat_, messages_.exportSvg(), "svg");
+      option(exportFormat_, messages_.exportPdf(), "pdf");
+      for (String unit : new String[] {"cm", "mm", "in"})
+         option(exportUnits_, unit, unit);
+      for (String dpi : new String[] {"150", "300", "600"})
+         option(exportDpi_, dpi, dpi);
+      select(exportDpi_, "300");
+      exportWidth_.setValue("16");
+      exportHeight_.setValue("12");
+      exportFormat_.addChangeHandler(e -> {
+         // keep the file name's extension in step with the format
+         String path = exportPath_.getValue().trim();
+         int dot = path.lastIndexOf('.');
+         if (!path.isEmpty() && dot > path.lastIndexOf('/'))
+            exportPath_.setValue(path.substring(0, dot + 1) + exportFormat_.getSelectedValue());
+         exportDpi_.setEnabled("png".equals(exportFormat_.getSelectedValue()));
+      });
+      Grid grid = new Grid(3, 4);
+      grid.setCellSpacing(2);
+      exportCell(grid, 0, 0, messages_.exportFormat(), exportFormat_, "superrstudio_export_format", "150px");
+      exportCell(grid, 0, 2, messages_.exportDpi(), exportDpi_, "superrstudio_export_dpi", "70px");
+      exportCell(grid, 1, 0, messages_.exportWidth(), exportWidth_, "superrstudio_export_width", "60px");
+      exportCell(grid, 1, 2, messages_.exportHeight(), exportHeight_, "superrstudio_export_height", "60px");
+      exportCell(grid, 2, 0, messages_.exportUnits(), exportUnits_, "superrstudio_export_units", "70px");
+      exportPath_.getElement().setId("superrstudio_export_path");
+      exportPath_.setWidth("300px");
+      ThemedButton browse = new ThemedButton(messages_.exportBrowse(), e -> browseExport());
+      browse.getElement().setId("superrstudio_export_browse");
+      exportImage_.getElement().setId("superrstudio_export_image");
+      HorizontalPanel file = new HorizontalPanel();
+      file.setSpacing(2);
+      file.setVerticalAlignment(HasVerticalAlignment.ALIGN_MIDDLE);
+      file.add(new FormLabel(messages_.exportPath(), exportPath_));
+      file.add(exportPath_);
+      file.add(browse);
+      VerticalPanel panel = new VerticalPanel();
+      panel.add(grid);
+      panel.add(file);
+      exportImage_.setEnabled(false);
+      panel.add(exportImage_);
+      return panel;
+   }
+
+   private static void exportCell(Grid grid, int row, int column, String text, Widget control, String id, String width)
+   {
+      control.getElement().setId(id);
+      control.setWidth(width);
+      grid.setWidget(row, column, new FormLabel(text, control));
+      grid.setWidget(row, column + 1, control);
+   }
+
+   private void browseExport()
+   {
+      String format = exportFormat_.getSelectedValue();
+      String name = (value(datasets_).isEmpty() ? "plot" : value(datasets_).replaceAll("[^A-Za-z0-9_.-]", "_"));
+      String current = exportPath_.getValue().trim();
+      FileSystemItem initial = FileSystemItem.createFile(current.isEmpty()
+         ? FileSystemItem.HOME_PREFIX + name + "." + format : current);
+      RStudioGinjector.INSTANCE.getFileDialogs().saveFile(
+         messages_.exportCaption(),
+         RStudioGinjector.INSTANCE.getRemoteFileSystemContext(),
+         initial, "." + format, true,
+         new ProgressOperationWithInput<FileSystemItem>()
+         {
+            @Override public void execute(FileSystemItem input, ProgressIndicator indicator)
+            {
+               indicator.onCompleted();
+               if (input != null)
+                  exportPath_.setValue(input.getPath());
+            }
+         });
+   }
+
+   private void exportImage()
+   {
+      status_.setText(messages_.working());
+      String kind = kind();
+      String y = KIND_SCATTER.equals(kind) || KIND_BOXPLOT.equals(kind) ? value(y_) : "";
+      exporting_ = true;
+      request("export", value(datasets_), revision_, value(x_), y, result -> {
+         showResult(result);
+         code_.setText(result.provenance() + result.exportCode());
+         status_.setText(messages_.exported(result.savedPath(),
+            String.valueOf(Math.max(1, Math.round(result.savedBytes() / 1024)))) +
+            (result.warnings().isEmpty() ? "" : "\n" + result.warnings()));
+      });
+      exporting_ = false;
    }
 
    private static VerticalPanel column(Widget... widgets)
@@ -1206,6 +1305,25 @@ public class ScatterDialog extends DialogBox
       json.put("group_by", new JSONString(value(groupBy_)));
       json.put("facet_by", new JSONString(value(facetBy_)));
       json.put("facet_rows", new JSONString(value(facetRows_)));
+      if (exporting_)
+      {
+         json.put("export_path", new JSONString(exportPath_.getValue().trim()));
+         json.put("export_format", new JSONString(exportFormat_.getSelectedValue()));
+         json.put("export_units", new JSONString(exportUnits_.getSelectedValue()));
+         json.put("export_dpi", new JSONNumber(Double.parseDouble(exportDpi_.getSelectedValue())));
+         for (String[] side : new String[][] {{"export_width", exportWidth_.getValue()},
+                                              {"export_height", exportHeight_.getValue()}})
+         {
+            try
+            {
+               json.put(side[0], new JSONNumber(Double.parseDouble(side[1].trim())));
+            }
+            catch (NumberFormatException e)
+            {
+               json.put(side[0], new JSONString(side[1]));   // rejected by the session
+            }
+         }
+      }
       return json;
    }
 
@@ -1300,6 +1418,7 @@ public class ScatterDialog extends DialogBox
       refresh_.setEnabled(!busy);
       preview_.setEnabled(!busy && !revision_.isEmpty() && columnsChosen());
       export_.setEnabled(!busy && !revision_.isEmpty() && columnsChosen());
+      exportImage_.setEnabled(!busy && !revision_.isEmpty() && columnsChosen());
       if (!busy)
          layoutChanged();
    }
@@ -1450,6 +1569,10 @@ public class ScatterDialog extends DialogBox
    private FormLabel xRowLabel_, yRowLabel_, colourByLabel_, lineColourLabel_;
    private final ThemedButton preview_, export_, refresh_, close_, undo_, redo_, reset_, load_,
                               editSelected_;
+   private final ListBox exportFormat_ = new ListBox(), exportUnits_ = new ListBox(), exportDpi_ = new ListBox();
+   private final TextBox exportWidth_ = new TextBox(), exportHeight_ = new TextBox(), exportPath_ = new TextBox();
+   private final ThemedButton exportImage_ = new ThemedButton(messages_.exportImage(), e -> exportImage());
+   private boolean exporting_ = false;
    private final ListBox legendPosition_ = new ListBox(), xScale_ = new ListBox(), yScale_ = new ListBox(),
                          xFormat_ = new ListBox(), yFormat_ = new ListBox(), limitsMode_ = new ListBox(),
                          facetBy_ = new ListBox(), facetRows_ = new ListBox(), facetNcol_ = new ListBox(),

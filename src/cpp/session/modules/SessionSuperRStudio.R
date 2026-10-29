@@ -319,13 +319,75 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
         regions = regions, elements = elements)
 })
 
+#' Validate image export settings
+#'
+#' The file is written with ggplot2::ggsave(): PNG through ggsave's own
+#' bitmap device at the given resolution, SVG through R's svg() device and
+#' PDF through cairo_pdf() (embedded fonts), so no extra packages are needed.
+.rs.addFunction('superrstudioExportOptions', function(export = list())
+{
+   fail <- function(message) stop(message, call. = FALSE)
+   defaults <- list(export_path = '', export_format = 'png', export_width = 16,
+                    export_height = 12, export_units = 'cm', export_dpi = 300)
+   result <- .rs.superrstudioSettings(export, defaults, 'Export')
+   if (!.rs.superrstudioIsText(result$export_format) || !result$export_format %in% c('png', 'svg', 'pdf'))
+      fail('Export format must be PNG, SVG or PDF.')
+   if (!.rs.superrstudioIsText(result$export_units) || !result$export_units %in% c('cm', 'mm', 'in'))
+      fail('Export size units must be cm, mm or in.')
+   inches <- c(cm = 2.54, mm = 25.4, `in` = 1)[[result$export_units]]
+   for (side in c('export_width', 'export_height'))
+      if (!.rs.superrstudioIsNumber(result[[side]], 0.5 * inches, 50 * inches))
+         fail('Image width and height must be between 0.5 and 50 inches (1.27 to 127 cm).')
+   if (!.rs.superrstudioIsNumber(result$export_dpi, 72, 1200) || result$export_dpi != round(result$export_dpi))
+      fail('Resolution must be a whole number of dots per inch between 72 and 1200.')
+   path <- result$export_path
+   if (!.rs.superrstudioIsText(path) || !nzchar(path)) fail('Choose a file to export to.')
+   path <- gsub('\\\\', '/', path.expand(path))
+   extension <- tolower(tools::file_ext(path))
+   if (!identical(extension, result$export_format))
+      fail(paste0('The file name must end in .', result$export_format, ' for this format.'))
+   if (!dir.exists(dirname(path))) fail('The folder for the exported file does not exist.')
+   if (dir.exists(path)) fail('The export path is a folder; choose a file name.')
+   result$export_path <- path
+   for (field in c('export_width', 'export_height', 'export_dpi'))
+      result[[field]] <- as.numeric(result[[field]])
+   result[names(defaults)]
+})
+
+#' The ggsave() call that writes an exported image of `plot`
+.rs.addFunction('superrstudioExportCall', function(export)
+{
+   args <- list(filename = export$export_path, plot = as.name('plot'))
+   if (export$export_format == 'svg') args$device <- quote(grDevices::svg)
+   if (export$export_format == 'pdf') args$device <- quote(grDevices::cairo_pdf)
+   args$width <- export$export_width
+   args$height <- export$export_height
+   args$units <- export$export_units
+   if (export$export_format == 'png') args$dpi <- export$export_dpi
+   as.call(c(quote(ggplot2::ggsave), args))
+})
+
 #' Evaluate a plot expression on a private copy of the binding: print it to
 #' the Plots pane ("preview") and render the interactive preview ("preview"
 #' and "render"). Warnings are collected once each instead of printed.
-.rs.addFunction('superrstudioRender', function(operation, expression, dataset, data)
+.rs.addFunction('superrstudioRender', function(operation, expression, dataset, data, export = NULL)
 {
    warnings <- character()
    interactive <- NULL
+   saved <- NULL
+   if (operation == 'export')
+   {
+      withCallingHandlers({
+         env <- new.env(parent = baseenv())
+         assign(dataset, data, envir = env)
+         assign('plot', eval(expression, envir = env), envir = env)
+         eval(.rs.superrstudioExportCall(export), envir = env)
+         saved <- list(path = I(export$export_path), bytes = I(file.size(export$export_path)))
+      }, warning = function(w) {
+         warnings <<- c(warnings, conditionMessage(w))
+         invokeRestart('muffleWarning')
+      })
+   }
    if (operation %in% c('preview', 'render'))
    {
       withCallingHandlers({
@@ -341,7 +403,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          invokeRestart('muffleWarning')
       })
    }
-   list(warnings = unique(warnings), interactive = interactive)
+   list(warnings = unique(warnings), interactive = interactive, saved = saved)
 })
 
 #' Histogram layers: explicit bins (or bin width) so the binning is never an
@@ -833,7 +895,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       if (identical(revision, state$revision)) state$snapshot <- NULL
       return(list(released = I(TRUE)))
    }
-   if (!operation %in% c('inspect', 'code', 'preview', 'render')) fail('Unsupported operation.')
+   if (!operation %in% c('inspect', 'code', 'preview', 'render', 'export')) fail('Unsupported operation.')
    if (!dataset %in% available) fail('Dataset no longer exists or is not a data frame. Refresh the selection.')
    data <- get(dataset, envir = .GlobalEnv, inherits = FALSE)
    if (!tableFrame(data))
@@ -869,9 +931,13 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
                  'x_format', 'y_format', 'grid_major', 'grid_minor', 'facet_scales', 'facet_ncol')
    mapping <- appearance[intersect(names(appearance), mappingKeys)]
    options <- .rs.superrstudioScatterOptions(appearance[intersect(names(appearance), optionKeys)])
+   exportKeys <- c('export_path', 'export_format', 'export_width', 'export_height',
+                   'export_units', 'export_dpi')
    axes <- appearance[intersect(names(appearance), axisKeys)]
+   export <- appearance[intersect(names(appearance), exportKeys)]
    appearance <- .rs.superrstudioScatterAppearance(
-      appearance[setdiff(names(appearance), c(mappingKeys, optionKeys, axisKeys))])
+      appearance[setdiff(names(appearance), c(mappingKeys, optionKeys, axisKeys, exportKeys))])
+   export <- if (operation == 'export') .rs.superrstudioExportOptions(export)
    column <- function(value, allowed, message)
    {
       if (is.null(value)) return('')
@@ -912,7 +978,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       if (nzchar(colourBy) && nzchar(appearance$fill))
          fail('Choose either a fixed fill colour or a fill column, not both.')
       return(.rs.superrstudioPlotResult(operation, kind, dataset, data, x, y, colourBy, options,
-                                        appearance, axes, facetBy, facetRows))
+                                        appearance, axes, facetBy, facetRows, export))
    }
    if (nzchar(colourBy) && nzchar(appearance$colour))
       fail('Choose either a fixed point colour or a colour column, not both.')
@@ -944,10 +1010,11 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
                                  name(x, 'x'), name(y, 'y'))
    modelCode <- if (options$fit == 'lm') .rs.superrstudioFitCode(dataset, x, y, fitGroups, axes) else ''
 
-   rendered <- .rs.superrstudioRender(operation, expression, dataset, data)
+   rendered <- .rs.superrstudioRender(operation, expression, dataset, data, export)
    # The revision is a session-scoped staleness token, not part of the
    # reproducible specification: the same selection yields the same record.
    list(code = I(paste0(code, '\n')), model_code = I(modelCode),
+        export_code = I(.rs.superrstudioExportCode(code, export)), saved = rendered$saved,
         fit_summary = if (is.null(fitSummary)) list() else fitSummary,
         notes = if (options$fit != 'none') stat$notes
                 else grep('statistics are computed', stat$notes, value = TRUE, invert = TRUE, fixed = TRUE),
@@ -959,6 +1026,14 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
                     appearance = lapply(appearance, I), axes = lapply(axes, I)),
         r_version = I(as.character(getRversion())),
         ggplot2_version = I(as.character(utils::packageVersion('ggplot2'))))
+})
+
+#' Script that recreates the plot and writes the exported file
+.rs.addFunction('superrstudioExportCode', function(code, export)
+{
+   if (is.null(export)) return('')
+   paste0('plot <- ', code, '\n',
+          paste(deparse(.rs.superrstudioExportCall(export), width.cutoff = 90L), collapse = '\n'), '\n')
 })
 
 #' Layer options that apply to each plot kind (recorded in the specification)
@@ -975,7 +1050,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #' Code, preview and summary for the histogram and boxplot kinds
 .rs.addFunction('superrstudioPlotResult', function(operation, kind, dataset, data, x, y, fill_by,
                                                  options, appearance, axes = .rs.superrstudioAxisOptions(),
-                                                 facet_by = '', facet_rows = '')
+                                                 facet_by = '', facet_rows = '', export = NULL)
 {
    layers <- c(switch(kind,
       histogram = .rs.superrstudioHistogramLayers(dataset, x, appearance, options, fill_by),
@@ -1019,8 +1094,9 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          list(group = I(name), n = I(length(v)), bandwidth = I(stats::bw.nrd0(v) * options$adjust))
       })
    }
-   rendered <- .rs.superrstudioRender(operation, expression, dataset, data)
+   rendered <- .rs.superrstudioRender(operation, expression, dataset, data, export)
    list(code = I(paste0(code, '\n')), model_code = I(''),
+        export_code = I(.rs.superrstudioExportCode(code, export)), saved = rendered$saved,
         fit_summary = list(), summary = summary, notes = stat$notes,
         warnings = rendered$warnings, interactive = rendered$interactive,
         spec = list(schema_version = I(4L), kind = I(kind), dataset = I(dataset),

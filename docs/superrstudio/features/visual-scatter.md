@@ -183,6 +183,20 @@ facet strip, panel columns and scales; on the panel, theme and gridlines.
 
 ![Log scale, facets with per-panel fits](visual-axes-facets.png)
 
+## Image export (Milestone D)
+
+*Export image* under the preview writes the current plot with
+`ggplot2::ggsave()`: PNG at a chosen resolution (150/300/600 dpi), SVG through
+R's own `svg()` device and PDF through `cairo_pdf()` (embedded fonts), so no
+extra package (such as svglite) is required. Width and height are given in
+cm, mm or inches (0.5 to 50 inches). The file name is typed or chosen with
+the IDE's save dialog; its extension must match the format, the folder must
+exist, and nothing is written for an invalid request. The editor then shows
+the export script (`plot <- ggplot2::ggplot(...)` followed by the exact
+`ggsave()` call), which recreates the same file.
+
+![Export](visual-export.png)
+
 ## Design
 
 | Layer | File | Notes |
@@ -203,6 +217,8 @@ facet strip, panel columns and scales; on the panel, theme and gridlines.
 | Live desktop, interactive editing | same (`ggplot2`) | PASS: right-click on a point series (position from the session's element map) opens *Points*; colour and size edits update the form, code and preview; undo/redo; right-click on the X axis title edits it; right-click on a line segment edits its line type; keyboard selection (arrows, Enter, Escape); live re-rendering adds nothing to the Plots pane; the final code reproduces colour, size, line type and axis title in R |
 | R contract, axes and facets | `visual-scatter.R` | PASS: log10 fit equals `lm(log10(w) ~ log10(u))` on positive values and ggplot2's smooth; generated model code reproduces it; filter limits equal `lm()` on the subset (smooth too), zoom keeps all rows and the panel range equals the limits plus 5 % expansion; log zoom limits are data values; per-facet fits equal per-subset `lm()`; `facet_grid` rows; facet map has two panels and strips; comma/scientific labels; minor gridlines removed after `theme_bw()`; log boxplot medians equal `median(log10(.))` and `ggplot_build()`; log density bandwidth equals `bw.nrd0(log10(.))`; histogram counts after filtering; nine invalid combinations refused |
 | Live desktop, axes and facets | `test-gui-scatter.ps1` | PASS: log Y + facet by site with per-panel lm summaries (`log10(size) = ...`), strip right-click sets free Y scales, Y-axis right-click sets a zoom minimum; console check: two panels, lower limit `log10(5)`, panel slope equals `lm(log10(size) ~ age)` for that site |
+| R contract, export | `visual-scatter.R` | PASS: PNG signature and pixel size (width x dpi / 2.54, truncated as the device does), SVG `width="288pt" height="216pt"` for 4 x 3 in, PDF MediaBox 180 x 120 mm (read from inflated cairo object streams); running the returned export script reproduces byte-identical PNG and SVG files; wrong extension, missing folder, size out of range, unknown format and empty path refused without writing |
+| Live desktop, export | `test-gui-scatter.ps1` | PASS: PNG 12 x 9 cm at 150 dpi and PDF exported from the editor (extension follows the format), export script shown, files checked from the R console |
 | R contract, interactive map | `visual-scatter.R` | PASS: SVG and PNG variants, regions present, legend moved below the panel, point positions equal ggplot2's documented 5 % expansion arithmetic, fit paths, all plot kinds, device restored |
 | Live desktop, no ggplot2 | same (`no-ggplot2`, empty library) | PASS: clean message in dialog, console unaffected, no device opened |
 | Live desktop, disabled | same (`disabled`) | PASS: button hidden; ordinary IDE |
