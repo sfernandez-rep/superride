@@ -1,6 +1,6 @@
 # SuperRStudio handoff
 
-Updated 2026-10-28 (second session), America/Montevideo, by Claude Code (continuing Codex's work).
+Updated 2026-10-29 (third session), America/Montevideo, by Claude Code (continuing Codex's work).
 Continue this repository; do not restart initialization, recreate the GitHub
 fork, clone RStudio again or reinstall verified dependencies. The original brief
 is [PROJECT_BRIEF.md](docs/superrstudio/PROJECT_BRIEF.md); supplemental
@@ -47,7 +47,15 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    `lfqRestructure` with TropFishR's plots, `ELEFAN_GA` (seeds) /
    `ELEFAN_SA` / `ELEFAN` in a separate Rscript process with progress and
    cancel, and a comparison of every run with its full configuration and
-   code. Record: [lfq-tropfishr.md](docs/superrstudio/features/lfq-tropfishr.md).
+   code. Third session: **sampling period and quarterly samples**
+   (`lfqModify`), recorded transformations, **what differs between
+   configurations** (data, classes, restructuring, ranges, method, seeds,
+   versions), **catch-curve mortality** (Pauly / cumulative, M from
+   `M_empirical`, F, E, ogive, diagnostics) and **saved analyses** (versioned
+   JSON file with data fingerprint and versions; restore, run again, rename,
+   duplicate, delete, compare). Record: [lfq-tropfishr.md](docs/superrstudio/features/lfq-tropfishr.md).
+   Messages: `tools/superrstudio/i18n/lfq_messages.py` generates English and
+   Spanish together.
    TropFishR 1.6.6 and its dependencies are installed only in the isolated
    test library (`.cache\superrstudio\r-library`).
 3. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
@@ -84,8 +92,9 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | Upstream R-session suite on feature build, feature off and on | 654 passed / 655 (1 skipped), same as baseline (re-run 2026-10-28 after the LFQ module, feature on) |
 | Live desktop scatter: ggplot2 (incl. appearance, undo, reset, colour mapping, lines, lm/loess fits, histogram, boxplot, right-click editing, axes/facets, export) / no-ggplot2 / disabled | PASS / PASS / PASS |
 | Debug launch (DevTools 9222, Node inspector 9229), `-Wait` exit code | PASS |
-| `lfq-tropfishr.R`, R 4.6.1 + TropFishR 1.6.6 / R 3.6.3 | PASS / PASS (missing-package path) |
-| Live desktop length-frequency (`-Scenario lfq`) | PASS |
+| `lfq-tropfishr.R`, R 4.6.1 + TropFishR 1.6.6 / R 3.6.3 (2026-10-29, incl. preprocessing, comparison, saved analyses, catch curves) | PASS / PASS (missing-package path) |
+| Live desktop length-frequency (`-Scenario lfq`, 2026-10-29, incl. seasonal GA, mortality, saved analyses) | PASS |
+| Upstream R-session suite after the LFQ completion (feature on) | 654 passed / 655 (1 skipped) |
 
 Known failures/limitations (unchanged from baseline unless noted):
 `LoggingTest.CanJsonLogError` expects an English Windows message (host is
@@ -107,13 +116,11 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    from its generated code (foundation for structured editing).
    Done (second session): interactive right-click editing, axes/facets,
    image export, TropFishR length-frequency module (first slice).
-   **Next (in order):** (a) LFQ: saved configurations (persist run
-   records to a project file), `lfqModify` options (date subsets, merging
-   fleets), seasonal-growth GUI test, then mortality (catch curve) with
-   reference datasets; (b) plot editor: date/time X scales (LFQ sampling
-   dates), per-observation tooltips; (c) dockable workspace investigation
-   (Milestone C); (d) `es` locale build (Milestone F); (e) performance
-   benchmarks (Milestone G).
+   Done (third session): LFQ saved analyses, preprocessing options,
+   comparison of configurations, seasonal GUI test, catch-curve mortality.
+   **Next (in order, phase-4 brief):** (B) Spanish `es` locale in compiled
+   builds; (C) date/time X axes in the plot editor; (D) dockable workspace
+   foundation; (E) UI design-system foundation; (F) benchmarks.
    Branding: the owner keeps "SuperRStudio" as a provisional development
    name and defers the public decision; keep branding modular, publish no
    branded releases ([BRANDING.md](docs/superrstudio/BRANDING.md)).
