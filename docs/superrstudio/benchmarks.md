@@ -101,6 +101,32 @@ Each configuration runs one discarded warm-up launch, then three measured launch
 
 Points spend about 2.0 s in R (Cairo rasterisation of 100,000 antialiased points). Lines spend 0.36 s in R; the rest is transfer and the browser decoding a 1.5 MB SVG. Both are follow-up candidates. They were not changed in this session, because the remaining costs are in rendering quality trade-offs (antialiasing) and browser decoding.
 
+## Fourth session: Visual tab, theme switch, preview canvas (2026-10-29, afternoon)
+
+The same commands were run after adding the Visual workbench tab, the light/dark switch and the resizable canvas. The machine was more loaded than in the morning run: the unmodified baseline itself went from 3.32 s to 3.94 s, and console round trips from 29 ms to 45 ms. **Only comparisons within the same run are meaningful.**
+
+| Configuration (medians of 3 + warm-up) | Ready | Console | R session | Electron |
+| --- | --- | --- | --- | --- |
+| Upstream baseline build | 3.94 s | 45 ms | 128.3 MB | 567 MB |
+| This fork, features off | 4.29 s | 45 ms | 128.4 MB | 643 MB |
+| This fork, features on, idle (Visual tab, theme switch) | 4.27 s | 48 ms | 132.0 MB | 643 MB |
+| Features on, after a 100,000-row preview | 4.30 s | 45 ms | 266 MB | 702 MB |
+
+**Interpretation**
+- **Start-up with the features off or on is equal** (4.29 s against 4.27 s). The Visual tab, the layout migration and the toolbar switch add no measurable start-up cost.
+- **The gap to the baseline (0.35 s here, none in the morning run) is not from new code.** It appears with the features off too, the client size is unchanged (35.7 MB draft against 13.3 MB optimised), and it was absent on the less loaded machine. Parsing the unoptimised draft client is the likely cost under load. Confirming this needs an optimised client build of this fork; it remains the open follow-up.
+- **In-window preview latency at 100,000 rows** was 1.83 s for lines and 2.90 s for points, against 1.49 s and 2.36 s in the morning. That is the same proportional slowdown as the R-level timings of this run (100,000-row lines 0.47 s against 0.36 s).
+
+**Preview canvas (R level, 10,000 rows, scatter with lm)**
+
+| Canvas | Preview |
+| --- | --- |
+| 5 × 3.75 in | 0.42 s |
+| 10 × 7.5 in | 0.54 s |
+| 16 × 9 in (bitmap capped at 2,400 px) | 0.54 s |
+
+A large canvas costs about 0.1 s more per preview. The 2,400-pixel cap bounds the cost beyond about 12 in.
+
 ## Not measured or not comparable yet
 
 - **Unmodified installed RStudio.** It was not used, to keep the official installation untouched. The baseline is the pristine upstream build in the `SuperRStudio-baseline` worktree, run through the same development launcher.

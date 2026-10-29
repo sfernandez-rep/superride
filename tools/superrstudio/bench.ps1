@@ -76,6 +76,9 @@ if ($Skip -ne 'desktop')
       # run 0 warms the profile (first launch creates it) and is not recorded
       for ($i = 0; $i -le $Runs; $i++)
       {
+         # the previous desktop may still be closing: wait up to a minute for its port
+         for ($wait = 0; $wait -lt 60 -and (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue); $wait++)
+         { Start-Sleep -Seconds 1 }
          if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) { throw "Port $Port in use" }
          $launched = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
          $since = Get-Date

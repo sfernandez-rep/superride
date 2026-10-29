@@ -168,10 +168,14 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    Done (fourth session): dockable Visual tab with layout migration.
    Done (fourth session): light/dark switch; resizable preview canvas with
    export modes.
-   **Next exact task:** (D) responsive plot-editor layout for narrow panes
-   (stack the preview above the settings when the docked pane is narrower
-   than the two columns; keep the floating window as it is), then (E)
-   benchmarks of the docked editor and canvas sizes with `bench.ps1`.
+   Done: responsive docked layout (preview first in narrow panes); benchmarks
+   of the new features (no start-up cost from features on vs off; canvas
+   cost recorded in docs/superrstudio/benchmarks.md).
+   **Next exact task:** build an optimised (non-draft) client of this fork
+   and repeat `bench.ps1` against the baseline, to settle the 0.35 s start-up
+   gap seen under load. Then: dockable length-frequency window (same
+   dock/undock approach); remaining TropFishR features (Beverton-Holt Z,
+   yield per recruit) with reference data; domain review.
    Then: remaining in-window preview overhead for 100,000-point scatter
    plots (2.4 s; R side 2.0 s is Cairo rasterisation of points), an
    optimised (non-draft) GWT build for memory comparisons with the

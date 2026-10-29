@@ -88,6 +88,15 @@ for (n in sizes)
    time(sprintf('preview map, date X lines (%s rows)', format(n, big.mark = ',')),
         data('render', name, rev, 'day', 'mass', list(geometry = 'lines')), n = max(3L, repetitions %/% 2L))
 }
+# the preview canvas: the preview is drawn at its physical size (bitmaps
+# capped at 2400 px a side), so larger canvases cost more to rasterise
+for (canvas in list(c(5, 3.75), c(10, 7.5), c(16, 9)))
+{
+   rev <- data('inspect', 'rows_10000')$revision
+   time(sprintf('preview map, scatter + lm (10,000 rows), canvas %g x %g in', canvas[1L], canvas[2L]),
+        data('render', 'rows_10000', rev, 'length', 'mass', list(fit = 'lm', canvas_width = canvas[1L],
+                                                                 canvas_height = canvas[2L])), n = 3L)
+}
 # switching datasets: inspect of another frame right after one was selected
 time('switch dataset (10,000 -> 100,000 rows) and render',
      { r <- data('inspect', 'rows_100000')$revision; data('render', 'rows_100000', r, 'length', 'mass') },
