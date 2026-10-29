@@ -34,12 +34,16 @@ param(
    # Passes --automation-agent (enables the window.rstudio automation bridge).
    [switch]$Automation,
    # Wait for the desktop to exit and return its exit code.
-   [switch]$Wait
+   [switch]$Wait,
+   # Native build to run (default build\superrstudio-windows), e.g. the pristine
+   # baseline's build for comparisons; its session serves that build's client.
+   [string]$BuildDir = ''
 )
 
 . (Join-Path $PSScriptRoot 'dev-common.ps1')
 
-$session = Join-Path $SrsBuildDir 'src\cpp\session\rsession.exe'
+if (-not $BuildDir) { $BuildDir = $SrsBuildDir }
+$session = Join-Path $BuildDir 'src\cpp\session\rsession.exe'
 if (-not (Test-Path $session)) { throw "rsession.exe not built; run tools\superrstudio\dev-build.ps1 first." }
 if (-not (Test-Path (Join-Path $SrsRoot 'src\gwt\www\rstudio\rstudio.nocache.js'))) { throw "GWT client not built; run tools\superrstudio\dev-build.ps1 -Component gwt." }
 if (-not (Test-Path $RExe)) { throw "R not found: $RExe" }
@@ -68,7 +72,7 @@ if (-not (Test-Path $prefs))
 # Child environment: the launched process inherits these; they are restored in
 # this shell afterwards so running the script never alters the caller.
 $childEnv = [ordered]@{
-   RSTUDIO_CPP_BUILD_OUTPUT = $SrsBuildDir; RSTUDIO_WHICH_R = $RExe; R_LIBS_USER = $RLibrary
+   RSTUDIO_CPP_BUILD_OUTPUT = $BuildDir; RSTUDIO_WHICH_R = $RExe; R_LIBS_USER = $RLibrary
    R_PROFILE_USER = 'NUL'; R_ENVIRON_USER = 'NUL'; RSTUDIO_DISABLE_WHATS_NEW = '1'; RS_NO_SPLASH = '1'
    ELECTRON_RUN_AS_NODE = $null   # set by some hosts (e.g. VS Code); breaks Electron
    SUPER_RSTUDIO_EXPERIMENTAL = $(if ($Experimental) { '1' } else { $null })

@@ -684,6 +684,14 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    stopifnot(bitmap$format == 'png', startsWith(bitmap$image, substr(png, 1L, 5L)),
              isTRUE(all.equal(bitmap$regions, map$regions, tolerance = 0.02)),
              isTRUE(all.equal(bitmap$elements, map$elements, tolerance = 0.02)))
+   # paths are counted by vertices, points by rows: a long line stays SVG
+   long <- data.frame(t = seq_len(20000L), v = sin(seq_len(20000L) / 500))
+   lineMap <- toolsEnv$.rs.superrstudioInteractive(ggplot2::ggplot(long, ggplot2::aes(t, v)) + ggplot2::geom_line())
+   pointMap <- toolsEnv$.rs.superrstudioInteractive(ggplot2::ggplot(long, ggplot2::aes(t, v)) + ggplot2::geom_point())
+   bothMap <- toolsEnv$.rs.superrstudioInteractive(ggplot2::ggplot(long, ggplot2::aes(t, v)) + ggplot2::geom_line() +
+                                                   ggplot2::geom_point())
+   stopifnot(lineMap$format == 'svg', pointMap$format == 'png', bothMap$format == 'png',
+             any(vapply(lineMap$elements, function(e) e$role == 'lines', NA)))
    cat('PASS: interactive preview (SVG and PNG, element map vs expansion arithmetic, legend position, device restored, all kinds)\n')
 
    cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation, appearance, colour mapping\n')

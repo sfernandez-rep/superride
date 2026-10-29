@@ -9,6 +9,14 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 
 # RPC entry point. Validation failures are returned as data rather than raised,
 # so the dialog reports them without R also printing them in the console.
+#' The product name in generated comments and notes
+#'
+#' The single place to change for a future name (see docs/superrstudio/
+#' BRANDING.md). File-format identifiers such as "# SuperRStudio scatter v5"
+#' and "superrstudio-lfq-analyses" are formats, not branding: they never
+#' change, so that saved scripts and files keep loading.
+.rs.addFunction('superrstudioBrand', function() 'SuperRStudio')
+
 .rs.addFunction('superrstudioDataRpc', function(operation, dataset = '', revision = '', x = '', y = '',
                                               available = character(), appearance = list())
 {
@@ -178,10 +186,16 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #' @return A list with the image (SVG text or base64 PNG), its format and
 #'   pixel size, and the element map.
 .rs.addFunction('superrstudioInteractive', function(plot, width = 5, height = 3.75,
-                                                  svg_rows = 5000L)
+                                                  svg_rows = 5000L, svg_vertices = 100000L)
 {
    built <- ggplot2::ggplot_build(plot)
-   vector <- sum(vapply(built$data, NROW, 0)) <= svg_rows
+   # SVG holds one element per point or bar but a single element per path, so
+   # paths are counted separately: a 100,000-vertex line is a 1.5 MB SVG drawn
+   # in 0.14 s, whereas antialiased Cairo PNG takes 4.3 s (benchmarks record)
+   path <- vapply(plot$layers, function(layer)
+      inherits(layer$geom, c('GeomPath', 'GeomLine', 'GeomStep', 'GeomSmooth', 'GeomDensity', 'GeomArea')), NA)
+   rows <- vapply(built$data, NROW, 0)
+   vector <- sum(rows[!path]) <= svg_rows && sum(rows[path]) <= svg_vertices
    file <- tempfile('superrstudio-', fileext = if (vector) '.svg' else '.png')
    previous <- grDevices::dev.cur()
    if (vector)
