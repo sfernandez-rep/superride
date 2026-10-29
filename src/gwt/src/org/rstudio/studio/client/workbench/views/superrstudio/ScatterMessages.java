@@ -105,6 +105,8 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Browse…") String exportBrowse();
    @DefaultMessage("Date breaks") String dateBreaks();
    @DefaultMessage("Visual") String visualTab();
+   @DefaultMessage("Switch to the dark theme ({0})") String themeToDark(String theme);
+   @DefaultMessage("Switch to the light theme ({0})") String themeToLight(String theme);
    @DefaultMessage("Dock in the Visual pane") String dockHere();
    @DefaultMessage("Open as a floating window") String floatWindow();
    @DefaultMessage("The plot editor is open as a floating window. Dock it here to work with it beside the console and the source editor.") String visualPlaceholder();

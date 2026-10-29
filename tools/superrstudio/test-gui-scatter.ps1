@@ -20,6 +20,8 @@
      visual      the Visual workbench tab and pane-layout migration: one profile
                  launched three times (a layout saved before the tab existed,
                  experimental; restart; features off) with desktop-visual.cjs
+     theme       the one-click light/dark switch: one fresh profile launched three
+                 times (toggle and remembered theme; restart; features off)
 
    Screenshots and generated code go to .cache\superrstudio\gui-scatter.
 #>
@@ -33,10 +35,12 @@ param(
 
 . (Join-Path $PSScriptRoot 'dev-common.ps1')
 $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ } |
-   ForEach-Object { if ($_ -eq 'visual') { 'visual-migrate', 'visual-restart', 'visual-off' } else { $_ } })
+   ForEach-Object { if ($_ -eq 'visual') { 'visual-migrate', 'visual-restart', 'visual-off' }
+                    elseif ($_ -eq 'theme') { 'theme-first', 'theme-restart', 'theme-off' } else { $_ } })
 foreach ($name in $Scenario)
 {
-   if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es', 'visual-migrate', 'visual-restart', 'visual-off')
+   if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es', 'visual-migrate', 'visual-restart', 'visual-off',
+                    'theme-first', 'theme-restart', 'theme-off')
    { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
@@ -47,9 +51,12 @@ if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyCon
 $results = [ordered]@{}
 foreach ($name in $Scenario)
 {
-   $profileName = if ($name -like 'visual-*') { 'gui-visual' } else { "gui-$name" }
+   $profileName = if ($name -like 'visual-*') { 'gui-visual' } elseif ($name -like 'theme-*') { 'gui-theme' } else { "gui-$name" }
+   # the theme sequence starts from a fresh profile (preferences and the
+   # desktop's local storage, where the remembered themes live)
+   if ($name -eq 'theme-first') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
    $run = @{ ProfileName = $profileName; DebugPort = $Port; Automation = $true }
-   if ($name -notin 'disabled', 'visual-off') { $run.Experimental = $true }
+   if ($name -notin 'disabled', 'visual-off', 'theme-off') { $run.Experimental = $true }
    if ($name -eq 'visual-migrate')
    {
       # a customised layout saved by RStudio before the Visual tab existed
@@ -89,9 +96,9 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' }
+      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
                                          default { 'desktop-scatter.cjs' } }
-      $argument = if ($name -like 'visual-*') { $name.Substring(7) } else { $name }
+      $argument = if ($name -like 'visual-*') { $name.Substring(7) } elseif ($name -like 'theme-*') { $name.Substring(6) } else { $name }
       & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $argument | Out-Host
       $results[$name] = if ($LASTEXITCODE -eq 0) { 'PASS' } else { "FAIL (exit $LASTEXITCODE)" }
    }
