@@ -130,6 +130,7 @@ public class ScatterDialog extends DialogBox
       dock_.setVisible(!docked && commands_.activateVisual().isVisible());
       float_.setVisible(docked);
       body_.getElement().setAttribute("data-superrstudio-docked", String.valueOf(docked));
+      body_.setStyleName(SuperRStudioTheme.DOCKED, docked);
    }
 
    // the editor's requests answer only while its body is shown (docked or floating)
@@ -550,9 +551,12 @@ public class ScatterDialog extends DialogBox
       preview.add(editSelected_);
       preview.add(heading(messages_.exportHeading()));
       preview.add(createExportPanel());
-      HorizontalPanel main = new HorizontalPanel();
-      // top-aligned: the preview must not move when the settings column grows
-      main.setVerticalAlignment(HasVerticalAlignment.ALIGN_TOP);
+      // two top-aligned columns that wrap when the space is narrower than
+      // both (a docked quarter-screen pane); docked, the preview comes first
+      FlowPanel main = new FlowPanel();
+      main.addStyleName(SuperRStudioTheme.COLUMNS);
+      panel.addStyleName(SuperRStudioTheme.SETTINGS_COLUMN);
+      preview.addStyleName(SuperRStudioTheme.PREVIEW_COLUMN);
       main.add(panel);
       main.add(preview);
       return main;

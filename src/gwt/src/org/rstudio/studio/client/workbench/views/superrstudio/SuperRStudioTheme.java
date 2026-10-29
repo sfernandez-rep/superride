@@ -21,6 +21,10 @@ public class SuperRStudioTheme
    public static final String STATUS = "srs-status";
    public static final String BUSY = "srs-busy";
    public static final String ERROR = "srs-error";
+   public static final String COLUMNS = "srs-columns";
+   public static final String SETTINGS_COLUMN = "srs-settings-column";
+   public static final String PREVIEW_COLUMN = "srs-preview-column";
+   public static final String DOCKED = "srs-docked";
 
    public static void ensureInjected()
    {
@@ -39,7 +43,9 @@ public class SuperRStudioTheme
          " border-right-color: transparent; border-radius: 50%; animation: srs-spin 0.8s linear infinite; }\n" +
          "@media (prefers-reduced-motion: reduce) { .srs-dialog .srs-busy::before { animation: none; } }\n" +
          "@keyframes srs-spin { to { transform: rotate(360deg); } }\n" +
-         ".srs-dialog :focus-visible { outline: 2px solid var(--srs-accent); outline-offset: 1px; }\n");
+         ".srs-dialog :focus-visible { outline: 2px solid var(--srs-accent); outline-offset: 1px; }\n" +
+         ".srs-columns { display: flex; flex-wrap: wrap; align-items: flex-start; }\n" +
+         ".srs-docked .srs-preview-column { order: -1; }\n");
    }
 
    // Like upstream's ModalDialogBase: a theme-aware dialog, dark when the IDE

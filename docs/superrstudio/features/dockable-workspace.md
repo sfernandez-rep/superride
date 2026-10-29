@@ -56,7 +56,13 @@ The new code is in `workbench/views/visual/` (`VisualTab`, `VisualPresenter`, `V
 2. **restart** (features on): the layout saved by the first launch, with Visual in tab set 1 and History still in tab set 2, is restored. The editor docks at start-up and lists data created afterwards when the tab is shown again. A defect found here was fixed: an editor docked before any data existed kept an empty list.
 3. **off** (features disabled, with that saved layout): no Visual tab, the commands are invisible, the plot-editor button is hidden, there are no client exceptions, and the layout is preserved.
 
+## Narrow panes
+
+- The editor's two columns wrap when the pane is narrower than both. Docked, the preview comes first and the settings follow below it.
+- The floating window and a zoomed pane (*Zoom Visual*) keep the settings and the preview side by side.
+- The desktop test checks both arrangements.
+
 ## Limitations and next steps
 
-- In a quarter-screen pane the editor's two columns need horizontal scrolling. Zoom the pane (*Zoom Visual*) to use the full window. A layout that adapts to narrow panes belongs with the resizable preview canvas.
+- The settings column has fixed control widths, so a very narrow pane still scrolls horizontally.
 - The length-frequency window is not dockable yet; the same `dock` / `undock` approach applies.

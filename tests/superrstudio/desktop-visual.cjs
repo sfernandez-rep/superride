@@ -42,6 +42,12 @@ const layout = page => page.evaluate(() => {
            history: visible('rstudio_workbench_tab_history'), environment: visible('rstudio_workbench_tab_environment'),
            help: visible('rstudio_workbench_tab_help')};
 });
+// where the preview sits relative to the settings: above (stacked) or beside
+const arrangement = page => page.evaluate(() => {
+   const preview = document.getElementById('superrstudio_interactive').getBoundingClientRect();
+   const dataset = document.getElementById('superrstudio_dataset').getBoundingClientRect();
+   return preview.bottom <= dataset.top ? 'above' : preview.left >= dataset.right ? 'beside' : 'other';
+});
 const waitCode = (page, source) => page.waitForFunction(s => new RegExp(s).test(document.getElementById('superrstudio_code')?.value || ''),
                                                         source, {timeout: 60000});
 
@@ -101,7 +107,8 @@ const waitCode = (page, source) => page.waitForFunction(s => new RegExp(s).test(
       await page.waitForFunction(() => document.querySelector('#superrstudio_visual_host #superrstudio_interactive img')?.src);
       const docked = await page.locator('#superrstudio_code').inputValue();
       await shot(page, '1-docked');
-      log('PASS editor docked in the Visual pane: preview and code rendered');
+      expect(await arrangement(page) === 'above', 'docked in a narrow pane, the preview is not first: ' + await arrangement(page));
+      log('PASS editor docked in the Visual pane: preview and code rendered; narrow pane shows the preview first');
       // the same editor floats, keeping its state, and docks again
       await page.locator('#rstudio_superrstudio_float').click();
       await page.getByRole('dialog').waitFor();
@@ -109,6 +116,7 @@ const waitCode = (page, source) => page.waitForFunction(s => new RegExp(s).test(
              await page.locator('#superrstudio_x').inputValue() === 'day' &&
              await page.locator('#superrstudio_code').inputValue() === docked, 'state lost when floating');
       await page.locator('#superrstudio_visual_dock_here').waitFor({state: 'attached'});
+      expect(await arrangement(page) === 'beside', 'floating editor not in two columns: ' + await arrangement(page));
       await shot(page, '2-floating');
       await page.locator('#rstudio_superrstudio_dock').click();
       await page.getByRole('dialog').waitFor({state: 'detached'});
