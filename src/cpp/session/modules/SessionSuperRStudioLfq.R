@@ -56,7 +56,8 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
       if (!installed) fail('TropFishR is not installed in the active R library.')
       return(.rs.superrstudioLfqStart(data, dataset, settings))
    }
-   input <- .rs.superrstudioLfqInput(data, dataset, settings)
+   # a check may come before a species is chosen (it lists the species)
+   input <- .rs.superrstudioLfqInput(data, dataset, settings, strict = operation == 'lfq_create')
    if (operation == 'lfq_check') return(input$report)
    if (!installed)
       fail('TropFishR is not installed in the active R library. Install it explicitly (install.packages("TropFishR")), then retry.')
@@ -129,7 +130,7 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
 #' what each rule removes. Lengths that TropFishR would silently ignore
 #' (zero, negative or below the minimum length class) are removed here
 #' explicitly so they can be counted.
-.rs.addFunction('superrstudioLfqInput', function(data, dataset, settings)
+.rs.addFunction('superrstudioLfqInput', function(data, dataset, settings, strict = TRUE)
 {
    fail <- function(message) stop(message, call. = FALSE)
    s <- .rs.superrstudioLfqSettings(settings)
@@ -172,7 +173,7 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
       condition
    }
    conditions <- list()
-   if (nzchar(s$species_column))
+   if (nzchar(s$species_column) && (strict || nzchar(s$species)))
    {
       if (!nzchar(s$species)) fail('Choose the species to analyse (or clear the species column).')
       conditions <- c(conditions, rule(sprintf('other species than "%s" (or no species)', s$species),

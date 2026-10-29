@@ -66,6 +66,8 @@ import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentObj
 import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentObjectsObserver;
 import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentResources;
 import org.rstudio.studio.client.workbench.views.environment.view.MemUsageWidget;
+import org.rstudio.studio.client.workbench.views.superrstudio.LfqDialog;
+import org.rstudio.studio.client.workbench.views.superrstudio.LfqMessages;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterDialog;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult;
@@ -157,6 +159,7 @@ public class EnvironmentPane extends WorkbenchPane
       toolbar.addLeftSeparator();
       toolbar.addLeftWidget(createImportMenu());
       toolbar.addLeftWidget(createScatterButton());
+      toolbar.addLeftWidget(createLfqButton());
       toolbar.addLeftSeparator();
       memUsage_ = new MemUsageWidget(session_.getSessionInfo().getMemoryUsage(), prefs_);
       toolbar.addLeftWidget(memUsage_);
@@ -581,6 +584,36 @@ public class EnvironmentPane extends WorkbenchPane
          public void onError(ServerError error)
          {
             // older or disabled backend: keep the ordinary IDE
+         }
+      });
+
+      return button;
+   }
+
+   // SuperRStudio: the length-frequency (TropFishR) workflow, opt-in like the
+   // plot editor.
+   private Widget createLfqButton()
+   {
+      LfqMessages messages = GWT.create(LfqMessages.class);
+      ToolbarButton button = new ToolbarButton(
+            messages.toolbarLabel(),
+            messages.title(),
+            (ImageResource) null,
+            event -> LfqDialog.open(server_, events_));
+      ElementIds.assignElementId(button, "superrstudio_lfq");
+      button.setVisible(false);
+
+      server_.superrstudioData("status", "", "", "", "", null, new ServerRequestCallback<ScatterResult>()
+      {
+         @Override
+         public void onResponseReceived(ScatterResult result)
+         {
+            button.setVisible(result.enabled());
+         }
+
+         @Override
+         public void onError(ServerError error)
+         {
          }
       });
 

@@ -13,6 +13,8 @@
      ggplot2     -Experimental, isolated library with ggplot2
      no-ggplot2  -Experimental, empty library (missing-package path)
      disabled    no -Experimental (button hidden, IDE unchanged)
+     lfq         -Experimental, isolated library with TropFishR (length-frequency
+                 workflow; tests\superrstudio\desktop-lfq.cjs; not in the default set)
 
    Screenshots and generated code go to .cache\superrstudio\gui-scatter.
 #>
@@ -28,7 +30,7 @@ param(
 $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 foreach ($name in $Scenario)
 {
-   if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled') { throw "Unknown scenario: $name" }
+   if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq') { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
 $env:SUPER_RSTUDIO_CDP_PORT = "$Port"
@@ -55,7 +57,8 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      & $Node (Join-Path $SrsRoot 'tests\superrstudio\desktop-scatter.cjs') $name | Out-Host
+      $test = if ($name -eq 'lfq') { 'desktop-lfq.cjs' } else { 'desktop-scatter.cjs' }
+      & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $name | Out-Host
       $results[$name] = if ($LASTEXITCODE -eq 0) { 'PASS' } else { "FAIL (exit $LASTEXITCODE)" }
    }
    catch { $results[$name] = "FAIL ($($_.Exception.Message))" }
