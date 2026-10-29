@@ -9,8 +9,9 @@ The Windows 11 development baseline now passes the live desktop smoke. Local
 Graphify is available through `tools/superrstudio/graphify-local.ps1`; see its
 review record for limits. The non-modal visual plot editor (scatter/lines
 with lm/LOESS fits, histogram, boxplot, bar, density; tibble/data.table;
-load from script) is desktop-verified; continue with the handoff's next
-tasks. Build and run with `tools/superrstudio/dev-*.ps1` as
+load from script; interactive right-click editing; axes/facets; export)
+and the TropFishR length-frequency window are desktop-verified; continue
+with the handoff's next tasks. Build and run with `tools/superrstudio/dev-*.ps1` as
 described in BUILDING.md.
 
 Follow [AGENTS.md](AGENTS.md) for fork-specific instructions and current gates.

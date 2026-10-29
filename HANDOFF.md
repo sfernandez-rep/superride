@@ -1,6 +1,6 @@
 # SuperRStudio handoff
 
-Updated 2026-10-28, America/Montevideo, by Claude Code (continuing Codex's work).
+Updated 2026-10-28 (second session), America/Montevideo, by Claude Code (continuing Codex's work).
 Continue this repository; do not restart initialization, recreate the GitHub
 fork, clone RStudio again or reinstall verified dependencies. The original brief
 is [PROJECT_BRIEF.md](docs/superrstudio/PROJECT_BRIEF.md); supplemental
@@ -41,10 +41,19 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    spec schema 4) and **image export** (PNG/SVG/PDF via `ggsave()` with a
    reproducible script). Settings are in three accessible tabs.
    Details, design and evidence: [visual-scatter.md](docs/superrstudio/features/visual-scatter.md).
-2. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
+2. **Length-frequency analysis with TropFishR** (Milestone E first slice),
+   opt-in, Environment toolbar *Length frequency*: data mapping and checks
+   (rows removed per rule, per-date sample sizes, species), `lfqCreate` /
+   `lfqRestructure` with TropFishR's plots, `ELEFAN_GA` (seeds) /
+   `ELEFAN_SA` / `ELEFAN` in a separate Rscript process with progress and
+   cancel, and a comparison of every run with its full configuration and
+   code. Record: [lfq-tropfishr.md](docs/superrstudio/features/lfq-tropfishr.md).
+   TropFishR 1.6.6 and its dependencies are installed only in the isolated
+   test library (`.cache\superrstudio\r-library`).
+3. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
    `install-vscode.ps1`. Usage: [BUILDING.md](BUILDING.md#superrstudio-development-mode-windows).
-3. Windows baseline (Codex): full native/GWT/Electron build, R-session suites,
+4. Windows baseline (Codex): full native/GWT/Electron build, R-session suites,
    live GUI smoke. [GUI record](docs/superrstudio/baseline/windows-gui-2026-10-28.md),
    [provisioning record](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
 
@@ -54,8 +63,10 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
 tools\superrstudio\dev-build.ps1                 # incremental native + GWT
 tools\superrstudio\dev-run.ps1 -Experimental     # launch with SuperRStudio features
 $env:R_LIBS_USER="$PWD\.cache\superrstudio\r-library"; Rscript tests\superrstudio\visual-scatter.R
+Rscript tests\superrstudio\lfq-tropfishr.R           # same R_LIBS_USER; TropFishR contract
 tools\superrstudio\test-session.cmd experimental # upstream rsession suite
 tools\superrstudio\test-gui-scatter.ps1          # live desktop acceptance (3 scenarios)
+tools\superrstudio\test-gui-scatter.ps1 -Scenario lfq   # length-frequency window
 ```
 
 Build tree: `build\superrstudio-windows` (Ninja, RelWithDebInfo, GWT_BUILD=OFF).
@@ -70,9 +81,11 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | `dev-build.ps1` native + GWT | PASS (no-op native ~2 s; GWT ~75 s, skipped when unchanged) |
 | `visual-scatter.R`, R 4.6.1 + ggplot2 | PASS |
 | `visual-scatter.R`, R 3.6.3 | PASS missing-package path; rendering SKIP |
-| Upstream R-session suite on feature build, feature off and on | 654 passed / 655 (1 skipped), same as baseline |
+| Upstream R-session suite on feature build, feature off and on | 654 passed / 655 (1 skipped), same as baseline (re-run 2026-10-28 after the LFQ module, feature on) |
 | Live desktop scatter: ggplot2 (incl. appearance, undo, reset, colour mapping, lines, lm/loess fits, histogram, boxplot, right-click editing, axes/facets, export) / no-ggplot2 / disabled | PASS / PASS / PASS |
 | Debug launch (DevTools 9222, Node inspector 9229), `-Wait` exit code | PASS |
+| `lfq-tropfishr.R`, R 4.6.1 + TropFishR 1.6.6 / R 3.6.3 | PASS / PASS (missing-package path) |
+| Live desktop length-frequency (`-Scenario lfq`) | PASS |
 
 Known failures/limitations (unchanged from baseline unless noted):
 `LoggingTest.CanJsonLogError` expects an English Windows message (host is
@@ -93,9 +106,14 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    density kinds. Done: *Load from script* restores a plot's specification
    from its generated code (foundation for structured editing).
    Done (second session): interactive right-click editing, axes/facets,
-   image export. **Next:** TropFishR length-frequency module (Milestone E,
-   separate module reusing the session/dataset infrastructure; TropFishR
-   optional), then date/time X scales, dockable workspace investigation.
+   image export, TropFishR length-frequency module (first slice).
+   **Next (in order):** (a) LFQ: saved configurations (persist run
+   records to a project file), `lfqModify` options (date subsets, merging
+   fleets), seasonal-growth GUI test, then mortality (catch curve) with
+   reference datasets; (b) plot editor: date/time X scales (LFQ sampling
+   dates), per-observation tooltips; (c) dockable workspace investigation
+   (Milestone C); (d) `es` locale build (Milestone F); (e) performance
+   benchmarks (Milestone G).
    Branding: the owner keeps "SuperRStudio" as a provisional development
    name and defers the public decision; keep branding modular, publish no
    branded releases ([BRANDING.md](docs/superrstudio/BRANDING.md)).

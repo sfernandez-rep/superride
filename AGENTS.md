@@ -21,6 +21,10 @@ For day-to-day work use `tools/superrstudio/dev-build.ps1` / `dev-run.ps1`
 (incremental, isolated profiles; see BUILDING.md) and verify visual features in
 the live desktop (`tools/superrstudio/test-gui-scatter.ps1` is the pattern).
 SuperRStudio features stay opt-in behind `SUPER_RSTUDIO_EXPERIMENTAL=1`.
+TropFishR (with its dependencies) is installed only in the isolated test
+library for the length-frequency module; never install it into user or
+project libraries. Long analyses run in a separate Rscript process, never on
+the session thread.
 
 - This is an RStudio fork. Preserve the existing GWT workbench, Electron shell,
   C++/R session, `.Rproj`, packages, themes, shortcuts and reporting workflows.

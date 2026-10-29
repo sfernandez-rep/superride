@@ -147,6 +147,8 @@ async function closeDialog(page)
       await button.waitFor({state: 'attached'});
       await page.waitForTimeout(5000);
       if (await button.isVisible()) throw new Error('scatter button visible while the feature is disabled');
+      if (await page.locator('#rstudio_superrstudio_lfq').isVisible())
+         throw new Error('length-frequency button visible while the feature is disabled');
       await shot(page, '1-disabled');
       log('PASS feature disabled by default (button hidden)');
       log('DESKTOP_SCATTER_DISABLED_PASS');
