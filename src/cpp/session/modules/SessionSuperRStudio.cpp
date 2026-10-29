@@ -80,7 +80,8 @@ Error initialize()
    if (s_enabled)
    {
       for (const char* file : {"SessionSuperRStudio.R", "SessionSuperRStudioLfq.R",
-                               "SessionSuperRStudioLfqLibrary.R", "SessionSuperRStudioLfqMortality.R"})
+                               "SessionSuperRStudioLfqLibrary.R", "SessionSuperRStudioLfqMortality.R",
+                               "SessionSuperRStudioLfqYield.R"})
       {
          Error error = module_context::sourceModuleRFile(file);
          if (error)

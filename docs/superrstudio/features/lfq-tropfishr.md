@@ -34,7 +34,7 @@ documentation (verified, not assumed):
 | `catchCurve` on length data | A catch matrix needs `catch_columns`; without them the function stops. `vectorise_catch` drops empty classes at both ends, which renumbers the regression points. The module therefore uses `catch_columns`, and point numbers always refer to the object shown. |
 | Automatic regression points | `auto = TRUE` regresses from the class after the highest point to the last class with ln(C/dt) > 0.2. The module reports this choice and turns it into explicit `reg_int` values. |
 
-## Workflow (six tabs)
+## Workflow (seven tabs)
 
 1. **Data**
    - Choose a data frame, the length column and its unit (cm, mm or m), and the sampling-date column (Date/POSIXct, or text with an explicit format).
@@ -75,7 +75,34 @@ documentation (verified, not assumed):
      - classes without age (≥ Linf);
      - F < 0.
    - The text states the method's assumptions: steady state, full selection of the classes in the regression, and representative samples. **A diagnostic list does not declare an estimate reliable.**
-6. **Saved analyses**: a versioned JSON file (see below).
+6. **Yield per recruit**: Beverton–Holt Z from mean length and yield per recruit. Both use Linf, K and M as chosen in the Mortality tab.
+   - **Z from mean length** (`Z_BevertonHolt`):
+     - Formula: Z = K (Linf − L̄) / (L̄ − L′), where L̄ is the mean length of the fish at or above L′, the smallest fully selected length (a class midpoint). TropFishR uses the lower bound of that class.
+     - Reports Z, L̄, the number of fish used, and M, F and E when M is chosen.
+     - The plot shows the catch by length with L′, L̄ and Linf.
+     - **TropFishR 1.6.6 detail:** `Z_BevertonHolt()` reads `Linf` and `K` from the top level of its argument, not from `$par`. With an `lfqModify()` object it silently returns an empty Z. The generated code therefore sets `lfq_bh$Linf` and `lfq_bh$K` explicitly, and the tests pin this behaviour.
+     - Diagnostics:
+       - the equilibrium assumption (always shown);
+       - L′ below the most frequent class (not fully selected; Z biased);
+       - fewer than 100 fish at or above L′;
+       - L̄ at least 90 % of Linf;
+       - F < 0.
+   - **Yield per recruit, Beverton and Holt** (`predict_mod(type = "ypr")`, length-based):
+     - Inputs:
+       - length–weight a and b;
+       - the length at recruitment Lr;
+       - selection: knife-edge at Lc, or a trawl-type ogive (L50, L75) on the data's length classes;
+       - the F grid (largest F and step);
+       - optionally the current E and Lc.
+     - Reports F0.1, Fmax and F0.5, with the matching E, M, and at the current E the F, yield per recruit and biomass per recruit. The plot is TropFishR's.
+     - Diagnostics:
+       - the model's assumptions (always shown);
+       - the grid step limits the precision of the reference points;
+       - Fmax at the end of the grid (extend the range);
+       - the current E above Emax.
+
+       These are statements of fact about the model; they do not judge stock status.
+7. **Saved analyses**: a versioned JSON file (see below).
    - Save the current settings, or the configuration of a recorded run with its seed and estimates (this duplicates a previous run).
    - Restore, *Run again* (restore, create, run), rename, duplicate, delete, and compare two saved analyses setting by setting.
 
@@ -153,12 +180,25 @@ The R contract checks:
   - M with Then (growth) and Pauly.
 
   The code reproduces Z, M and E. Diagnostics and invalid settings are tested.
+- **Beverton–Holt Z** checks:
+  - it equals direct `Z_BevertonHolt` (Z, L̄ and L′) on all dates and on a single year;
+  - it also equals the published formula Z = K (Linf − L̄)/(L̄ − L′) computed independently, with L̄ recomputed from the catch;
+  - the empty-Z behaviour with `$par` only is pinned;
+  - the code reproduces Z;
+  - M/E, diagnostics and invalid inputs are tested.
+- **Yield per recruit** checks:
+  - with an ogive, F0.1, Fmax, F0.5, the E values and the current F, Y/R and B/R equal direct `predict_mod`;
+  - with knife-edge selection, TropFishR's relative Y/R curve equals Beverton and Holt's formula (Sparre and Venema 1998, section 8.3) at every grid point (difference < 1e-12). This is an independent reference for the method itself;
+  - the code reproduces the reference points;
+  - the grid-edge and above-Emax diagnostics are tested;
+  - five invalid inputs are refused.
 
 The live desktop test, in the window, checks:
 - the first-slice checks;
 - the sampling-period filter count;
 - seasonal ELEFAN_GA, whose C and ts are reproduced from the run's code;
 - growth taken from a run for the catch curve, automatic and then chosen points, with Z and E reproduced from the code in the console;
+- Beverton–Holt Z (L′ at the first chosen regression class: 0.3572/year against the catch curve's 0.3578/year on synLFQ7) and yield per recruit. Each result is reproduced from its generated code in the console, and the data frame is unchanged;
 - saved analyses:
   - the file is written;
   - rename, duplicate and delete work;
@@ -171,12 +211,18 @@ The live desktop test, in the window, checks:
 ![Compare runs](lfq-compare.png)
 ![Mortality](lfq-mortality.png)
 ![Saved analyses](lfq-saved.png)
+![Yield per recruit](lfq-yield.png)
 
 ## Limitations and next steps
 
 - Not yet reviewed by fisheries scientists. The guidance texts describe the methods; they are not methodological advice. Interpretation (selectivity, sampling design, cohort tracking, steady state) needs domain review.
 - The validation references are TropFishR's own functions on its synthetic data (synLFQ7, generated with Linf 123 and K 0.2). Published case studies with real data have not been reproduced yet.
-- Mortality covers catch curves and `M_empirical` only. Beverton–Holt Z (`Z_BevertonHolt`), yield per recruit (`YPR`/`VPA`) and selectivity models are later steps.
+- Mortality covers catch curves, Beverton–Holt Z from mean length, `M_empirical` and Beverton–Holt yield per recruit. The following are later steps:
+  - Thompson and Bell prediction;
+  - VPA / cohort analysis;
+  - selectivity models (`select_Millar`);
+  - isopleths over a range of Lc.
+- Reference points (F0.1, Fmax, F0.5) are read from the F grid, so their precision is the grid step. They depend on M, growth and selection, all of which are uncertain; the window states this, and it needs expert review before any management use.
 - Fleets cannot be merged (`lfqModify(lfq2 = )`), and lengths cannot be re-binned after creation; the module creates classes directly from the measurements.
 - `ELEFAN_GA` with `parallel = TRUE` is not offered, because reproducible parallel seeds need doRNG.
 - R error messages (for invalid input) are in English. Results, diagnostics, restore warnings and labels are translated.

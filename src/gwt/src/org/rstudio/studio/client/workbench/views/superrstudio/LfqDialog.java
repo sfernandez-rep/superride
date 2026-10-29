@@ -85,7 +85,7 @@ public class LfqDialog extends DialogBox
       Object[][] lists = {{"length", length_}, {"date", date_}, {"date_format", dateFormat_}, {"freq", freq_},
          {"species_column", speciesColumn_}, {"species", species_}, {"unit", unit_}, {"aggregate", aggregate_},
          {"ma", ma_}, {"method", method_}, {"sa_stop", saStop_}, {"cc_year", ccYear_}, {"cc_plus", ccPlus_},
-         {"cc_method", ccMethod_}, {"m_method", mMethod_}};
+         {"cc_method", ccMethod_}, {"m_method", mMethod_}, {"ypr_selection", yprSelection_}};
       for (Object[] entry : lists)
          lists_.put((String) entry[0], (ListBox) entry[1]);
       Object[][] texts = {{"period_start", periodStart_}, {"period_end", periodEnd_}, {"bin_size", binSize_},
@@ -97,7 +97,9 @@ public class LfqDialog extends DialogBox
          {"k_init", kInit_}, {"t_init", tInit_}, {"linf_steps", linfSteps_}, {"k_steps", kSteps_},
          {"label", label_}, {"cc_linf", ccLinf_}, {"cc_k", ccK_}, {"cc_c", ccC_}, {"cc_ts", ccTs_},
          {"cc_plus_value", ccPlusValue_}, {"cc_first", ccFirst_}, {"cc_last", ccLast_}, {"m_temp", mTemp_},
-         {"m_tmax", mTmax_}, {"m_value", mValue_}};
+         {"m_tmax", mTmax_}, {"m_value", mValue_}, {"bh_lprime", bhLprime_}, {"ypr_a", yprA_},
+         {"ypr_b", yprB_}, {"ypr_lr", yprLr_}, {"ypr_lc", yprLc_}, {"ypr_l75", yprL75_}, {"ypr_fmax", yprFmax_},
+         {"ypr_fstep", yprFstep_}, {"ypr_curr_e", yprCurrE_}, {"ypr_curr_lc", yprCurrLc_}};
       for (Object[] entry : texts)
          texts_.put((String) entry[0], (TextBox) entry[1]);
       Object[][] checks = {{"addl_sqrt", addlSqrt_}, {"seasonalised", seasonalised_}, {"cc_ogive", ccOgive_},
@@ -153,6 +155,10 @@ public class LfqDialog extends DialogBox
       option(mMethod_, messages_.mPauly(), "pauly_linf");
       option(mMethod_, messages_.mThenTmax(), "then_tmax");
       option(mMethod_, messages_.mManual(), "manual");
+      option(yprSelection_, messages_.yprKnife(), "knife");
+      option(yprSelection_, messages_.yprOgive(), "ogive");
+      yprFmax_.setValue("3");
+      yprFstep_.setValue("0.05");
       option(saveSource_, messages_.sourceCurrent(), "");
       binSize_.setValue("1");
       lmin_.setValue("0");
@@ -173,6 +179,7 @@ public class LfqDialog extends DialogBox
       ccPlus_.addChangeHandler(e -> mortalityChanged());
       ccMethod_.addChangeHandler(e -> mortalityChanged());
       mMethod_.addChangeHandler(e -> mortalityChanged());
+      yprSelection_.addChangeHandler(e -> mortalityChanged());
       analyses_.addChangeHandler(e -> enableSteps());
 
       // 1. data
@@ -309,6 +316,7 @@ public class LfqDialog extends DialogBox
       addTab(messages_.tabGrowth(), "growth", growthPage);
       addTab(messages_.tabCompare(), "compare", comparePage);
       addTab(messages_.tabMortality(), "mortality", createMortalityPage());
+      addTab(messages_.tabYield(), "yield", createYieldPage());
       addTab(messages_.tabSaved(), "saved", createSavedPage());
       tabBar_.getElement().setAttribute("role", "tablist");
       tabBar_.getElement().setAttribute("aria-label", messages_.steps());
@@ -393,7 +401,55 @@ public class LfqDialog extends DialogBox
       return page;
    }
 
-   // 6. saved analyses
+   // 6. Beverton-Holt Z from mean length and yield per recruit; growth and M
+   // come from the mortality tab (the same settings)
+   private Widget createYieldPage()
+   {
+      VerticalPanel page = new VerticalPanel();
+      page.setSpacing(4);
+      page.add(small(messages_.yieldHelp()));
+      page.add(heading(messages_.bhHeading()));
+      page.add(small(messages_.bhHelp()));
+      Grid bh = new Grid(0, 4);
+      bh.setCellSpacing(2);
+      growthRow(bh, messages_.bhLprime(), bhLprime_, "superrstudio_lfq_bh_lprime", null, null);
+      page.add(bh);
+      page.add(button(computeBh_, "superrstudio_lfq_compute_bh"));
+      page.add(result(bhResult_, "superrstudio_lfq_bh_result"));
+      page.add(heading(messages_.yprHeading()));
+      Grid ypr = new Grid(0, 4);
+      ypr.setCellSpacing(2);
+      growthRow(ypr, messages_.yprA(), yprA_, "superrstudio_lfq_ypr_a", null, null);
+      growthRow(ypr, messages_.yprB(), yprB_, "superrstudio_lfq_ypr_b", null, null);
+      growthRow(ypr, messages_.yprLr(), yprLr_, "superrstudio_lfq_ypr_lr", null, null);
+      growthRow(ypr, messages_.yprSelection(), yprSelection_, "superrstudio_lfq_ypr_selection", null, null);
+      growthRow(ypr, messages_.yprLc(), yprLc_, "superrstudio_lfq_ypr_lc", null, null);
+      growthRow(ypr, messages_.yprL75(), yprL75_, "superrstudio_lfq_ypr_l75", null, null);
+      growthRow(ypr, messages_.yprFmax(), yprFmax_, "superrstudio_lfq_ypr_fmax", null, null);
+      growthRow(ypr, messages_.yprFstep(), yprFstep_, "superrstudio_lfq_ypr_fstep", null, null);
+      growthRow(ypr, messages_.yprCurrE(), yprCurrE_, "superrstudio_lfq_ypr_curr_e", null, null);
+      growthRow(ypr, messages_.yprCurrLc(), yprCurrLc_, "superrstudio_lfq_ypr_curr_lc", null, null);
+      page.add(ypr);
+      page.add(button(computeYpr_, "superrstudio_lfq_compute_ypr"));
+      page.add(result(yprResult_, "superrstudio_lfq_ypr_result"));
+      page.add(small(messages_.yieldCaveat()));
+      yieldImage_.getElement().setId("superrstudio_lfq_yield_image");
+      yieldImage_.getElement().setAttribute("alt", messages_.tabYield());
+      yieldImage_.setPixelSize(480, 314);
+      yieldImage_.setVisible(false);
+      page.add(yieldImage_);
+      return page;
+   }
+
+   private static Label result(Label label, String id)
+   {
+      label.getElement().setId(id);
+      label.getElement().setAttribute("role", "status");
+      label.getElement().getStyle().setProperty("whiteSpace", "pre-line");
+      return label;
+   }
+
+   // 7. saved analyses
    private Widget createSavedPage()
    {
       VerticalPanel page = new VerticalPanel();
@@ -589,6 +645,7 @@ public class LfqDialog extends DialogBox
       mortalityGrid_.getRowFormatter().setVisible(mSchoolingRow_, "pauly_linf".equals(m));
       mortalityGrid_.getRowFormatter().setVisible(mTmaxRow_, "then_tmax".equals(m));
       mortalityGrid_.getRowFormatter().setVisible(mValueRow_, "manual".equals(m));
+      yprL75_.setEnabled("ogive".equals(value(yprSelection_)));
    }
 
    private void enableSteps()
@@ -1000,6 +1057,54 @@ public class LfqDialog extends DialogBox
       code_.setText(result.str("code"));
    }
 
+   // Beverton-Holt Z and yield per recruit ------------------------------------------
+
+   private void computeBh()
+   {
+      request("lfq_bh", value(datasets_), settings(), result -> {
+         StringBuilder text = new StringBuilder(messages_.bhResult(number(result, "z"), number(result, "lmean"),
+            result.str("fish"), number(result, "lprime")));
+         if (result.has("m"))
+            text.append("\n").append(messages_.mResult(number(result, "m"), number(result, "f"), number(result, "e")));
+         appendDiagnostics(text, result);
+         bhResult_.setText(text.toString());
+         showYieldImage(result);
+      });
+   }
+
+   private void computeYield()
+   {
+      request("lfq_yield", value(datasets_), settings(), result -> {
+         StringBuilder text = new StringBuilder(messages_.yprResult(number(result, "f01"), number(result, "fmax"),
+            number(result, "f05"), number(result, "e01"), number(result, "emax"), number(result, "e05"),
+            number(result, "m")));
+         if (!number(result, "curr_f").isEmpty())
+            text.append("\n").append(messages_.yprCurrentResult(number(result, "curr_e"), number(result, "curr_f"),
+               number(result, "curr_ypr"), number(result, "curr_bpr")));
+         appendDiagnostics(text, result);
+         yprResult_.setText(text.toString());
+         showYieldImage(result);
+      });
+   }
+
+   private void appendDiagnostics(StringBuilder text, LfqResult result)
+   {
+      JsArray<LfqResult> diagnostics = result.list("diagnostics");
+      if (diagnostics.length() > 0)
+         text.append("\n").append(messages_.diagnostics());
+      for (int i = 0; i < diagnostics.length(); i++)
+         text.append("\n• ").append(diagnostic(diagnostics.get(i)));
+      if (result.strings("warnings").length() > 0)
+         text.append("\n").append(result.strings("warnings").join("\n"));
+   }
+
+   private void showYieldImage(LfqResult result)
+   {
+      yieldImage_.setUrl("data:image/png;base64," + result.str("image"));
+      yieldImage_.setVisible(true);
+      code_.setText(result.str("code"));
+   }
+
    private static String diagnostic(LfqResult item)
    {
       JsArrayString v = item.strings("values");
@@ -1015,6 +1120,14 @@ public class LfqDialog extends DialogBox
          case "no_age": return messages_.dNoAge(a);
          case "negative_f": return messages_.dNegativeF();
          case "ogive": return messages_.dOgive();
+         case "bh_equilibrium": return messages_.dBhEquilibrium();
+         case "bh_before_mode": return messages_.dBhBeforeMode(a);
+         case "bh_few_fish": return messages_.dBhFewFish(a);
+         case "bh_near_linf": return messages_.dBhNearLinf();
+         case "ypr_assumptions": return messages_.dYprAssumptions();
+         case "ypr_grid": return messages_.dYprGrid(a);
+         case "ypr_fmax_edge": return messages_.dYprFmaxEdge();
+         case "ypr_above_emax": return messages_.dYprAboveEmax(a, b);
          default: return item.str("text");
       }
    }
@@ -1346,14 +1459,14 @@ public class LfqDialog extends DialogBox
    private final Label status_ = new Label(), report_ = new Label(), created_ = new Label(),
                        methodHint_ = new Label(), progress_ = new Label(), groups_ = new Label(), notes_ = new Label(),
                        varies_ = new Label(), mortality_ = new Label(), libraryFile_ = new Label(),
-                       savedStatus_ = new Label();
+                       savedStatus_ = new Label(), bhResult_ = new Label(), yprResult_ = new Label();
    private final ListBox datasets_ = new ListBox(), length_ = new ListBox(), unit_ = new ListBox(),
                          date_ = new ListBox(), dateFormat_ = new ListBox(), freq_ = new ListBox(),
                          speciesColumn_ = new ListBox(), species_ = new ListBox(), aggregate_ = new ListBox(),
                          ma_ = new ListBox(), method_ = new ListBox(), saStop_ = new ListBox(), runs_ = new ListBox(),
                          ccRun_ = new ListBox(), ccYear_ = new ListBox(), ccPlus_ = new ListBox(),
                          ccMethod_ = new ListBox(), mMethod_ = new ListBox(), saveSource_ = new ListBox(),
-                         analyses_ = new ListBox(), compareWith_ = new ListBox();
+                         analyses_ = new ListBox(), compareWith_ = new ListBox(), yprSelection_ = new ListBox();
    private final TextBox periodStart_ = new TextBox(), periodEnd_ = new TextBox(),
                          binSize_ = new TextBox(), lmin_ = new TextBox(), plusGroup_ = new TextBox(),
                          linfMin_ = new TextBox(), linfMax_ = new TextBox(), kMin_ = new TextBox(),
@@ -1367,7 +1480,10 @@ public class LfqDialog extends DialogBox
                          ccLinf_ = new TextBox(), ccK_ = new TextBox(), ccC_ = new TextBox(), ccTs_ = new TextBox(),
                          ccPlusValue_ = new TextBox(), ccFirst_ = new TextBox(), ccLast_ = new TextBox(),
                          mTemp_ = new TextBox(), mTmax_ = new TextBox(), mValue_ = new TextBox(),
-                         libraryPath_ = new TextBox(), analysisName_ = new TextBox();
+                         libraryPath_ = new TextBox(), analysisName_ = new TextBox(), bhLprime_ = new TextBox(),
+                         yprA_ = new TextBox(), yprB_ = new TextBox(), yprLr_ = new TextBox(), yprLc_ = new TextBox(),
+                         yprL75_ = new TextBox(), yprFmax_ = new TextBox(), yprFstep_ = new TextBox(),
+                         yprCurrE_ = new TextBox(), yprCurrLc_ = new TextBox();
    private final CheckBox addlSqrt_ = new CheckBox(), seasonalised_ = new CheckBox(),
                           ccOgive_ = new CheckBox(), mSchooling_ = new CheckBox();
    private final ThemedButton check_ = new ThemedButton(messages_.check(), e -> check()),
@@ -1379,6 +1495,8 @@ public class LfqDialog extends DialogBox
       clear_ = new ThemedButton(messages_.clearRuns(), e -> clearRuns()),
       useRun_ = new ThemedButton(messages_.useRun(), e -> useRun()),
       computeZ_ = new ThemedButton(messages_.computeZ(), e -> computeMortality()),
+      computeBh_ = new ThemedButton(messages_.computeBh(), e -> computeBh()),
+      computeYpr_ = new ThemedButton(messages_.computeYpr(), e -> computeYield()),
       browseLibrary_ = new ThemedButton("…", e -> browseLibrary()),
       openLibrary_ = new ThemedButton(messages_.openFile(), e -> libraryFile("lfq_lib_open")),
       saveLibrary_ = new ThemedButton(messages_.saveAs(), e -> libraryFile("lfq_lib_save_as")),
@@ -1391,7 +1509,7 @@ public class LfqDialog extends DialogBox
       compareAnalyses_ = new ThemedButton(messages_.compare(), e -> compareAnalyses()),
       close_ = new ThemedButton(messages_.close(), e -> hide());
    private final Image rawImage_ = new Image(), restructuredImage_ = new Image(), fitImage_ = new Image(),
-                       ccImage_ = new Image();
+                       ccImage_ = new Image(), yieldImage_ = new Image();
    private final Grid table_ = new Grid(1, 1), points_ = new Grid(1, 1);
    private final TextArea code_ = new TextArea();
    private final HorizontalPanel tabBar_ = new HorizontalPanel();

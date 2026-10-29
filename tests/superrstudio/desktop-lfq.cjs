@@ -256,6 +256,43 @@ const enabled = (page, id) => page.waitForFunction(id => {
    await shot(page, '6-mortality');
    log('PASS catch curve: growth from run 1, automatic then chosen points, Z, M, E reproduced from the code');
 
+   // 6. Beverton-Holt Z from mean length and yield per recruit (growth and M from the mortality tab)
+   const lprime = await page.evaluate(n => document.querySelectorAll('#superrstudio_lfq_cc_points tr')[n].cells[1].innerText,
+                                      first + 2);
+   await page.locator('#superrstudio_lfq_tab_yield').click();
+   await page.fill('#superrstudio_lfq_bh_lprime', lprime);
+   await page.locator('#rstudio_superrstudio_lfq_compute_bh').click();
+   await waitText(page, '#superrstudio_lfq_bh_result', /Z = /);
+   const bhText = await text(page, '#superrstudio_lfq_bh_result');
+   log('Beverton-Holt:\n' + bhText);
+   if (!bhText.includes('equilibrium') || !bhText.includes('M = ') || !(await page.locator('#superrstudio_lfq_yield_image').isVisible()))
+      throw new Error('Beverton-Holt result: ' + bhText);
+   const bhZ = Number(/Z = ([0-9.e+-]*[0-9])/.exec(bhText)[1]);
+   const bhCode = await page.locator('#superrstudio_lfq_code').inputValue();
+   await check(page,
+      `srs_b <- new.env(); invisible(capture.output(suppressWarnings(eval(parse(text = ${JSON.stringify(bhCode)}), envir = srs_b)))); ` +
+      `stopifnot(isTRUE(all.equal(${bhZ}, signif(srs_b$bh$Z, 4))), identical(tallas, tallas_original))`,
+      'LFQ_BEVERTON_HOLT_CODE_REPRODUCES');
+   await page.fill('#superrstudio_lfq_ypr_a', '0.01');
+   await page.fill('#superrstudio_lfq_ypr_b', '3');
+   await page.fill('#superrstudio_lfq_ypr_lr', String(Number(lprime) / 2));
+   await page.fill('#superrstudio_lfq_ypr_lc', lprime);
+   await page.fill('#superrstudio_lfq_ypr_curr_e', '0.5');
+   await page.locator('#rstudio_superrstudio_lfq_compute_ypr').click();
+   await waitText(page, '#superrstudio_lfq_ypr_result', /F0\.1 = /);
+   const yprText = await text(page, '#superrstudio_lfq_ypr_result');
+   log('yield per recruit:\n' + yprText);
+   if (!yprText.includes('At the current E = 0.5') || !yprText.includes('constant recruitment'))
+      throw new Error('yield per recruit result: ' + yprText);
+   const fmaxShown = Number(/Fmax = ([0-9.e+-]*[0-9])/.exec(yprText)[1]);
+   const yprCode = await page.locator('#superrstudio_lfq_code').inputValue();
+   await check(page,
+      `srs_y <- new.env(); invisible(capture.output(suppressWarnings(eval(parse(text = ${JSON.stringify(yprCode)}), envir = srs_y)))); ` +
+      `stopifnot(isTRUE(all.equal(${fmaxShown}, signif(srs_y$ypr$df_Es$Fmax, 4))), identical(tallas, tallas_original))`,
+      'LFQ_YIELD_PER_RECRUIT_CODE_REPRODUCES');
+   await shot(page, '6b-yield');
+   log('PASS Beverton-Holt Z and yield per recruit: results, diagnostics and reproducible code');
+
    // 6. saved analyses written to a file
    const library = path.join(evidence, 'lfq-analyses.json').replaceAll('\\', '/');
    fs.rmSync(library, {force: true});

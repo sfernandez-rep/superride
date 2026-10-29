@@ -19,6 +19,7 @@ sys.source(file.path(root, 'src/cpp/session/modules/SessionSuperRStudio.R'), env
 sys.source(file.path(root, 'src/cpp/session/modules/SessionSuperRStudioLfq.R'), envir = toolsEnv)
 sys.source(file.path(root, 'src/cpp/session/modules/SessionSuperRStudioLfqLibrary.R'), envir = toolsEnv)
 sys.source(file.path(root, 'src/cpp/session/modules/SessionSuperRStudioLfqMortality.R'), envir = toolsEnv)
+sys.source(file.path(root, 'src/cpp/session/modules/SessionSuperRStudioLfqYield.R'), envir = toolsEnv)
 for (expr in parse(file.path(root, 'src/cpp/r/R/Tools.R')))
    if (is.call(expr) && identical(expr[[1L]], as.name('.rs.addFunction')) &&
        expr[[2L]] %in% c('rBase64EncodeMain', 'rBase64EncodeRest', 'rBase64Encode'))
@@ -401,3 +402,84 @@ reject(lfq('lfq_mortality', 'fish', c(growth, m_method = 'pauly_linf')), 'temper
 stopifnot(identical(fish, fish_original))
 cat('PASS: catch curves (automatic and chosen points, cumulative, seasonal, ogive) and M/F/E equal direct TropFishR\n')
 cat('PASS: catch-curve code reproduces Z, M and E; diagnostics reported; invalid settings refused\n')
+
+# --- Beverton-Holt Z and yield per recruit equal direct TropFishR -------------------
+invisible(ok(lfq('lfq_create', 'fish', base)))
+prepared <- toolsEnv$.rs.superrstudioLfqState$prepared$lfq
+mids <- prepared$midLengths
+total <- rowSums(prepared$catch)
+lp <- mids[[which.max(total) + 3L]]
+bh <- ok(lfq('lfq_bh', 'fish', c(growth, bh_lprime = lp)))
+lfq_bh <- prepared
+lfq_bh$Linf <- 123
+lfq_bh$K <- 0.2
+direct <- TropFishR::Z_BevertonHolt(lfq_bh, catch_columns = 1:8, Lprime_tprime = lp)
+stopifnot(identical(as.numeric(bh$z), as.numeric(direct$Z)), identical(as.numeric(bh$lmean), direct$Lmean),
+          identical(as.numeric(bh$lprime), direct$Lprime), identical(as.numeric(bh$lprime_class), lp),
+          startsWith(bh$image, 'iVBOR'),
+          # Beverton and Holt (1956): Z = K (Linf - Lmean) / (Lmean - L'), L' the lower class bound
+          isTRUE(all.equal(as.numeric(bh$z), 0.2 * (123 - direct$Lmean) / (direct$Lmean - direct$Lprime))),
+          isTRUE(all.equal(direct$Lmean, sum((mids * total)[mids >= lp]) / sum(total[mids >= lp]))),
+          'bh_equilibrium' %in% vapply(bh$diagnostics, function(d) as.character(d$code), ''))
+# TropFishR 1.6.6 ignores $par: with Linf and K only in par, Z is empty
+quirk <- TropFishR::lfqModify(prepared, par = list(Linf = 123, K = 0.2, t0 = 0))
+stopifnot(length(TropFishR::Z_BevertonHolt(quirk, catch_columns = 1:8, Lprime_tprime = lp)$Z) == 0L)
+env <- new.env(parent = globalenv())
+invisible(utils::capture.output(suppressWarnings(eval(parse(text = bh$code), envir = env))))
+stopifnot(identical(as.numeric(env$bh$Z), as.numeric(bh$z)))
+bhm <- ok(lfq('lfq_bh', 'fish', c(growth, bh_lprime = lp, m_method = 'then_growth', cc_year = '2016')))
+M <- as.numeric(TropFishR::M_empirical(Linf = 123, K_l = 0.2, method = 'Then_growth'))
+lfq_2016 <- TropFishR::lfqModify(prepared, years = '2016')
+lfq_2016$Linf <- 123
+lfq_2016$K <- 0.2
+direct <- TropFishR::Z_BevertonHolt(lfq_2016, catch_columns = 1:ncol(lfq_2016$catch), Lprime_tprime = lp)
+stopifnot(identical(as.numeric(bhm$z), as.numeric(direct$Z)), identical(as.numeric(bhm$m), M),
+          isTRUE(all.equal(as.numeric(bhm$e), (as.numeric(direct$Z) - M) / as.numeric(direct$Z))))
+early <- ok(lfq('lfq_bh', 'fish', c(growth, bh_lprime = mids[[which.max(total) - 2L]])))
+stopifnot('bh_before_mode' %in% vapply(early$diagnostics, function(d) as.character(d$code), ''))
+reject(lfq('lfq_bh', 'fish', c(growth, bh_lprime = lp + 0.3)), 'midpoint')
+reject(lfq('lfq_bh', 'fish', list(cc_linf = mids[[which.max(total)]], cc_k = 0.2, bh_lprime = mids[[2L]])), 'cannot be computed|smaller than Linf')
+reject(lfq('lfq_bh', 'fish', c(growth, bh_lprime = lp, cc_year = '1999')), 'no samples in 1999')
+
+yieldSettings <- c(growth, list(m_method = 'then_growth', ypr_a = 0.01, ypr_b = 3, ypr_lr = 20, ypr_selection = 'ogive',
+                                ypr_lc = 50, ypr_l75 = 55, ypr_fmax = 3, ypr_fstep = 0.05, ypr_curr_e = 0.5,
+                                ypr_curr_lc = 50))
+ypr <- ok(lfq('lfq_yield', 'fish', yieldSettings))
+param <- list(Linf = 123, K = 0.2, t0 = 0, M = M, a = 0.01, b = 3, Lr = 20, midLengths = mids)
+direct <- TropFishR::predict_mod(param, type = 'ypr', FM_change = seq(0, 3, 0.05), Lc_change = 50,
+                                 s_list = list(selecType = 'trawl_ogive', L50 = 50, L75 = 55), curr.E = 0.5,
+                                 curr.Lc = 50, plot = FALSE, hide.progressbar = TRUE)
+for (key in c('F01', 'Fmax', 'F05', 'E01', 'Emax', 'E05'))
+   stopifnot(identical(as.numeric(ypr[[tolower(key)]]), as.numeric(direct$df_Es[[key]])))
+stopifnot(identical(as.numeric(ypr$curr_f), as.numeric(direct$currents$curr.F)),
+          identical(as.numeric(ypr$curr_ypr), as.numeric(direct$currents$curr.YPR)),
+          identical(as.numeric(ypr$curr_bpr), as.numeric(direct$currents$curr.BPR)),
+          startsWith(ypr$image, 'iVBOR'),
+          all(c('ypr_assumptions', 'ypr_grid') %in% vapply(ypr$diagnostics, function(d) as.character(d$code), '')))
+env <- new.env(parent = globalenv())
+invisible(utils::capture.output(suppressWarnings(eval(parse(text = ypr$code), envir = env))))
+stopifnot(identical(env$ypr$df_Es, direct$df_Es))
+# knife-edge selection: TropFishR's relative yield per recruit equals Beverton
+# and Holt's formula (Sparre and Venema 1998, section 8.3)
+knife <- ok(lfq('lfq_yield', 'fish', utils::modifyList(yieldSettings, list(ypr_selection = 'knife', ypr_curr_e = '',
+                                                                           ypr_curr_lc = ''))))
+direct <- TropFishR::predict_mod(param, type = 'ypr', FM_change = seq(0, 3, 0.05), Lc_change = 50, plot = FALSE,
+                                 hide.progressbar = TRUE)
+stopifnot(identical(as.numeric(knife$fmax), as.numeric(direct$df_Es$Fmax)), is.na(knife$curr_f))
+run <- direct$list_Lc_runs[[1L]]
+E <- run$FM / (run$FM + M)
+U <- 1 - 50 / 123
+m <- (1 - E) / (M / 0.2)
+reference <- E * U^(M / 0.2) * (1 - 3 * U / (1 + m) + 3 * U^2 / (1 + 2 * m) - U^3 / (1 + 3 * m))
+stopifnot(isTRUE(all.equal(run$Y_R.rel, reference, tolerance = 1e-12)))
+edge <- ok(lfq('lfq_yield', 'fish', utils::modifyList(yieldSettings, list(ypr_fmax = 0.2, ypr_fstep = 0.01, ypr_curr_e = 0.9))))
+codes <- vapply(edge$diagnostics, function(d) as.character(d$code), '')
+stopifnot(all(c('ypr_fmax_edge', 'ypr_above_emax') %in% codes))
+reject(lfq('lfq_yield', 'fish', utils::modifyList(yieldSettings, list(m_method = 'none'))), 'needs natural mortality')
+reject(lfq('lfq_yield', 'fish', utils::modifyList(yieldSettings, list(ypr_lr = 60))), 'smaller than L50')
+reject(lfq('lfq_yield', 'fish', utils::modifyList(yieldSettings, list(ypr_l75 = 45))), 'L75 must be larger')
+reject(lfq('lfq_yield', 'fish', utils::modifyList(yieldSettings, list(ypr_fstep = 0.001))), 'at most 2,000 steps')
+reject(lfq('lfq_yield', 'fish', utils::modifyList(yieldSettings, list(ypr_curr_e = '', ypr_curr_lc = 40))), 'current exploitation')
+stopifnot(identical(fish, fish_original))
+cat('PASS: Beverton-Holt Z equals direct TropFishR and the mean-length formula; code reproduces; diagnostics\n')
+cat('PASS: yield per recruit (ogive and knife-edge) equals direct TropFishR; knife-edge Y/R equals the Beverton-Holt formula\n')

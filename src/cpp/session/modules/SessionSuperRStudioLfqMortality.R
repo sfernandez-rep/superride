@@ -8,6 +8,29 @@
 # diagnostics describe the regression; they do not declare an estimate
 # reliable.
 
+#' The natural mortality call chosen in the dialog
+#'
+#' @param s Validated settings (m_method and its inputs).
+#' @param linf,k Growth parameters for the growth-based methods.
+#' @param number The caller's validating reader of numeric settings.
+#' @return An assignment `M <- ...` (TropFishR::M_empirical() or the value
+#'   entered), or NULL when no M was requested.
+.rs.addFunction('superrstudioLfqNaturalMortalityCall', function(s, linf, k, number)
+{
+   switch(s$m_method,
+      none = NULL,
+      then_growth = substitute(M <- as.numeric(TropFishR::M_empirical(Linf = L, K_l = K, method = 'Then_growth')),
+                               list(L = linf, K = k)),
+      pauly_linf = substitute(M <- as.numeric(TropFishR::M_empirical(Linf = L, K_l = K, temp = T, schooling = S,
+                                                                    method = 'Pauly_Linf')),
+                              list(L = linf, K = k, T = number('m_temp', -5, 40, 'Mean water temperature (C)'),
+                                   S = s$m_schooling)),
+      then_tmax = substitute(M <- as.numeric(TropFishR::M_empirical(tmax = A, method = 'Then_tmax')),
+                             list(A = number('m_tmax', 0.1, 300, 'Maximum age (years)'))),
+      manual = substitute(M <- V, list(V = number('m_value', 0, 10, 'Natural mortality M'))),
+      stop('Unknown natural mortality method.', call. = FALSE))
+})
+
 #' Catch-curve analysis of the prepared LFQ
 #'
 #' @param data,dataset The data frame the LFQ was prepared from (staleness).
@@ -99,18 +122,7 @@
    if (length(used) != 2L) fail('TropFishR chose an unusual regression range; choose the points explicitly.')
 
    # natural mortality (optional) with M_empirical()
-   mCall <- switch(s$m_method,
-      none = NULL,
-      then_growth = substitute(M <- as.numeric(TropFishR::M_empirical(Linf = L, K_l = K, method = 'Then_growth')),
-                               list(L = linf, K = k)),
-      pauly_linf = substitute(M <- as.numeric(TropFishR::M_empirical(Linf = L, K_l = K, temp = T, schooling = S,
-                                                                    method = 'Pauly_Linf')),
-                              list(L = linf, K = k, T = number('m_temp', -5, 40, 'Mean water temperature (C)'),
-                                   S = s$m_schooling)),
-      then_tmax = substitute(M <- as.numeric(TropFishR::M_empirical(tmax = A, method = 'Then_tmax')),
-                             list(A = number('m_tmax', 0.1, 300, 'Maximum age (years)'))),
-      manual = substitute(M <- V, list(V = number('m_value', 0, 10, 'Natural mortality M'))),
-      fail('Unknown natural mortality method.'))
+   mCall <- .rs.superrstudioLfqNaturalMortalityCall(s, linf, k, number)
    z <- as.numeric(result$Z[[1L]])
    m <- if (!is.null(mCall)) { eval(mCall, envir = env); env$M }
    code <- paste(c(prepared$code, '',

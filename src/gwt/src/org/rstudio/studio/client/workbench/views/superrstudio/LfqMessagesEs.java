@@ -150,13 +150,45 @@ public class LfqMessagesEs implements LfqMessages
    @Override public String dNegativeF() { return "M es mayor que Z, as\u00ed que F ser\u00eda negativa; revisa M, los par\u00e1metros de crecimiento y la regresi\u00f3n."; }
    @Override public String dOgive() { return "No se pudo estimar la ojiva de selecci\u00f3n con los puntos anteriores a la regresi\u00f3n."; }
    @Override public String mortalityCaveat() { return "Z depende directamente de Linf y K: usa estimaciones de crecimiento que hayas revisado y compara Z entre corridas de crecimiento plausibles. Los diagn\u00f3sticos describen la regresi\u00f3n; no hacen fiable una estimaci\u00f3n."; }
+   @Override public String tabYield() { return "6. Rendimiento por recluta"; }
+   @Override public String yieldHelp() { return "Usa Linf, K y la mortalidad natural M elegidas en la pesta\u00f1a Mortalidad. Ambos an\u00e1lisis los calcula TropFishR; lee los supuestos y diagn\u00f3sticos antes de usar los n\u00fameros."; }
+   @Override public String bhHeading() { return "Z de Beverton\u2013Holt a partir de la talla media"; }
+   @Override public String bhHelp() { return "Z = K (Linf \u2212 talla media) / (talla media \u2212 L\u2032), con la talla media de los peces en L\u2032 o por encima, la menor talla totalmente seleccionada por el arte de pesca (Z_BevertonHolt de TropFishR)."; }
+   @Override public String bhLprime() { return "L\u2032: menor talla totalmente seleccionada (centro de clase, cm)"; }
+   @Override public String computeBh() { return "Estimar Z con la talla media"; }
+   @Override public String bhResult(String p0, String p1, String p2, String p3) { return SuperRStudioLanguage.format("Z = {0} por a\u00f1o; talla media {1} cm de {2} peces en L\u2032 o por encima (l\u00edmite inferior de su clase: {3} cm).", p0, p1, p2, p3); }
+   @Override public String dBhEquilibrium() { return "La estimaci\u00f3n supone equilibrio: reclutamiento y mortalidad constantes, y selecci\u00f3n completa desde L\u2032."; }
+   @Override public String dBhBeforeMode(String p0) { return SuperRStudioLanguage.format("L\u2032 est\u00e1 por debajo de la clase de talla m\u00e1s frecuente ({0} cm). Los peces m\u00e1s peque\u00f1os no suelen estar totalmente seleccionados, lo que sesga Z.", p0); }
+   @Override public String dBhFewFish(String p0) { return SuperRStudioLanguage.format("Solo hay {0} peces en L\u2032 o por encima; la talla media queda mal determinada.", p0); }
+   @Override public String dBhNearLinf() { return "La talla media es al menos el 90 % de Linf; Z es muy sensible a Linf."; }
+   @Override public String yprHeading() { return "Rendimiento por recluta (Beverton y Holt)"; }
+   @Override public String yprA() { return "a de talla\u2013peso (W = a\u00b7L^b; g, cm)"; }
+   @Override public String yprB() { return "b de talla\u2013peso"; }
+   @Override public String yprLr() { return "Talla de reclutamiento Lr (cm)"; }
+   @Override public String yprSelection() { return "Selecci\u00f3n del arte de pesca"; }
+   @Override public String yprKnife() { return "Filo de cuchillo en Lc"; }
+   @Override public String yprOgive() { return "Ojiva tipo arrastre (L50, L75)"; }
+   @Override public String yprLc() { return "Lc, o L50 de la ojiva (cm)"; }
+   @Override public String yprL75() { return "L75 de la ojiva (cm)"; }
+   @Override public String yprFmax() { return "F m\u00e1xima de la grilla (por a\u00f1o)"; }
+   @Override public String yprFstep() { return "Paso de F"; }
+   @Override public String yprCurrE() { return "Tasa de explotaci\u00f3n actual E (opcional)"; }
+   @Override public String yprCurrLc() { return "Lc actual (cm, opcional; Lc si est\u00e1 vac\u00edo)"; }
+   @Override public String computeYpr() { return "Calcular rendimiento por recluta"; }
+   @Override public String yprResult(String p0, String p1, String p2, String p3, String p4, String p5, String p6) { return SuperRStudioLanguage.format("Puntos de referencia: F0.1 = {0}, Fmax = {1}, F0.5 = {2} por a\u00f1o; E0.1 = {3}, Emax = {4}, E0.5 = {5} (M = {6}).", p0, p1, p2, p3, p4, p5, p6); }
+   @Override public String yprCurrentResult(String p0, String p1, String p2, String p3) { return SuperRStudioLanguage.format("Con la E actual = {0}: F = {1} por a\u00f1o, rendimiento por recluta {2} g, biomasa por recluta {3} g.", p0, p1, p2, p3); }
+   @Override public String dYprAssumptions() { return "El rendimiento por recluta de Beverton y Holt supone reclutamiento constante, crecimiento de von Bertalanffy con estos par\u00e1metros, M constante y la selecci\u00f3n elegida aqu\u00ed."; }
+   @Override public String dYprGrid(String p0) { return SuperRStudioLanguage.format("Los puntos de referencia se leen de la grilla de F, en pasos de {0} por a\u00f1o.", p0); }
+   @Override public String dYprFmaxEdge() { return "El rendimiento por recluta sigue subiendo en la F m\u00e1xima de la grilla: no se alcanz\u00f3 Fmax. Ampl\u00eda el rango de F."; }
+   @Override public String dYprAboveEmax(String p0, String p1) { return SuperRStudioLanguage.format("La tasa de explotaci\u00f3n actual E = {0} est\u00e1 por encima de Emax = {1}, la E del mayor rendimiento por recluta en este modelo.", p0, p1); }
+   @Override public String yieldCaveat() { return "Los puntos de referencia dependen de M, del crecimiento y de la selecci\u00f3n, todos inciertos. Compara valores plausibles y haz revisar los resultados por especialistas en pesquer\u00edas antes de cualquier uso para el manejo."; }
    @Override public String pointsHeading() { return "Puntos de la curva de captura"; }
    @Override public String colLength() { return "Talla (cm)"; }
    @Override public String colAge() { return "Edad relativa (a\u00f1os)"; }
    @Override public String colLnLinf() { return "ln(Linf \u2212 L)"; }
    @Override public String colUsed() { return "En la regresi\u00f3n"; }
    @Override public String yes() { return "s\u00ed"; }
-   @Override public String tabSaved() { return "6. Guardados"; }
+   @Override public String tabSaved() { return "7. Guardados"; }
    @Override public String savedHelp() { return "Un an\u00e1lisis guardado registra cada ajuste (incluidas las semillas), el conjunto de datos con una huella de sus datos y las versiones de R y TropFishR. Elige un archivo .json para conservarlos: cada cambio se escribe en \u00e9l."; }
    @Override public String savedFile(String p0) { return SuperRStudioLanguage.format("Archivo: {0}", p0); }
    @Override public String savedNoFile() { return "A\u00fan no se escribe en un archivo (solo se conserva en esta sesi\u00f3n)."; }

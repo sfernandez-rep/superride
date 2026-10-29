@@ -46,7 +46,7 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    # saved analyses (SessionSuperRStudioLfqLibrary.R)
    if (startsWith(operation, 'lfq_lib'))
       return(.rs.superrstudioLfqLibrary(operation, dataset, settings, available))
-   if (!operation %in% c('lfq_columns', 'lfq_check', 'lfq_create', 'lfq_start', 'lfq_mortality'))
+   if (!operation %in% c('lfq_columns', 'lfq_check', 'lfq_create', 'lfq_start', 'lfq_mortality', 'lfq_bh', 'lfq_yield'))
       fail('Unsupported operation.')
    if (!dataset %in% available) fail('Dataset no longer exists or is not a data frame. Refresh the list.')
    data <- get(dataset, envir = .GlobalEnv, inherits = FALSE)
@@ -54,11 +54,15 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    if (nrow(data) > 2e6) fail('This experimental module supports up to 2,000,000 rows.')
    if (operation == 'lfq_columns') return(.rs.superrstudioLfqColumns(data))
    # analyses use the prepared data and its recorded settings, not the form's
-   if (operation %in% c('lfq_start', 'lfq_mortality'))
+   if (operation %in% c('lfq_start', 'lfq_mortality', 'lfq_bh', 'lfq_yield'))
    {
       if (!installed) fail('TropFishR is not installed in the active R library.')
       if (operation == 'lfq_mortality')   # SessionSuperRStudioLfqMortality.R
          return(.rs.superrstudioLfqMortality(data, dataset, settings))
+      if (operation == 'lfq_bh')          # SessionSuperRStudioLfqYield.R
+         return(.rs.superrstudioLfqBevertonHolt(data, dataset, settings))
+      if (operation == 'lfq_yield')
+         return(.rs.superrstudioLfqYield(data, dataset, settings))
       return(.rs.superrstudioLfqStart(data, dataset, settings))
    }
    # a check may come before a species is chosen (it lists the species)
@@ -104,13 +108,16 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
                     # mortality (SessionSuperRStudioLfqMortality.R)
                     cc_linf = '', cc_k = '', cc_c = '', cc_ts = '', cc_year = '', cc_plus = 'linf',
                     cc_plus_value = '', cc_method = 'pauly', cc_first = '', cc_last = '', cc_ogive = FALSE,
-                    m_method = 'none', m_temp = '', m_tmax = '', m_value = '', m_schooling = FALSE)
+                    m_method = 'none', m_temp = '', m_tmax = '', m_value = '', m_schooling = FALSE,
+                    # Beverton-Holt Z and yield per recruit (SessionSuperRStudioLfqYield.R)
+                    bh_lprime = '', ypr_a = '', ypr_b = '', ypr_lr = '', ypr_selection = 'knife',
+                    ypr_lc = '', ypr_l75 = '', ypr_fmax = 3, ypr_fstep = 0.05, ypr_curr_e = '', ypr_curr_lc = '')
    known <- intersect(names(settings), names(defaults))
    values <- utils::modifyList(defaults, settings[known])
    text <- function(key) if (!.rs.superrstudioIsText(values[[key]])) fail(paste0('Setting ', key, ' must be text.'))
    for (key in c('length', 'date', 'date_format', 'freq', 'species_column', 'species', 'unit',
                  'method', 'seeds', 'sa_stop', 'label', 'aggregate', 'period_start', 'period_end',
-                 'cc_year', 'cc_plus', 'cc_method', 'm_method'))
+                 'cc_year', 'cc_plus', 'cc_method', 'm_method', 'ypr_selection'))
       text(key)
    flag <- function(key) if (!is.logical(values[[key]]) || length(values[[key]]) != 1L || is.na(values[[key]]))
       fail(paste0('Setting ', key, ' must be true or false.'))
