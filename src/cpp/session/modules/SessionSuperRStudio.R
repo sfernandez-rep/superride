@@ -15,7 +15,10 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #' BRANDING.md). File-format identifiers such as "# SuperRStudio scatter v5"
 #' and "superrstudio-lfq-analyses" are formats, not branding: they never
 #' change, so that saved scripts and files keep loading.
-.rs.addFunction('superrstudioBrand', function() 'SuperRStudio')
+# product name in generated comments and messages; saved-file format
+# identifiers (superrstudio-lfq-analyses, '# SuperRStudio <kind> v6') stay
+# unchanged for compatibility
+.rs.addFunction('superrstudioBrand', function() 'SuperR')
 
 .rs.addFunction('superrstudioDataRpc', function(operation, dataset = '', revision = '', x = '', y = '',
                                               available = character(), appearance = list())

@@ -28,6 +28,7 @@ import { ElectronDesktopOptions } from './preferences/electron-desktop-options';
 import { parseStatus } from './program-status';
 import { recordProcessStart, startupCheckpoint } from './startup-timing';
 import { createStandaloneErrorDialog } from './utils';
+import { applySuperRIdentity } from './superr-identity';
 import { Xdg } from '../core/xdg';
 import {
   ElectronFlagsConfig,
@@ -224,6 +225,9 @@ function relaunchForOzonePlatform(config: ElectronFlagsConfig | undefined): Ozon
 }
 
 // Startup
+// SUPERR CHANGE: the packaged SuperR application's own user directories,
+// before anything reads them
+applySuperRIdentity();
 const electronFlags = loadAppConfig();
 const ozoneRelaunch = relaunchForOzonePlatform(electronFlags.config);
 if (!ozoneRelaunch.relaunched) {

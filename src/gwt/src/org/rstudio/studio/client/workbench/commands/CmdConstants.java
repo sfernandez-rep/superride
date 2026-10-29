@@ -699,7 +699,7 @@ public interface CmdConstants extends Constants {
     // activateVisual
     @DefaultStringValue("Show Visual Pane") // $NON-NLS-1$
     String activateVisualLabel();
-    @DefaultStringValue("Show _Visual (SuperRStudio)") // $NON-NLS-1$
+    @DefaultStringValue("Show _Visual (SuperR)") // $NON-NLS-1$
     String activateVisualMenuLabel();
     
     // activateChat
@@ -837,7 +837,7 @@ public interface CmdConstants extends Constants {
     // layoutZoomVisual
     @DefaultStringValue("Zoom Visual") // $NON-NLS-1$
     String layoutZoomVisualLabel();
-    @DefaultStringValue("Zoom _Visual (SuperRStudio)") // $NON-NLS-1$
+    @DefaultStringValue("Zoom _Visual (SuperR)") // $NON-NLS-1$
     String layoutZoomVisualMenuLabel();
     
     // layoutZoomChat

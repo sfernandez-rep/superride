@@ -1539,7 +1539,7 @@ See `/src/gwt/tools/i18n-helpers/README.md`.
 
    <cmd id="activateVisual"
         label="Show Visual Pane"
-        menuLabel="Show _Visual (SuperRStudio)"
+        menuLabel="Show _Visual (SuperR)"
         windowMode="main"/>
 
    <cmd id="activateChat"
@@ -1665,7 +1665,7 @@ See `/src/gwt/tools/i18n-helpers/README.md`.
    <cmd id="layoutZoomVisual"
         checkable="true"
         label="Zoom Visual"
-        menuLabel="Zoom _Visual (SuperRStudio)"
+        menuLabel="Zoom _Visual (SuperR)"
         windowMode="main"/>
 
    <cmd id="layoutZoomChat"

@@ -188,7 +188,7 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Facet labels") String elementStrip();
    @DefaultMessage("Plot panel") String elementPanel();
    @DefaultMessage("Load from script") String loadSpec();
-   @DefaultMessage("The active script contains no SuperRStudio plot specification.") String loadNone();
+   @DefaultMessage("The active script contains no SuperR plot specification.") String loadNone();
    @DefaultMessage("Unsupported specification (version {0}).") String loadUnsupported(String version);
    @DefaultMessage("Dataset {0} from the script is not available in this session.") String loadMissing(String dataset);
    @DefaultMessage("Settings loaded from the active script. Preview to render the plot.") String loaded();

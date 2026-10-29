@@ -190,7 +190,7 @@ public class ScatterMessagesEs implements ScatterMessages
    @Override public String elementStrip() { return "Etiquetas de paneles"; }
    @Override public String elementPanel() { return "Panel del gr\u00e1fico"; }
    @Override public String loadSpec() { return "Cargar desde el script"; }
-   @Override public String loadNone() { return "El script activo no contiene una especificaci\u00f3n de gr\u00e1fico de SuperRStudio."; }
+   @Override public String loadNone() { return "El script activo no contiene una especificaci\u00f3n de gr\u00e1fico de SuperR."; }
    @Override public String loadUnsupported(String version) { return SuperRStudioLanguage.format("Especificaci\u00f3n no admitida (versi\u00f3n {0}).", version); }
    @Override public String loadMissing(String dataset) { return SuperRStudioLanguage.format("El conjunto de datos {0} del script no est\u00e1 disponible en esta sesi\u00f3n.", dataset); }
    @Override public String loaded() { return "Ajustes cargados desde el script activo. Previsualiza para dibujar el gr\u00e1fico."; }

@@ -323,7 +323,7 @@ bad <- function(content, pattern) {
 }
 good <- paste(readLines(file, encoding = 'UTF-8'), collapse = '\n')
 bad('{"format": "superrstudio-lfq-analyses", "version": 1, "analyses": [', 'not valid JSON')
-bad('{"format": "other", "version": 1, "analyses": []}', 'not a SuperRStudio')
+bad('{"format": "other", "version": 1, "analyses": []}', 'not a SuperR')
 bad(sub('"version": 1', '"version": 2', good, fixed = TRUE), 'newer version')
 bad(sub('"seeds": "1-2"', '"seeds": 3', good, fixed = TRUE), 'invalid value')
 bad(sub('"ma": 7', '"ma": 6', good, fixed = TRUE), 'odd')
