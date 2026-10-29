@@ -154,6 +154,35 @@ emitted after the complete theme).
 ![Point series edited by right-click](visual-interactive-points.png)
 ![Line layer and axis title edited in place](visual-interactive-lines.png)
 
+## Axes, scales and facets (Milestone B)
+
+Settings are grouped in three tabs (*Data and layers*, *Appearance*, *Axes
+and facets*; WAI-ARIA tabs with arrow-key navigation). Specification schema 4
+adds an `axes` object and `facet_by`/`facet_rows`:
+
+- **Scales**: linear or log10 per axis (log X for scatter, histogram and
+  density; log Y for scatter and boxplot; never for counts or densities).
+- **Limits**: *zoom* (`coord_cartesian`; every observation still enters
+  fits, boxes, bins and densities) or *filter* (scale `limits`; observations
+  outside are removed first, as ggplot2 does). Filtering computed Y values
+  (counts, densities) is refused; log-scale limits must be positive.
+- **Tick labels**: default, thousands separator, scientific or percent
+  (`scales::label_*`, a ggplot2 dependency).
+- **Gridlines**: major/minor on or off (after the complete theme).
+- **Facets**: `facet_wrap` by one column (panel columns, fixed/free scales)
+  or `facet_grid` rows (and columns).
+
+Statistics describe exactly what is drawn: `.rs.superrstudioStatData`
+applies filtering limits and log10 transforms (non-positive values dropped
+and reported) before fits, box statistics, bins and bandwidths, and facets
+join the grouping, so each panel has its own fit. The lm code states the
+same subset and formula (for example `log10(y) ~ x` within `subset(...,
+y > 0)` per panel). Notes explaining removed observations appear under the
+model. Right-click on an axis opens its scale, limits and tick labels; on a
+facet strip, panel columns and scales; on the panel, theme and gridlines.
+
+![Log scale, facets with per-panel fits](visual-axes-facets.png)
+
 ## Design
 
 | Layer | File | Notes |
@@ -172,6 +201,8 @@ emitted after the complete theme).
 | Upstream R-session suite | `tools\superrstudio\test-session.cmd` (with and without `experimental`) | 654 passed of 655 (1 skipped), as baseline |
 | Live desktop, ggplot2 | `tools\superrstudio\test-gui-scatter.ps1` | PASS: histogram (bins, fill column, summary), boxplot (group, overlay, medians equal `quantile(type = 7)`, middles equal `median()`), lines + points with explicit order hint, lm fit with 90 % band (dialog R-squared equals `summary(lm())`, band equals `predict(..., interval = "confidence")`), LOESS summary, discovery, no-numeric frame, numeric columns, Plots pane shows new plot, dataset unchanged, generated code reproduces plot data, appearance edits + undo + reset, styled code reproduces title/axis/colour/theme, colour-by-column (2 viridis colours), export identical, no client exceptions |
 | Live desktop, interactive editing | same (`ggplot2`) | PASS: right-click on a point series (position from the session's element map) opens *Points*; colour and size edits update the form, code and preview; undo/redo; right-click on the X axis title edits it; right-click on a line segment edits its line type; keyboard selection (arrows, Enter, Escape); live re-rendering adds nothing to the Plots pane; the final code reproduces colour, size, line type and axis title in R |
+| R contract, axes and facets | `visual-scatter.R` | PASS: log10 fit equals `lm(log10(w) ~ log10(u))` on positive values and ggplot2's smooth; generated model code reproduces it; filter limits equal `lm()` on the subset (smooth too), zoom keeps all rows and the panel range equals the limits plus 5 % expansion; log zoom limits are data values; per-facet fits equal per-subset `lm()`; `facet_grid` rows; facet map has two panels and strips; comma/scientific labels; minor gridlines removed after `theme_bw()`; log boxplot medians equal `median(log10(.))` and `ggplot_build()`; log density bandwidth equals `bw.nrd0(log10(.))`; histogram counts after filtering; nine invalid combinations refused |
+| Live desktop, axes and facets | `test-gui-scatter.ps1` | PASS: log Y + facet by site with per-panel lm summaries (`log10(size) = ...`), strip right-click sets free Y scales, Y-axis right-click sets a zoom minimum; console check: two panels, lower limit `log10(5)`, panel slope equals `lm(log10(size) ~ age)` for that site |
 | R contract, interactive map | `visual-scatter.R` | PASS: SVG and PNG variants, regions present, legend moved below the panel, point positions equal ggplot2's documented 5 % expansion arithmetic, fit paths, all plot kinds, device restored |
 | Live desktop, no ggplot2 | same (`no-ggplot2`, empty library) | PASS: clean message in dialog, console unaffected, no device opened |
 | Live desktop, disabled | same (`disabled`) | PASS: button hidden; ordinary IDE |

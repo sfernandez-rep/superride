@@ -155,6 +155,8 @@ public class ScatterDialog extends DialogBox
       y_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
       colourBy_.addChangeHandler(e -> { layoutChanged(); scheduleRender(); });
       groupBy_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
+      facetBy_.addChangeHandler(e -> { layoutChanged(); scheduleRender(); });
+      facetRows_.addChangeHandler(e -> { layoutChanged(); scheduleRender(); });
 
       option(geometry_, messages_.geometryPoints(), "points");
       option(geometry_, messages_.geometryLines(), "lines");
@@ -199,6 +201,29 @@ public class ScatterDialog extends DialogBox
       option(legendPosition_, messages_.legendTop(), "top");
       option(legendPosition_, messages_.legendLeft(), "left");
       option(legendPosition_, messages_.legendNone(), "none");
+      for (ListBox scale : new ListBox[] {xScale_, yScale_})
+      {
+         option(scale, messages_.scaleLinear(), "linear");
+         option(scale, messages_.scaleLog10(), "log10");
+      }
+      for (ListBox format : new ListBox[] {xFormat_, yFormat_})
+      {
+         option(format, messages_.formatDefault(), "default");
+         option(format, messages_.formatComma(), "comma");
+         option(format, messages_.formatScientific(), "scientific");
+         option(format, messages_.formatPercent(), "percent");
+      }
+      option(limitsMode_, messages_.limitsZoom(), "zoom");
+      option(limitsMode_, messages_.limitsFilter(), "filter");
+      option(facetNcol_, messages_.facetAuto(), "0");
+      for (String columns : new String[] {"1", "2", "3", "4", "5", "6"})
+         option(facetNcol_, columns, columns);
+      option(facetScales_, messages_.facetFixed(), "fixed");
+      option(facetScales_, messages_.facetFree(), "free");
+      option(facetScales_, messages_.facetFreeX(), "free_x");
+      option(facetScales_, messages_.facetFreeY(), "free_y");
+      gridMajor_.setText(messages_.gridMajor());
+      gridMinor_.setText(messages_.gridMinor());
       fitSe_.setText(messages_.fitSe());
       showOutliers_.setText(messages_.showOutliers());
       showPoints_.setText(messages_.showPoints());
@@ -228,15 +253,28 @@ public class ScatterDialog extends DialogBox
       settings_.add(new Setting("line_type", lineType_, TYPE_STRING, "solid"));
       settings_.add(new Setting("fit_colour", fitColour_, TYPE_STRING, ""));
       settings_.add(new Setting("legend_position", legendPosition_, TYPE_STRING, "right"));
+      settings_.add(new Setting("x_scale", xScale_, TYPE_STRING, "linear"));
+      settings_.add(new Setting("x_min", xMin_, TYPE_NUMBER, ""));
+      settings_.add(new Setting("x_max", xMax_, TYPE_NUMBER, ""));
+      settings_.add(new Setting("x_format", xFormat_, TYPE_STRING, "default"));
+      settings_.add(new Setting("y_scale", yScale_, TYPE_STRING, "linear"));
+      settings_.add(new Setting("y_min", yMin_, TYPE_NUMBER, ""));
+      settings_.add(new Setting("y_max", yMax_, TYPE_NUMBER, ""));
+      settings_.add(new Setting("y_format", yFormat_, TYPE_STRING, "default"));
+      settings_.add(new Setting("limits_mode", limitsMode_, TYPE_STRING, "zoom"));
+      settings_.add(new Setting("grid_major", gridMajor_, TYPE_BOOLEAN, "true"));
+      settings_.add(new Setting("grid_minor", gridMinor_, TYPE_BOOLEAN, "true"));
+      settings_.add(new Setting("facet_ncol", facetNcol_, TYPE_NUMBER, "0"));
+      settings_.add(new Setting("facet_scales", facetScales_, TYPE_STRING, "fixed"));
       defaults_ = new String[settings_.size()];
       for (int i = 0; i < defaults_.length; i++)
          defaults_[i] = settings_.get(i).defaultValue;
       apply(defaults_);
       current_ = defaults_;
 
-      for (TextBox text : new TextBox[] {title_, xLabel_, yLabel_, binWidth_})
+      for (TextBox text : new TextBox[] {title_, xLabel_, yLabel_, binWidth_, xMin_, xMax_, yMin_, yMax_})
          text.addValueChangeHandler(e -> settingsChanged());
-      for (CheckBox check : new CheckBox[] {fitSe_, showOutliers_, showPoints_})
+      for (CheckBox check : new CheckBox[] {fitSe_, showOutliers_, showPoints_, gridMajor_, gridMinor_})
          check.addValueChangeHandler(e -> settingsChanged());
       for (Setting setting : settings_)
          if (setting.widget instanceof ListBox)
@@ -318,21 +356,41 @@ public class ScatterDialog extends DialogBox
       history.add(reset_);
       history.add(load_);
 
-      VerticalPanel left = new VerticalPanel();
-      left.add(heading(messages_.dataHeading()));
-      left.add(data);
-      left.add(heading(messages_.layersHeading()));
-      left.add(layers);
-      left.add(orderHint_);
-      left.add(history);
-      VerticalPanel right = new VerticalPanel();
-      right.add(heading(messages_.appearanceHeading()));
-      right.add(look);
-      HorizontalPanel columns = new HorizontalPanel();
-      columns.setSpacing(4);
-      columns.add(left);
-      columns.add(right);
-      panel.add(columns);
+      Grid xAxis = section(messages_.xAxisHeading(), 4);
+      row(xAxis, 0, messages_.scale(), xScale_, "superrstudio_x_scale");
+      row(xAxis, 1, messages_.axisMin(), xMin_, "superrstudio_x_min");
+      row(xAxis, 2, messages_.axisMax(), xMax_, "superrstudio_x_max");
+      row(xAxis, 3, messages_.tickLabels(), xFormat_, "superrstudio_x_format");
+      Grid yAxis = section(messages_.yAxisHeading(), 4);
+      row(yAxis, 0, messages_.scale(), yScale_, "superrstudio_y_scale");
+      row(yAxis, 1, messages_.axisMin(), yMin_, "superrstudio_y_min");
+      row(yAxis, 2, messages_.axisMax(), yMax_, "superrstudio_y_max");
+      row(yAxis, 3, messages_.tickLabels(), yFormat_, "superrstudio_y_format");
+      Grid facets = section(messages_.facetsHeading(), 7);
+      row(facets, 0, messages_.limitsMode(), limitsMode_, "superrstudio_limits_mode");
+      row(facets, 1, messages_.facetBy(), facetBy_, "superrstudio_facet_by");
+      row(facets, 2, messages_.facetRows(), facetRows_, "superrstudio_facet_rows");
+      row(facets, 3, messages_.facetColumns(), facetNcol_, "superrstudio_facet_ncol");
+      row(facets, 4, messages_.facetScales(), facetScales_, "superrstudio_facet_scales");
+      row(facets, 5, "", gridMajor_, "superrstudio_grid_major");
+      row(facets, 6, "", gridMinor_, "superrstudio_grid_minor");
+      Label limitsHint = new Label(messages_.limitsHint());
+      limitsHint.setWidth("270px");
+      limitsHint.getElement().getStyle().setProperty("fontSize", "90%");
+
+      VerticalPanel dataColumn = column(heading(messages_.dataHeading()), data);
+      VerticalPanel layersColumn = column(heading(messages_.layersHeading()), layers, orderHint_);
+      addTab(messages_.tabData(), "data", columns(dataColumn, layersColumn));
+      addTab(messages_.tabAppearance(), "appearance", column(heading(messages_.appearanceHeading()), look));
+      addTab(messages_.tabAxes(), "axes", columns(
+         column(heading(messages_.xAxisHeading()), xAxis, heading(messages_.yAxisHeading()), yAxis),
+         column(heading(messages_.facetsHeading()), facets, limitsHint)));
+      tabBar_.getElement().setAttribute("role", "tablist");
+      tabBar_.getElement().setAttribute("aria-label", messages_.settingsTabs());
+      panel.add(tabBar_);
+      panel.add(tabDeck_);
+      showTab(0);
+      panel.add(history);
 
       code_.setReadOnly(true);
       code_.setVisibleLines(6);
@@ -384,6 +442,63 @@ public class ScatterDialog extends DialogBox
       return main;
    }
 
+   private static VerticalPanel column(Widget... widgets)
+   {
+      VerticalPanel column = new VerticalPanel();
+      for (Widget widget : widgets)
+         column.add(widget);
+      return column;
+   }
+
+   private static HorizontalPanel columns(Widget left, Widget right)
+   {
+      HorizontalPanel columns = new HorizontalPanel();
+      columns.setSpacing(4);
+      columns.add(left);
+      columns.add(right);
+      return columns;
+   }
+
+   // A WAI-ARIA tab: arrow keys move between tabs, the page is a tabpanel.
+   private void addTab(String label, String name, Widget page)
+   {
+      int index = tabButtons_.size();
+      Button tab = new Button(label);
+      tab.getElement().setId("superrstudio_tab_" + name);
+      tab.getElement().setAttribute("role", "tab");
+      tab.getElement().setAttribute("aria-controls", "superrstudio_tabpanel_" + name);
+      tab.addClickHandler(e -> showTab(index));
+      tab.addKeyDownHandler(e -> {
+         int code = e.getNativeKeyCode();
+         if (code == KeyCodes.KEY_RIGHT || code == KeyCodes.KEY_LEFT)
+         {
+            e.preventDefault();
+            int next = (index + (code == KeyCodes.KEY_RIGHT ? 1 : -1) + tabButtons_.size()) % tabButtons_.size();
+            showTab(next);
+            tabButtons_.get(next).setFocus(true);
+         }
+      });
+      page.getElement().setId("superrstudio_tabpanel_" + name);
+      page.getElement().setAttribute("role", "tabpanel");
+      page.getElement().setAttribute("data-superrstudio-tab", name);
+      page.getElement().setAttribute("aria-labelledby", "superrstudio_tab_" + name);
+      tabButtons_.add(tab);
+      tabBar_.add(tab);
+      tabDeck_.add(page);
+   }
+
+   private void showTab(int index)
+   {
+      tabDeck_.showWidget(index);
+      for (int i = 0; i < tabButtons_.size(); i++)
+      {
+         Button tab = tabButtons_.get(i);
+         tab.getElement().setAttribute("aria-selected", String.valueOf(i == index));
+         tab.getElement().setTabIndex(i == index ? 0 : -1);
+         tab.getElement().getStyle().setProperty("fontWeight", i == index ? "bold" : "normal");
+      }
+   }
+
    // Interactive preview -----------------------------------------------------
 
    private String elementName(String role)
@@ -419,12 +534,13 @@ public class ScatterDialog extends DialogBox
          case "boxes": return new String[] {"fill", "line_colour", "alpha", "show_outliers", "show_points"};
          case "density": return new String[] {"fill", "line_colour", "alpha", "adjust"};
          case "title": return new String[] {"title"};
-         case "x_label":
-         case "x_axis": return new String[] {"x_label"};
-         case "y_label":
-         case "y_axis": return new String[] {"y_label"};
+         case "x_label": return new String[] {"x_label"};
+         case "x_axis": return new String[] {"x_scale", "x_min", "x_max", "x_format", "limits_mode", "x_label"};
+         case "y_label": return new String[] {"y_label"};
+         case "y_axis": return new String[] {"y_scale", "y_min", "y_max", "y_format", "limits_mode", "y_label"};
          case "legend": return new String[] {"legend_position"};
-         default: return new String[] {"theme"};
+         case "strip": return new String[] {"facet_ncol", "facet_scales"};
+         default: return new String[] {"theme", "grid_major", "grid_minor"};
       }
    }
 
@@ -724,9 +840,16 @@ public class ScatterDialog extends DialogBox
    {
       String kind = kind();
       String x = value(x_), y = value(y_), colourBy = value(colourBy_);
-      x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear();
+      String facetBy = value(facetBy_), facetRows = value(facetRows_);
+      x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear(); facetBy_.clear(); facetRows_.clear();
       colourBy_.addItem(messages_.colourByNone(), "");
       groupBy_.addItem(messages_.colourByNone(), "");
+      facetBy_.addItem(messages_.colourByNone(), "");
+      facetRows_.addItem(messages_.colourByNone(), "");
+      addAll(facetBy_, discreteColumns_);
+      addAll(facetRows_, discreteColumns_);
+      select(facetBy_, facetBy);
+      select(facetRows_, facetRows);
       if (KIND_SCATTER.equals(kind))
       {
          addAll(x_, numericColumns_); addAll(y_, numericColumns_);
@@ -795,6 +918,34 @@ public class ScatterDialog extends DialogBox
       }
       if ((!lines && !fit) && has(groupBy_))
          groupBy_.setSelectedIndex(0);
+      // axis settings a kind cannot use are reset rather than sent
+      boolean continuousX = scatter || histogram || density, rawY = scatter || boxplot;
+      if (!continuousX && (!"linear".equals(xScale_.getSelectedValue()) || !"default".equals(xFormat_.getSelectedValue()) ||
+                           !xMin_.getValue().trim().isEmpty() || !xMax_.getValue().trim().isEmpty()))
+      {
+         select(xScale_, "linear");
+         select(xFormat_, "default");
+         xMin_.setValue("");
+         xMax_.setValue("");
+         dirty = true;
+      }
+      if (!rawY && !"linear".equals(yScale_.getSelectedValue()))
+      {
+         select(yScale_, "linear");
+         dirty = true;
+      }
+      // filtering needs a measured axis (bars count categories)
+      if (!continuousX && !rawY && "filter".equals(limitsMode_.getSelectedValue()))
+      {
+         select(limitsMode_, "zoom");
+         dirty = true;
+      }
+      for (Widget axis : new Widget[] {xScale_, xMin_, xMax_, xFormat_})
+         showRow(axis, continuousX);
+      showRow(yScale_, rawY);
+      limitsMode_.setEnabled(continuousX || rawY);
+      facetNcol_.setEnabled(has(facetBy_) && !has(facetRows_));
+      facetScales_.setEnabled(has(facetBy_) || has(facetRows_));
 
       showRow(y_, !single);
       showRow(groupBy_, scatter);
@@ -866,7 +1017,7 @@ public class ScatterDialog extends DialogBox
          return;
       }
       double version = number(spec, "schema_version", 0);
-      if (version < 1 || version > 3)
+      if (version < 1 || version > 4)
       {
          status_.setText(messages_.loadUnsupported(String.valueOf(version)));
          return;
@@ -920,16 +1071,20 @@ public class ScatterDialog extends DialogBox
       String mapped = string(spec, "colour_by");
       select(colourBy_, mapped.isEmpty() ? string(spec, "fill_by") : mapped);
       select(groupBy_, string(spec, "group_by"));
+      select(facetBy_, string(spec, "facet_by"));
+      select(facetRows_, string(spec, "facet_rows"));
 
       // settings missing from older schemas keep their defaults
       String[] values = Arrays.copyOf(defaults_, defaults_.length);   // GWT has no array clone()
       JSONObject layers = spec.get("layers") == null ? null : spec.get("layers").isObject();
       JSONObject appearance = spec.get("appearance") == null ? null : spec.get("appearance").isObject();
+      JSONObject axes = spec.get("axes") == null ? null : spec.get("axes").isObject();
       for (int i = 0; i < settings_.size(); i++)
       {
          String key = settings_.get(i).key;
          JSONValue value = layers != null && layers.get(key) != null ? layers.get(key)
-            : appearance != null ? appearance.get(key) : null;
+            : appearance != null && appearance.get(key) != null ? appearance.get(key)
+            : axes != null ? axes.get(key) : null;
          if (value != null)
             values[i] = text(value);
       }
@@ -1049,6 +1204,8 @@ public class ScatterDialog extends DialogBox
       json.put("kind", new JSONString(kind().isEmpty() ? KIND_SCATTER : kind()));
       json.put("colour_by", new JSONString(value(colourBy_)));
       json.put("group_by", new JSONString(value(groupBy_)));
+      json.put("facet_by", new JSONString(value(facetBy_)));
+      json.put("facet_rows", new JSONString(value(facetRows_)));
       return json;
    }
 
@@ -1115,6 +1272,9 @@ public class ScatterDialog extends DialogBox
          if (linear)
             text.append(messages_.lmCaveat());
       }
+      if (!result.notes().isEmpty())
+         text.append(text.length() == 0 || text.charAt(text.length() - 1) == '\n' ? "" : "\n")
+             .append(messages_.notesHeading()).append(":\n").append(result.notes()).append("\n");
       model_.setText(text.toString());
    }
 
@@ -1135,6 +1295,8 @@ public class ScatterDialog extends DialogBox
       x_.setEnabled(!busy && x_.getItemCount() > 0);
       y_.setEnabled(!busy && y_.getItemCount() > 0);
       colourBy_.setEnabled(!busy && colourBy_.getItemCount() > 1);
+      facetBy_.setEnabled(!busy && facetBy_.getItemCount() > 1);
+      facetRows_.setEnabled(!busy && facetRows_.getItemCount() > 1);
       refresh_.setEnabled(!busy);
       preview_.setEnabled(!busy && !revision_.isEmpty() && columnsChosen());
       export_.setEnabled(!busy && !revision_.isEmpty() && columnsChosen());
@@ -1160,7 +1322,7 @@ public class ScatterDialog extends DialogBox
    private void clearColumns()
    {
       numericColumns_ = discreteColumns_ = colourColumns_ = null;
-      x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear();
+      x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear(); facetBy_.clear(); facetRows_.clear();
       invalidate();
       plot_.clear();
    }
@@ -1288,7 +1450,15 @@ public class ScatterDialog extends DialogBox
    private FormLabel xRowLabel_, yRowLabel_, colourByLabel_, lineColourLabel_;
    private final ThemedButton preview_, export_, refresh_, close_, undo_, redo_, reset_, load_,
                               editSelected_;
-   private final ListBox legendPosition_ = new ListBox();
+   private final ListBox legendPosition_ = new ListBox(), xScale_ = new ListBox(), yScale_ = new ListBox(),
+                         xFormat_ = new ListBox(), yFormat_ = new ListBox(), limitsMode_ = new ListBox(),
+                         facetBy_ = new ListBox(), facetRows_ = new ListBox(), facetNcol_ = new ListBox(),
+                         facetScales_ = new ListBox();
+   private final TextBox xMin_ = new TextBox(), xMax_ = new TextBox(), yMin_ = new TextBox(), yMax_ = new TextBox();
+   private final CheckBox gridMajor_ = new CheckBox(), gridMinor_ = new CheckBox();
+   private final HorizontalPanel tabBar_ = new HorizontalPanel();
+   private final DeckPanel tabDeck_ = new DeckPanel();
+   private final List<Button> tabButtons_ = new ArrayList<>();
    private final InteractivePreview plot_ = new InteractivePreview(new InteractivePreview.Listener()
    {
       @Override public void onSelect(String role)

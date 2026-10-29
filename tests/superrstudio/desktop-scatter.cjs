@@ -75,8 +75,30 @@ async function waitStatus(page, pattern)
 
 async function selectDataset(page, name)
 {
-   await page.selectOption('#superrstudio_dataset', name);
+   await choose(page, '#superrstudio_dataset', name);
    await waitStatus(page, /Select columns|no supported numeric/);
+}
+
+// Settings are grouped in tabs; show the tab holding a control first.
+async function reveal(page, selector)
+{
+   await page.evaluate(selector => {
+      const page = document.querySelector(selector)?.closest('[data-superrstudio-tab]');
+      const tab = page && document.getElementById('superrstudio_tab_' + page.getAttribute('data-superrstudio-tab'));
+      if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
+   }, selector);
+}
+
+async function choose(page, selector, value)
+{
+   await reveal(page, selector);
+   return page.selectOption(selector, value);
+}
+
+async function type(page, selector, value)
+{
+   await reveal(page, selector);
+   return page.fill(selector, value);
 }
 
 async function waitCode(page, pattern)
@@ -163,8 +185,8 @@ async function closeDialog(page)
       if (!labels.includes('fish_tbl (tibble)') || !labels.includes('fish_dt (data.table)'))
          throw new Error('tibble/data.table not offered: ' + JSON.stringify(labels));
       await selectDataset(page, 'fish_dt');
-      await page.selectOption('#superrstudio_x', 'length cm');
-      await page.selectOption('#superrstudio_y', 'mass_g');
+      await choose(page, '#superrstudio_x', 'length cm');
+      await choose(page, '#superrstudio_y', 'mass_g');
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
       const dtCode = await page.locator('#superrstudio_code').inputValue();
@@ -184,8 +206,8 @@ async function closeDialog(page)
    if (JSON.stringify(columns) !== JSON.stringify(['sample', 'length cm', 'mass_g']))
       throw new Error('unexpected numeric columns ' + JSON.stringify(columns));
    log('PASS numeric column discovery (logical/character/date columns excluded)');
-   await page.selectOption('#superrstudio_x', 'length cm');
-   await page.selectOption('#superrstudio_y', 'mass_g');
+   await choose(page, '#superrstudio_x', 'length cm');
+   await choose(page, '#superrstudio_y', 'mass_g');
    await shot(page, '1-dialog');
 
    // The Plots pane renders into an <img> inside an about:blank iframe.
@@ -243,8 +265,8 @@ async function closeDialog(page)
       await check(page, `fish <- fish_original`, 'DATA_RESTORED');
       await page.locator('#rstudio_superrstudio_refresh').click();
       await selectDataset(page, 'fish');
-      await page.selectOption('#superrstudio_x', 'length cm');
-      await page.selectOption('#superrstudio_y', 'mass_g');
+      await choose(page, '#superrstudio_x', 'length cm');
+      await choose(page, '#superrstudio_y', 'mass_g');
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
       log('PASS refresh after the change; preview works again (non-modal editor)');
@@ -261,19 +283,19 @@ async function closeDialog(page)
       // Appearance: title, axis title, colour, size, opacity and theme, with undo.
       dialog = await openDialog(page);
       await selectDataset(page, 'fish');
-      await page.selectOption('#superrstudio_x', 'length cm');
-      await page.selectOption('#superrstudio_y', 'mass_g');
+      await choose(page, '#superrstudio_x', 'length cm');
+      await choose(page, '#superrstudio_y', 'mass_g');
       if (await page.locator('#superrstudio_undo').isEnabled()) throw new Error('undo enabled before any change');
       const title = 'Fish "length" vs mass';
-      await page.fill('#superrstudio_title', title);
+      await type(page, '#superrstudio_title', title);
       await page.locator('#superrstudio_title').press('Tab');            // commits the value
-      await page.fill('#superrstudio_xlabel', 'Length (cm)');
+      await type(page, '#superrstudio_xlabel', 'Length (cm)');
       await page.locator('#superrstudio_xlabel').press('Tab');
-      await page.selectOption('#superrstudio_colour', '#0072B2');
-      await page.selectOption('#superrstudio_size', '3');
-      await page.selectOption('#superrstudio_alpha', '0.6');
-      await page.selectOption('#superrstudio_theme', 'classic');
-      await page.selectOption('#superrstudio_theme', 'bw');
+      await choose(page, '#superrstudio_colour', '#0072B2');
+      await choose(page, '#superrstudio_size', '3');
+      await choose(page, '#superrstudio_alpha', '0.6');
+      await choose(page, '#superrstudio_theme', 'classic');
+      await choose(page, '#superrstudio_theme', 'bw');
       await page.locator('#superrstudio_undo').click();                  // back to classic
       if (await page.inputValue('#superrstudio_theme') !== 'classic') throw new Error('undo did not restore the theme');
       log('PASS appearance undo restores the previous setting');
@@ -285,7 +307,7 @@ async function closeDialog(page)
       fs.writeFileSync(path.join(evidence, 'generated-scatter-styled.R'), styledCode);
       for (const part of ['ggplot2::geom_point(colour = "#0072B2", size = 3, alpha = 0.6)',
                           'ggplot2::labs(title = "Fish \\"length\\" vs mass", x = "Length (cm)")',
-                          'ggplot2::theme_classic()', 'SuperRStudio scatter v3'])
+                          'ggplot2::theme_classic()', 'SuperRStudio scatter v4'])
          if (!styledCode.includes(part)) throw new Error('styled code lacks ' + part);
       let styledSrc = null;
       for (let i = 0; i < 60 && (!styledSrc || styledSrc === imageBeforeStyled); i++)
@@ -311,17 +333,17 @@ async function closeDialog(page)
       // statistics shown must equal summary(lm()) computed in the console.
       dialog = await openDialog(page);
       await selectDataset(page, 'growth');
-      await page.selectOption('#superrstudio_x', 'age');
-      await page.selectOption('#superrstudio_y', 'size');
+      await choose(page, '#superrstudio_x', 'age');
+      await choose(page, '#superrstudio_y', 'size');
       if (await page.locator('#superrstudio_line_order').isEnabled()) throw new Error('line order enabled for points');
-      await page.selectOption('#superrstudio_geometry', 'lines_points');
+      await choose(page, '#superrstudio_geometry', 'lines_points');
       if (!(await page.locator('#superrstudio_line_order').isEnabled())) throw new Error('line order disabled for lines');
       const hint = await page.locator('#superrstudio_order_hint').innerText();
       if (!/increasing X/.test(hint)) throw new Error('order hint missing: ' + hint);
-      await page.selectOption('#superrstudio_line_type', 'dashed');
-      await page.selectOption('#superrstudio_fit', 'lm');
-      await page.selectOption('#superrstudio_fit_level', '0.9');
-      await page.selectOption('#superrstudio_fit_colour', '#D55E00');
+      await choose(page, '#superrstudio_line_type', 'dashed');
+      await choose(page, '#superrstudio_fit', 'lm');
+      await choose(page, '#superrstudio_fit_level', '0.9');
+      await choose(page, '#superrstudio_fit_colour', '#D55E00');
       const imageBeforeFit = await plotImage();
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
@@ -344,7 +366,7 @@ async function closeDialog(page)
       }
       if (!fitSrc || fitSrc === imageBeforeFit) throw new Error('fit plot not rendered');
       await shot(page, '2d-lines-fit');
-      await page.selectOption('#superrstudio_fit', 'loess');
+      await choose(page, '#superrstudio_fit', 'loess');
       if (!(await page.locator('#superrstudio_fit_span').isEnabled())) throw new Error('span disabled for loess');
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
@@ -364,18 +386,18 @@ async function closeDialog(page)
       // Histogram: one numeric variable, explicit bins, fill by a category.
       dialog = await openDialog(page);
       await selectDataset(page, 'growth');
-      await page.selectOption('#superrstudio_kind', 'histogram');
+      await choose(page, '#superrstudio_kind', 'histogram');
       if (await page.locator('#superrstudio_y').isVisible()) throw new Error('Y shown for a histogram');
       if (!(await page.locator('#superrstudio_bins').isVisible())) throw new Error('bins hidden for a histogram');
       if (await page.locator('#superrstudio_fit').isVisible()) throw new Error('fit shown for a histogram');
-      await page.selectOption('#superrstudio_x', 'size');
-      await page.selectOption('#superrstudio_bins', '10');
-      await page.selectOption('#superrstudio_colour_by', 'site');
+      await choose(page, '#superrstudio_x', 'size');
+      await choose(page, '#superrstudio_bins', '10');
+      await choose(page, '#superrstudio_colour_by', 'site');
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
       const histCode = await page.locator('#superrstudio_code').inputValue();
       fs.writeFileSync(path.join(evidence, 'generated-histogram.R'), histCode);
-      for (const part of ['SuperRStudio histogram v3', 'ggplot2::aes(x = .data[["size"]], fill = .data[["site"]])',
+      for (const part of ['SuperRStudio histogram v4', 'ggplot2::aes(x = .data[["size"]], fill = .data[["site"]])',
                           'ggplot2::geom_histogram(bins = 10)', 'ggplot2::scale_fill_viridis_d()'])
          if (!histCode.includes(part)) throw new Error('histogram code lacks ' + part);
       const histText = await page.locator('#superrstudio_model').innerText();
@@ -385,18 +407,18 @@ async function closeDialog(page)
       log('PASS histogram (variable, bins, fill column, summary)');
 
       // Boxplot: numeric response by a group, outliers hidden, observations overlaid.
-      await page.selectOption('#superrstudio_kind', 'boxplot');
+      await choose(page, '#superrstudio_kind', 'boxplot');
       if (!(await page.locator('#superrstudio_show_outliers').isVisible())) throw new Error('outlier option hidden');
-      await page.selectOption('#superrstudio_x', 'site');
-      await page.selectOption('#superrstudio_y', 'size');
-      await page.selectOption('#superrstudio_colour_by', '');
+      await choose(page, '#superrstudio_x', 'site');
+      await choose(page, '#superrstudio_y', 'size');
+      await choose(page, '#superrstudio_colour_by', '');
       await page.locator('#superrstudio_show_points input').check();   // GWT CheckBox: id on the wrapper span
-      await page.selectOption('#superrstudio_fill', '#56B4E9');
+      await choose(page, '#superrstudio_fill', '#56B4E9');
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
       const boxCode = await page.locator('#superrstudio_code').inputValue();
       fs.writeFileSync(path.join(evidence, 'generated-boxplot.R'), boxCode);
-      for (const part of ['SuperRStudio boxplot v3', 'ggplot2::aes(x = .data[["site"]], y = .data[["size"]])',
+      for (const part of ['SuperRStudio boxplot v4', 'ggplot2::aes(x = .data[["site"]], y = .data[["size"]])',
                           'ggplot2::geom_boxplot(fill = "#56B4E9")',
                           'ggplot2::geom_point(position = ggplot2::position_jitter(width = 0.15, height = 0, seed = 1))'])
          if (!boxCode.includes(part)) throw new Error('boxplot code lacks ' + part);
@@ -418,22 +440,22 @@ async function closeDialog(page)
       // Bar chart of counts and a density curve.
       dialog = await openDialog(page);
       await selectDataset(page, 'growth');
-      await page.selectOption('#superrstudio_kind', 'bar');
+      await choose(page, '#superrstudio_kind', 'bar');
       if (await page.locator('#superrstudio_y').isVisible()) throw new Error('Y shown for a bar chart');
-      await page.selectOption('#superrstudio_x', 'site');
-      await page.selectOption('#superrstudio_bar_position', 'dodge');
+      await choose(page, '#superrstudio_x', 'site');
+      await choose(page, '#superrstudio_bar_position', 'dodge');
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
       const barCode = await page.locator('#superrstudio_code').inputValue();
       const barText = await page.locator('#superrstudio_model').innerText();
       if (!barCode.includes('ggplot2::geom_bar(position = "dodge")') || !/north: n = 4\nsouth: n = 4/.test(barText))
          throw new Error('bar chart: ' + barCode + '\n' + barText);
-      await page.selectOption('#superrstudio_kind', 'density');
+      await choose(page, '#superrstudio_kind', 'density');
       if (!(await page.locator('#superrstudio_adjust').isVisible())) throw new Error('adjust hidden for density');
-      await page.selectOption('#superrstudio_x', 'size');
-      await page.selectOption('#superrstudio_adjust', '1.5');
-      await page.selectOption('#superrstudio_fill', '#009E73');
-      await page.selectOption('#superrstudio_alpha', '0.6');
+      await choose(page, '#superrstudio_x', 'size');
+      await choose(page, '#superrstudio_adjust', '1.5');
+      await choose(page, '#superrstudio_fill', '#009E73');
+      await choose(page, '#superrstudio_alpha', '0.6');
       await page.locator('#rstudio_superrstudio_preview').click();
       await waitStatus(page, /Plot created/);
       const densityCode = await page.locator('#superrstudio_code').inputValue();
@@ -454,10 +476,10 @@ async function closeDialog(page)
       const colourColumns = await page.$$eval('#superrstudio_colour_by option', o => o.map(x => x.value));
       if (JSON.stringify(colourColumns) !== JSON.stringify(['', 'sample', 'site', 'length cm', 'mass_g', 'observed', 'date', 'note']))
          throw new Error('unexpected colour columns ' + JSON.stringify(colourColumns));
-      await page.selectOption('#superrstudio_x', 'length cm');
-      await page.selectOption('#superrstudio_y', 'mass_g');
-      await page.selectOption('#superrstudio_colour', '#E69F00');
-      await page.selectOption('#superrstudio_colour_by', 'site');
+      await choose(page, '#superrstudio_x', 'length cm');
+      await choose(page, '#superrstudio_y', 'mass_g');
+      await choose(page, '#superrstudio_colour', '#E69F00');
+      await choose(page, '#superrstudio_colour_by', 'site');
       if (await page.locator('#superrstudio_colour').isEnabled() || await page.inputValue('#superrstudio_colour') !== '')
          throw new Error('fixed colour not disabled/reset while colouring by column');
       await page.locator('#rstudio_superrstudio_preview').click();
@@ -480,8 +502,8 @@ async function closeDialog(page)
       // keyboard access. Live re-renders never add plots to the Plots pane.
       dialog = await openDialog(page);
       await selectDataset(page, 'growth');
-      await page.selectOption('#superrstudio_x', 'age');
-      await page.selectOption('#superrstudio_y', 'size');
+      await choose(page, '#superrstudio_x', 'age');
+      await choose(page, '#superrstudio_y', 'size');
       const preview = page.locator('#superrstudio_interactive img');
       const previewSrc = () => preview.getAttribute('src');
       const freshPreview = () => page.waitForFunction(() => {
@@ -503,9 +525,9 @@ async function closeDialog(page)
       await popup.waitFor({state: 'visible'});
       if (!(await popup.innerText()).startsWith('Points')) throw new Error('popup: ' + await popup.innerText());
       await shot(page, '5a-point-popup');
-      await page.selectOption('#superrstudio_popup_colour', '#D55E00');
+      await choose(page, '#superrstudio_popup_colour', '#D55E00');
       await waitCode(page, /ggplot2::geom_point\(colour = "#D55E00"\)/);
-      await page.selectOption('#superrstudio_popup_size', '4');
+      await choose(page, '#superrstudio_popup_size', '4');
       const pointCode = await waitCode(page, /ggplot2::geom_point\(colour = "#D55E00", size = 4\)/);
       await freshPreview();
       if (await previewSrc() === srcBefore) throw new Error('preview not re-rendered after the edit');
@@ -526,7 +548,7 @@ async function closeDialog(page)
       await page.mouse.click(...at((map[2] + map[4]) / 2, (map[3] + map[5]) / 2), {button: 'right'});
       await popup.waitFor({state: 'visible'});
       if (!(await popup.innerText()).startsWith('X axis title')) throw new Error('axis popup: ' + await popup.innerText());
-      await page.fill('#superrstudio_popup_x_label', 'Age (years)');
+      await type(page, '#superrstudio_popup_x_label', 'Age (years)');
       await page.locator('#superrstudio_popup_x_label').press('Enter');
       await waitCode(page, /ggplot2::labs\(x = "Age \(years\)"\)/);
       if (await page.inputValue('#superrstudio_xlabel') !== 'Age (years)') throw new Error('x label not synchronized');
@@ -534,7 +556,7 @@ async function closeDialog(page)
       await popup.waitFor({state: 'detached'});
       log('PASS right-click on the X axis title edits it');
 
-      await page.selectOption('#superrstudio_geometry', 'lines_points');
+      await choose(page, '#superrstudio_geometry', 'lines_points');
       const linesCode = await waitCode(page, /ggplot2::geom_line\(\)/);
       await freshPreview();
       const segment = await plotMap(page, linesCode,
@@ -543,7 +565,7 @@ async function closeDialog(page)
       await page.mouse.click(...at((segment[0] + segment[2]) / 2, (segment[1] + segment[3]) / 2), {button: 'right'});
       await popup.waitFor({state: 'visible'});
       if (!(await popup.innerText()).startsWith('Connected lines')) throw new Error('line popup: ' + await popup.innerText());
-      await page.selectOption('#superrstudio_popup_line_type', 'dotted');
+      await choose(page, '#superrstudio_popup_line_type', 'dotted');
       const lineCode = await waitCode(page, /ggplot2::geom_line\(linetype = "dotted"\)/);
       await page.locator('#superrstudio_popup_line_type').press('Escape');
       await popup.waitFor({state: 'detached'});
@@ -570,6 +592,60 @@ async function closeDialog(page)
          `identical(growth, growth_original))`,
          'INTERACTIVE_EDITS_REPRODUCE');
 
+      // Axes and facets: log scale, facets by a column, statistics per panel;
+      // a facet strip and the Y axis are edited by right-click.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'growth');
+      await choose(page, '#superrstudio_x', 'age');
+      await choose(page, '#superrstudio_y', 'size');
+      await choose(page, '#superrstudio_fit', 'lm');
+      await page.locator('#superrstudio_tab_axes').click();
+      if (await page.getAttribute('#superrstudio_tab_axes', 'aria-selected') !== 'true') throw new Error('axes tab not selected');
+      await choose(page, '#superrstudio_y_scale', 'log10');
+      await choose(page, '#superrstudio_facet_by', 'site');
+      const facetCode = await waitCode(page, /ggplot2::facet_wrap\(ggplot2::vars\(\.data\[\["site"\]\]\)\)/);
+      if (!facetCode.includes('ggplot2::scale_y_log10()') || !facetCode.includes('"schema_version":4'))
+         throw new Error('axis code: ' + facetCode);
+      const facetModel = await page.locator('#superrstudio_model').innerText();
+      if (!/^north: n = 4; log10\(size\) = /m.test(facetModel) || !/^south: n = 4; log10\(size\) = /m.test(facetModel) ||
+          !/computed on the log10 scale/.test(facetModel))
+         throw new Error('per-panel log fit summary: ' + facetModel);
+      await freshPreview();
+      const strips = await plotMap(page, facetCode.split('\n# Linear model')[0],
+         "Filter(function(r) r$role == 'strip', srs_map$regions)[[1]]$box, " +
+         "Filter(function(r) r$role == 'y_axis', srs_map$regions)[[1]]$box", 'SRS_FACET_MAP');
+      box = await preview.boundingBox();
+      await page.mouse.click(...at((strips[0] + strips[2]) / 2, (strips[1] + strips[3]) / 2), {button: 'right'});
+      await popup.waitFor({state: 'visible'});
+      if (!(await popup.innerText()).startsWith('Facet labels')) throw new Error('strip popup: ' + await popup.innerText());
+      await page.selectOption('#superrstudio_popup_facet_scales', 'free_y');
+      await waitCode(page, /ggplot2::facet_wrap\(ggplot2::vars\(\.data\[\["site"\]\]\), scales = "free_y"\)/);
+      await page.locator('#superrstudio_popup_facet_scales').press('Escape');
+      await popup.waitFor({state: 'detached'});
+      await freshPreview();
+      box = await preview.boundingBox();
+      await page.mouse.click(...at((strips[4] + strips[6]) / 2, (strips[5] + strips[7]) / 2), {button: 'right'});
+      await popup.waitFor({state: 'visible'});
+      if (!(await popup.innerText()).startsWith('Y axis')) throw new Error('y axis popup: ' + await popup.innerText());
+      await page.fill('#superrstudio_popup_y_min', '5');
+      await page.locator('#superrstudio_popup_y_min').press('Enter');
+      const axisCode = await waitCode(page, /ggplot2::coord_cartesian\(ylim = c\(5, NA\)\)/);
+      await page.locator('#superrstudio_popup_y_min').press('Escape');
+      await popup.waitFor({state: 'detached'});
+      await freshPreview();
+      await shot(page, '6-axes-facets');
+      log('PASS axes and facets: log Y, facet panels with per-panel fits, strip and Y axis edited by right-click');
+      await closeDialog(page);
+      fs.writeFileSync(path.join(evidence, 'generated-axes-facets.R'), axisCode);
+      await check(page,
+         `srs_built <- ggplot2::ggplot_build(eval(parse(text = ${JSON.stringify(axisCode.split('\n# Linear model')[0])}))); ` +
+         `srs_range <- srs_built$layout$panel_params[[1]]$y.range; stopifnot(nrow(srs_built$layout$layout) == 2L, ` +
+         `isTRUE(all.equal(srs_range[1] + 0.05 * diff(srs_range) / 1.1, log10(5))), ` +
+         `isTRUE(all.equal(unname(stats::coef(stats::lm(log10(size) ~ age, data = growth[growth$site == 'north', ]))[2]), ` +
+         `unname(stats::coef(stats::lm(y ~ x, data = srs_built$data[[2]][srs_built$data[[2]]$PANEL == 1, c('x', 'y')]))[2]))), ` +
+         `identical(growth, growth_original))`,
+         'AXES_FACETS_REPRODUCE');
+
       // Escape closes the editor (handled only for its own content).
       dialog = await openDialog(page);
       // (a control disabled while a request runs cannot hold the focus)
@@ -581,11 +657,11 @@ async function closeDialog(page)
       // Export opens the same code in a new, unsaved R script.
       dialog = await openDialog(page);
       await selectDataset(page, 'fish');
-      await page.selectOption('#superrstudio_x', 'length cm');
-      await page.selectOption('#superrstudio_y', 'mass_g');
+      await choose(page, '#superrstudio_x', 'length cm');
+      await choose(page, '#superrstudio_y', 'mass_g');
       await page.locator('#rstudio_superrstudio_export').click();
       await page.getByRole('dialog').waitFor({state: 'detached'});
-      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v3'));
+      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v4'));
       const script = await page.evaluate(() => window.rstudio.documents.activeEditor().getValue());
       if (script !== code) throw new Error('exported script differs from previewed code:\n' + script);
       log('PASS export opens identical code in a new R script');

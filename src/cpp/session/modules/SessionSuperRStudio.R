@@ -432,13 +432,19 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    c(layers, .rs.superrstudioCommonLayers(appearance))
 })
 
-#' Group keys as ggplot2 forms them: missing values form their own group
-.rs.addFunction('superrstudioGroupKey', function(data, column)
+#' Group keys as ggplot2 forms them: missing values form their own group.
+#' Several columns (a group plus facet columns) are joined with " / ".
+.rs.addFunction('superrstudioGroupKey', function(data, columns)
 {
-   if (!nzchar(column)) return(factor(rep('all', nrow(data))))
-   value <- as.character(data[[column]])
-   value[is.na(value)] <- 'NA'
-   factor(value)
+   columns <- columns[nzchar(columns)]
+   if (!length(columns)) return(factor(rep('all', nrow(data))))
+   values <- lapply(columns, function(column) {
+      value <- as.character(data[[column]])
+      value[is.na(value)] <- 'NA'
+      value
+   })
+   if (length(values) == 1L) factor(values[[1L]])
+   else interaction(values, drop = TRUE, sep = ' / ', lex.order = TRUE)
 })
 
 #' Box statistics exactly as ggplot2's stat_boxplot() computes them:
@@ -522,7 +528,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #'
 #' @return A list with one entry per group.
 .rs.addFunction('superrstudioFitSummary', function(data, x, y, method, groups = character(),
-                                                 span = 0.75)
+                                                 span = 0.75, x_name = x, y_name = y)
 {
    frame <- data.frame(x = data[[x]], y = data[[y]])
    # missing group values form their own group, as in ggplot2
@@ -555,8 +561,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       coefficients <- stats::coef(summary)
       intercept <- coefficients[1L, 1L]
       slope <- coefficients[2L, 1L]
-      equation <- sprintf('%s = %s %s %s * %s', y, format(signif(intercept, 4L)),
-                          if (slope < 0) '-' else '+', format(signif(abs(slope), 4L)), x)
+      equation <- sprintf('%s = %s %s %s * %s', y_name, format(signif(intercept, 4L)),
+                          if (slope < 0) '-' else '+', format(signif(abs(slope), 4L)), x_name)
       # NULL entries (non-finite statistics) are dropped rather than serialized
       Filter(Negate(is.null), c(row, list(
         intercept = number(intercept), slope = number(slope),
@@ -568,10 +574,55 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 })
 
 #' Code that reproduces the model(s) summarised for a linear fit
-.rs.addFunction('superrstudioFitCode', function(dataset, x, y, groups = character())
+#'
+#' On log10 axes ggplot2 fits on the transformed scale, and filtering
+#' limits remove observations first; the code states both explicitly.
+.rs.addFunction('superrstudioFitCode', function(dataset, x, y, groups = character(), axes = NULL)
 {
    frame <- substitute(data.frame(x = DATA[[X]], y = DATA[[Y]]),
                        list(DATA = as.name(dataset), X = x, Y = y))
+   conditions <- list()
+   formula <- quote(y ~ x)
+   for (axis in c('x', 'y'))
+   {
+      if (is.null(axes)) break
+      variable <- as.name(axis)
+      if (axes$limits_mode == 'filter')
+      {
+         low <- axes[[paste0(axis, '_min')]]
+         high <- axes[[paste0(axis, '_max')]]
+         if (!identical(low, '')) conditions <- c(conditions, call('>=', variable, low))
+         if (!identical(high, '')) conditions <- c(conditions, call('<=', variable, high))
+      }
+      if (axes[[paste0(axis, '_scale')]] == 'log10')
+      {
+         conditions <- c(conditions, call('>', variable, 0))
+         formula[[if (axis == 'y') 2L else 3L]] <- call('log10', variable)
+      }
+   }
+   if (length(conditions))
+   {
+      keep <- Reduce(function(lhs, rhs) call('&', lhs, rhs), conditions)
+      if (length(groups))
+      {
+         keys <- as.call(c(quote(interaction), lapply(groups, function(g)
+            substitute(DATA[[G]], list(DATA = as.name(dataset), G = g))),
+            list(drop = TRUE, sep = ' / ', lex.order = TRUE)))
+         frame[['group']] <- keys
+      }
+      frame <- substitute(subset(FRAME, KEEP), list(FRAME = frame, KEEP = keep))
+      call <- if (!length(groups))
+         substitute(summary(stats::lm(FORMULA, data = FRAME)), list(FORMULA = formula, FRAME = frame))
+      else
+         substitute(local({
+            d <- FRAME
+            lapply(split(d, d$group, drop = TRUE), function(d) summary(stats::lm(FORMULA, data = d)))
+         }), list(FRAME = frame, FORMULA = formula))
+      return(paste(c('# Linear model(s) behind the fitted line: exploratory; check linearity,',
+                     '# independence, constant variance and residual normality before inference.',
+                     '# Fitted on the plotted scale and observations, as ggplot2 does.',
+                     deparse(call, width.cutoff = 90L, backtick = TRUE)), collapse = '\n'))
+   }
    call <- if (!length(groups))
       substitute(summary(stats::lm(y ~ x, data = FRAME)), list(FRAME = frame))
    else
@@ -584,6 +635,167 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    paste(c('# Linear model(s) behind the fitted line: exploratory; check linearity,',
            '# independence, constant variance and residual normality before inference.',
            deparse(call, width.cutoff = 90L, backtick = TRUE)), collapse = '\n')
+})
+
+#' Validate axis, scale and facet settings for a plot kind
+#'
+#' Limits either zoom (coord_cartesian: every observation still enters the
+#' statistics) or filter (scale limits: observations outside are removed
+#' before statistics, as ggplot2 does). Log scales need positive limits.
+.rs.addFunction('superrstudioAxisOptions', function(axes = list(), kind = 'scatter')
+{
+   fail <- function(message) stop(message, call. = FALSE)
+   defaults <- list(x_scale = 'linear', y_scale = 'linear', x_min = '', x_max = '',
+                    y_min = '', y_max = '', limits_mode = 'zoom', x_format = 'default',
+                    y_format = 'default', grid_major = TRUE, grid_minor = TRUE,
+                    facet_scales = 'fixed', facet_ncol = 0)
+   result <- .rs.superrstudioSettings(axes, defaults, 'Axis')
+   flag <- function(value) is.logical(value) && length(value) == 1L && !is.na(value)
+   choice <- function(value, allowed) .rs.superrstudioIsText(value) && value %in% allowed
+   for (axis in c('x', 'y'))
+   {
+      label <- toupper(axis)
+      if (!choice(result[[paste0(axis, '_scale')]], c('linear', 'log10')))
+         fail(paste0(label, ' scale must be linear or log10.'))
+      if (!choice(result[[paste0(axis, '_format')]], c('default', 'comma', 'scientific', 'percent')))
+         fail(paste0(label, ' tick labels must be default, comma, scientific or percent.'))
+      for (end in c('_min', '_max'))
+      {
+         value <- result[[paste0(axis, end)]]
+         if (!(identical(value, '') || .rs.superrstudioIsNumber(value, -Inf, Inf)))
+            fail(paste0(label, ' axis limits must be numbers or left empty.'))
+         if (!identical(value, '')) result[[paste0(axis, end)]] <- as.numeric(value)
+      }
+      low <- result[[paste0(axis, '_min')]]
+      high <- result[[paste0(axis, '_max')]]
+      if (is.numeric(low) && is.numeric(high) && low >= high)
+         fail(paste0(label, ' axis minimum must be below its maximum.'))
+      if (result[[paste0(axis, '_scale')]] == 'log10' &&
+          ((is.numeric(low) && low <= 0) || (is.numeric(high) && high <= 0)))
+         fail(paste0(label, ' axis limits on a log scale must be positive.'))
+   }
+   if (!choice(result$limits_mode, c('zoom', 'filter'))) fail('Axis limits must zoom or filter.')
+   if (!flag(result$grid_major) || !flag(result$grid_minor)) fail('Gridline settings must be true or false.')
+   if (!choice(result$facet_scales, c('fixed', 'free', 'free_x', 'free_y')))
+      fail('Facet scales must be fixed, free, free_x or free_y.')
+   if (!.rs.superrstudioIsNumber(result$facet_ncol, 0, 12) || result$facet_ncol != round(result$facet_ncol))
+      fail('Facet columns must be a whole number from 0 (automatic) to 12.')
+   result$facet_ncol <- as.numeric(result$facet_ncol)
+
+   # what applies to each kind: continuous X for scatter, histogram and
+   # density; raw (not computed) Y for scatter and boxplot
+   continuousX <- kind %in% c('scatter', 'histogram', 'density')
+   rawY <- kind %in% c('scatter', 'boxplot')
+   if (!continuousX && (result$x_scale != 'linear' || result$x_format != 'default' ||
+                        !identical(result$x_min, '') || !identical(result$x_max, '')))
+      fail('X scale, limits and tick labels apply to a continuous X (scatter, histogram, density).')
+   if (!rawY && result$y_scale != 'linear')
+      fail('A log Y scale applies to measured values (scatter, boxplot), not to counts or densities.')
+   if (!rawY && result$limits_mode == 'filter' &&
+       (!identical(result$y_min, '') || !identical(result$y_max, '')))
+      fail('Y limits on counts or densities can only zoom: filtering would remove bars or curves.')
+   result[names(defaults)]
+})
+
+#' Scale, coordinate, facet and gridline layers for the axis settings
+.rs.addFunction('superrstudioAxisLayers', function(axes, facet_by = '', facet_rows = '')
+{
+   layers <- list()
+   value <- function(v) if (identical(v, '')) NA else v
+   filter <- axes$limits_mode == 'filter'
+   zoom <- list()
+   for (axis in c('x', 'y'))
+   {
+      low <- value(axes[[paste0(axis, '_min')]])
+      high <- value(axes[[paste0(axis, '_max')]])
+      limited <- !is.na(low) || !is.na(high)
+      args <- list()
+      if (limited && filter) args$limits <- call('c', low, high)
+      if (limited && !filter) zoom[[paste0(axis, 'lim')]] <- call('c', low, high)
+      format <- axes[[paste0(axis, '_format')]]
+      if (format != 'default')
+         args$labels <- switch(format, comma = quote(scales::label_comma()),
+                               scientific = quote(scales::label_scientific()),
+                               percent = quote(scales::label_percent()))
+      log <- axes[[paste0(axis, '_scale')]] == 'log10'
+      if (log || length(args))
+      {
+         name <- paste0('scale_', axis, if (log) '_log10' else '_continuous')
+         layers <- c(layers, as.call(c(call('::', as.name('ggplot2'), as.name(name)), args)))
+      }
+   }
+   if (length(zoom)) layers <- c(layers, as.call(c(quote(ggplot2::coord_cartesian), zoom)))
+   facet <- function(column) substitute(ggplot2::vars(.data[[C]]), list(C = column))
+   if (nzchar(facet_rows))
+   {
+      args <- list(rows = facet(facet_rows))
+      if (nzchar(facet_by)) args$cols <- facet(facet_by)
+      if (axes$facet_scales != 'fixed') args$scales <- axes$facet_scales
+      layers <- c(layers, as.call(c(quote(ggplot2::facet_grid), args)))
+   }
+   else if (nzchar(facet_by))
+   {
+      args <- list(facet(facet_by))
+      if (axes$facet_ncol > 0) args$ncol <- axes$facet_ncol
+      if (axes$facet_scales != 'fixed') args$scales <- axes$facet_scales
+      layers <- c(layers, as.call(c(quote(ggplot2::facet_wrap), args)))
+   }
+   # after the complete theme, which would otherwise reset them
+   grid <- list()
+   if (!axes$grid_major) grid$panel.grid.major <- quote(ggplot2::element_blank())
+   if (!axes$grid_minor) grid$panel.grid.minor <- quote(ggplot2::element_blank())
+   if (length(grid)) layers <- c(layers, as.call(c(quote(ggplot2::theme), grid)))
+   layers
+})
+
+#' The observations as ggplot2's statistics see them
+#'
+#' Filtering limits remove observations outside them; log10 scales transform
+#' the values (non-positive ones have no logarithm and are dropped), exactly
+#' as ggplot2 does before computing fits, boxes, bins and densities. Returns
+#' a small frame of the needed columns and notes describing what was removed.
+.rs.addFunction('superrstudioStatData', function(data, kind, x, y, columns, axes)
+{
+   columns <- unique(c(x, y, columns))
+   columns <- columns[nzchar(columns)]
+   frame <- lapply(columns, function(column) data[[column]])
+   names(frame) <- columns
+   frame <- structure(frame, class = 'data.frame', row.names = .set_row_names(nrow(data)))
+   notes <- character()
+   rawX <- nzchar(x) && kind %in% c('scatter', 'histogram', 'density')
+   rawY <- nzchar(y) && kind %in% c('scatter', 'boxplot')
+   if (axes$limits_mode == 'filter')
+   {
+      keep <- rep(TRUE, nrow(frame))
+      inside <- function(column, axis)
+      {
+         v <- frame[[column]]
+         low <- axes[[paste0(axis, '_min')]]
+         high <- axes[[paste0(axis, '_max')]]
+         (identical(low, '') | is.na(v) | v >= low) & (identical(high, '') | is.na(v) | v <= high)
+      }
+      if (rawX) keep <- keep & inside(x, 'x')
+      if (rawY) keep <- keep & inside(y, 'y')
+      if (any(!keep))
+         notes <- c(notes, sprintf(paste('Axis limits (filter) remove %d observation(s) before statistics',
+                                         'are computed; choose zoom to keep them.'), sum(!keep)))
+      frame <- frame[keep, , drop = FALSE]
+   }
+   for (axis in c('x', 'y'))
+   {
+      column <- if (axis == 'x') x else y
+      if (!(if (axis == 'x') rawX else rawY) || axes[[paste0(axis, '_scale')]] != 'log10') next
+      v <- frame[[column]]
+      bad <- !is.na(v) & v <= 0
+      if (any(bad))
+         notes <- c(notes, sprintf(paste('Log scale: %d %s value(s) at or below zero have no logarithm;',
+                                         'they are not drawn and are excluded from statistics.'),
+                                   sum(bad), toupper(axis)))
+      v[bad] <- NA
+      frame[[column]] <- log10(v)
+      notes <- c(notes, sprintf('%s statistics are computed on the log10 scale, as drawn.', toupper(axis)))
+   }
+   list(data = frame, notes = unique(notes))
 })
 
 .rs.addFunction('superrstudioData', function(operation, dataset = '', revision = '',
@@ -650,12 +862,16 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    # are validated against this dataset), layer options and appearance.
    if (is.null(appearance)) appearance <- list()
    if (!is.list(appearance)) fail('Appearance settings must be named.')
-   mappingKeys <- c('colour_by', 'group_by')
+   mappingKeys <- c('colour_by', 'group_by', 'facet_by', 'facet_rows')
    optionKeys <- c('kind', 'geometry', 'line_order', 'fit', 'fit_se', 'fit_level', 'fit_span',
                    'bins', 'bin_width', 'show_outliers', 'show_points', 'bar_position', 'adjust')
+   axisKeys <- c('x_scale', 'y_scale', 'x_min', 'x_max', 'y_min', 'y_max', 'limits_mode',
+                 'x_format', 'y_format', 'grid_major', 'grid_minor', 'facet_scales', 'facet_ncol')
    mapping <- appearance[intersect(names(appearance), mappingKeys)]
    options <- .rs.superrstudioScatterOptions(appearance[intersect(names(appearance), optionKeys)])
-   appearance <- .rs.superrstudioScatterAppearance(appearance[setdiff(names(appearance), c(mappingKeys, optionKeys))])
+   axes <- appearance[intersect(names(appearance), axisKeys)]
+   appearance <- .rs.superrstudioScatterAppearance(
+      appearance[setdiff(names(appearance), c(mappingKeys, optionKeys, axisKeys))])
    column <- function(value, allowed, message)
    {
       if (is.null(value)) return('')
@@ -666,7 +882,15 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
                       'Select a numeric, character, factor or logical column to colour by.')
    groupBy <- column(mapping$group_by, discreteColumns,
                      'Group lines by a character, factor or logical column.')
+   facetBy <- column(mapping$facet_by, discreteColumns,
+                     'Facet by a character, factor or logical column.')
+   facetRows <- column(mapping$facet_rows, discreteColumns,
+                       'Facet rows by a character, factor or logical column.')
+   if (nzchar(facetBy) && identical(facetBy, facetRows))
+      fail('Facet rows and columns must use different columns.')
    kind <- options$kind
+   axes <- .rs.superrstudioAxisOptions(axes, kind)
+   facets <- c(facetBy, facetRows)
    if (kind == 'scatter' && (!x %in% columns || !y %in% columns))
       fail('Select two ordinary numeric columns.')
    if (kind == 'histogram' && (!x %in% columns || nzchar(y)))
@@ -687,7 +911,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          fail('Fill by a character, factor or logical column.')
       if (nzchar(colourBy) && nzchar(appearance$fill))
          fail('Choose either a fixed fill colour or a fill column, not both.')
-      return(.rs.superrstudioPlotResult(operation, kind, dataset, data, x, y, colourBy, options, appearance))
+      return(.rs.superrstudioPlotResult(operation, kind, dataset, data, x, y, colourBy, options,
+                                        appearance, axes, facetBy, facetRows))
    }
    if (nzchar(colourBy) && nzchar(appearance$colour))
       fail('Choose either a fixed point colour or a colour column, not both.')
@@ -699,8 +924,9 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    # Build language objects, never parse concatenated names or executable text.
    # The displayed code joins the deparsed layers; the evaluated expression is
    # the same left-associated sum that R parses from that text.
-   layers <- .rs.superrstudioScatterLayers(dataset, x, y, appearance, colourBy, discrete,
-                                           options, groupBy)
+   layers <- c(.rs.superrstudioScatterLayers(dataset, x, y, appearance, colourBy, discrete,
+                                             options, groupBy),
+               .rs.superrstudioAxisLayers(axes, facetBy, facetRows))
    expression <- Reduce(function(lhs, rhs) call('+', lhs, rhs), layers)
    code <- paste(vapply(layers, function(layer)
       paste(deparse(layer, width.cutoff = 90L, backtick = TRUE), collapse = '\n'), ''),
@@ -708,21 +934,29 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 
    # Fits follow ggplot2's grouping: discrete colour and explicit groups.
    fitGroups <- c(if (nzchar(colourBy) && discrete) colourBy, if (nzchar(groupBy)) groupBy)
-   fitGroups <- unique(fitGroups)
+   # Facets fit each panel separately.
+   fitGroups <- unique(c(fitGroups, facets[nzchar(facets)]))
+   stat <- .rs.superrstudioStatData(data, 'scatter', x, y, fitGroups, axes)
+   name <- function(column, axis) if (axes[[paste0(axis, '_scale')]] == 'log10')
+      paste0('log10(', column, ')') else column
    fitSummary <- if (options$fit != 'none')
-      .rs.superrstudioFitSummary(data, x, y, options$fit, fitGroups, options$fit_span)
-   modelCode <- if (options$fit == 'lm') .rs.superrstudioFitCode(dataset, x, y, fitGroups) else ''
+      .rs.superrstudioFitSummary(stat$data, x, y, options$fit, fitGroups, options$fit_span,
+                                 name(x, 'x'), name(y, 'y'))
+   modelCode <- if (options$fit == 'lm') .rs.superrstudioFitCode(dataset, x, y, fitGroups, axes) else ''
 
    rendered <- .rs.superrstudioRender(operation, expression, dataset, data)
    # The revision is a session-scoped staleness token, not part of the
    # reproducible specification: the same selection yields the same record.
    list(code = I(paste0(code, '\n')), model_code = I(modelCode),
         fit_summary = if (is.null(fitSummary)) list() else fitSummary,
+        notes = if (options$fit != 'none') stat$notes
+                else grep('statistics are computed', stat$notes, value = TRUE, invert = TRUE, fixed = TRUE),
         warnings = rendered$warnings, interactive = rendered$interactive,
-        spec = list(schema_version = I(3L), kind = I('scatter'), dataset = I(dataset),
+        spec = list(schema_version = I(4L), kind = I('scatter'), dataset = I(dataset),
                     x = I(x), y = I(y), colour_by = I(colourBy), group_by = I(groupBy),
+                    facet_by = I(facetBy), facet_rows = I(facetRows),
                     layers = lapply(options[.rs.superrstudioKindOptions('scatter')], I),
-                    appearance = lapply(appearance, I)),
+                    appearance = lapply(appearance, I), axes = lapply(axes, I)),
         r_version = I(as.character(getRversion())),
         ggplot2_version = I(as.character(utils::packageVersion('ggplot2'))))
 })
@@ -740,38 +974,43 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 
 #' Code, preview and summary for the histogram and boxplot kinds
 .rs.addFunction('superrstudioPlotResult', function(operation, kind, dataset, data, x, y, fill_by,
-                                                 options, appearance)
+                                                 options, appearance, axes = .rs.superrstudioAxisOptions(),
+                                                 facet_by = '', facet_rows = '')
 {
-   layers <- switch(kind,
+   layers <- c(switch(kind,
       histogram = .rs.superrstudioHistogramLayers(dataset, x, appearance, options, fill_by),
       boxplot = .rs.superrstudioBoxplotLayers(dataset, x, y, appearance, options, fill_by),
       bar = .rs.superrstudioBarLayers(dataset, x, appearance, options, fill_by),
-      density = .rs.superrstudioDensityLayers(dataset, x, appearance, options, fill_by))
+      density = .rs.superrstudioDensityLayers(dataset, x, appearance, options, fill_by)),
+      .rs.superrstudioAxisLayers(axes, facet_by, facet_rows))
+   facets <- c(facet_by, facet_rows)
+   facets <- facets[nzchar(facets)]
+   stat <- .rs.superrstudioStatData(data, kind, x, y, c(fill_by, facets), axes)
    expression <- Reduce(function(lhs, rhs) call('+', lhs, rhs), layers)
    code <- paste(vapply(layers, function(layer)
       paste(deparse(layer, width.cutoff = 90L, backtick = TRUE), collapse = '\n'), ''),
       collapse = ' +\n  ')
    summary <- if (kind == 'histogram')
    {
-      v <- data[[x]]
+      v <- stat$data[[x]]
       # exactly one of bins / bin_width is reported, matching the emitted code
       list(Filter(Negate(is.null), list(
-         n = I(sum(is.finite(v))), removed = I(sum(!is.finite(v))),
+         n = I(sum(is.finite(v))), removed = I(nrow(data) - sum(is.finite(v))),
          bins = if (options$bin_width == 0) I(options$bins),
          bin_width = if (options$bin_width > 0) I(options$bin_width))))
    }
-   else if (kind == 'boxplot') .rs.superrstudioBoxSummary(data, x, y)
+   else if (kind == 'boxplot') .rs.superrstudioBoxSummary(stat$data, c(x, facets), y)
    else if (kind == 'bar')
    {
       # one bar per category, NA included as ggplot2 draws it
-      counts <- table(.rs.superrstudioGroupKey(data, x))
+      counts <- table(.rs.superrstudioGroupKey(stat$data, c(x, facets)))
       lapply(names(counts), function(name) list(group = I(name), n = I(as.integer(counts[[name]]))))
    }
    else
    {
       # bandwidth as stats::density(bw = "nrd0", adjust) uses it; ggplot2
       # drops groups with fewer than two finite values
-      values <- split(data[[x]], .rs.superrstudioGroupKey(data, fill_by), drop = TRUE)
+      values <- split(stat$data[[x]], .rs.superrstudioGroupKey(stat$data, c(fill_by, facets)), drop = TRUE)
       lapply(names(values), function(name)
       {
          v <- values[[name]]
@@ -782,12 +1021,13 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    }
    rendered <- .rs.superrstudioRender(operation, expression, dataset, data)
    list(code = I(paste0(code, '\n')), model_code = I(''),
-        fit_summary = list(), summary = summary,
+        fit_summary = list(), summary = summary, notes = stat$notes,
         warnings = rendered$warnings, interactive = rendered$interactive,
-        spec = list(schema_version = I(3L), kind = I(kind), dataset = I(dataset),
+        spec = list(schema_version = I(4L), kind = I(kind), dataset = I(dataset),
                     x = I(x), y = I(y), fill_by = I(fill_by),
+                    facet_by = I(facet_by), facet_rows = I(facet_rows),
                     layers = lapply(options[.rs.superrstudioKindOptions(kind)], I),
-                    appearance = lapply(appearance, I)),
+                    appearance = lapply(appearance, I), axes = lapply(axes, I)),
         r_version = I(as.character(getRversion())),
         ggplot2_version = I(as.character(utils::packageVersion('ggplot2'))))
 })

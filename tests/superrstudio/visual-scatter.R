@@ -18,7 +18,7 @@ data <- data.frame(x = c(1, 2, NA, 4), y = c(3, 5, 7, 9), group = letters[1:4])
 original <- data
 request <- function(op, name = 'data', rev = '', x = 'x', y = 'y', appearance = list())
    toolsEnv$.rs.superrstudioData(op, name, as.character(rev), x, y,
-      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes', 'tb', 'dt', 'myframe', 'inter'), ls(globalenv())), appearance)
+      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes', 'tb', 'dt', 'myframe', 'inter', 'axdat'), ls(globalenv())), appearance)
 reject <- function(expr, pattern) {
    error <- tryCatch({force(expr); NULL}, error = identity)
    if (!inherits(error, 'error') || !grepl(pattern, conditionMessage(error)))
@@ -156,7 +156,7 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    built <- ggplot2::ggplot_build(plot)
    stopifnot(identical(built$data[[1]]$x, original$x),
              identical(built$data[[1]]$y, original$y),
-             !exists('INJECTED', globalenv()), result$spec$schema_version == 3L,
+             !exists('INJECTED', globalenv()), result$spec$schema_version == 4L,
              identical(result$spec$x, I(evil)), is.null(result$spec$revision))
    pdf <- tempfile(fileext = '.pdf')
    grDevices::pdf(pdf)
@@ -382,6 +382,106 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    stopifnot(length(perGroup$summary) == 2L, grepl('fill = .data[["g"]]', perGroup$code, fixed = TRUE))
    reject(request('code', 'ref', chosen$revision, 'g', '', list(kind = 'density')), 'density plot')
    cat('PASS: density (bandwidth vs bw.nrd0, curve vs stats::density, groups, validation)\n')
+
+   # Axes, scales and facets. Statistics must describe exactly what ggplot2
+   # computes: on the log10 scale, after filtering limits, per facet panel.
+   axdat <- data.frame(u = c(-1, 0.5, 1, 2, 4, 8, 16, 32, 64, 128),
+                       w = c(1, 2, 3, 5, 7, 11, 13, 17, 19, 23), k = rep(c('p', 'q'), 5))
+   chosen <- request('inspect', 'axdat')
+   built <- function(result) ggplot2::ggplot_build(eval(parse(text = result$code), envir = globalenv()))
+   quiet <- function(expr) suppressWarnings(expr)
+   # log10 X and Y with a linear fit: lm(log10(w) ~ log10(u)) on positive values
+   logged <- request('code', 'axdat', chosen$revision, 'u', 'w',
+                     list(fit = 'lm', x_scale = 'log10', y_scale = 'log10'))
+   positive <- axdat[axdat$u > 0, ]
+   reference <- stats::lm(log10(w) ~ log10(u), data = positive)
+   entry <- logged$fit_summary[[1L]]
+   stopifnot(grepl('ggplot2::scale_x_log10()', logged$code, fixed = TRUE),
+             grepl('ggplot2::scale_y_log10()', logged$code, fixed = TRUE),
+             entry$n == 9L, isTRUE(all.equal(as.numeric(entry$slope), unname(stats::coef(reference)[2L]))),
+             grepl('^log10\\(w\\) = .+ \\* log10\\(u\\)$', entry$equation),
+             any(grepl('1 X value', logged$notes)))
+   smooth <- quiet(built(logged))$data[[2L]]
+   stopifnot(isTRUE(all.equal(smooth$y, unname(stats::predict(reference, data.frame(u = 10^smooth$x))))))
+   modelText <- sub('^.*inference\\.\n# Fitted[^\n]*\n', '', logged$model_code)
+   model <- eval(parse(text = modelText), envir = globalenv())
+   stopifnot(isTRUE(all.equal(stats::coef(model)[, 1L], stats::coef(summary(reference))[, 1L],
+                              check.attributes = FALSE)))
+   # filtering limits remove observations before the fit; zooming does not
+   filtered <- request('code', 'axdat', chosen$revision, 'u', 'w',
+                       list(fit = 'lm', x_min = 1, x_max = 64, limits_mode = 'filter'))
+   inside <- axdat[axdat$u >= 1 & axdat$u <= 64, ]
+   stopifnot(grepl('ggplot2::scale_x_continuous(limits = c(1, 64))', filtered$code, fixed = TRUE),
+             filtered$fit_summary[[1L]]$n == nrow(inside),
+             isTRUE(all.equal(as.numeric(filtered$fit_summary[[1L]]$slope),
+                              unname(stats::coef(stats::lm(w ~ u, data = inside))[2L]))),
+             any(grepl('remove 3 observation', filtered$notes)))
+   smooth <- quiet(built(filtered))$data[[2L]]
+   stopifnot(isTRUE(all.equal(smooth$y, unname(stats::predict(stats::lm(w ~ u, data = inside),
+                                                                data.frame(u = smooth$x))))))
+   model <- eval(parse(text = sub('^.*observations, as ggplot2 does\\.\n', '', filtered$model_code)), envir = globalenv())
+   stopifnot(isTRUE(all.equal(stats::coef(model)[2L, 1L], unname(stats::coef(stats::lm(w ~ u, data = inside))[2L]))))
+   zoomed <- request('code', 'axdat', chosen$revision, 'u', 'w', list(fit = 'lm', x_min = 1, x_max = 64))
+   zoomBuild <- quiet(built(zoomed))
+   stopifnot(grepl('ggplot2::coord_cartesian(xlim = c(1, 64))', zoomed$code, fixed = TRUE),
+             zoomed$fit_summary[[1L]]$n == 10L, !length(zoomed$notes),
+             isTRUE(all.equal(zoomBuild$layout$panel_params[[1L]]$x.range, c(1, 64) + c(-1, 1) * 0.05 * 63)))
+   # zoom limits on a log scale are data values (the panel spans log10 of them)
+   logZoom <- quiet(built(request('code', 'axdat', chosen$revision, 'u', 'w',
+                                  list(x_scale = 'log10', x_min = 1, x_max = 100))))
+   stopifnot(isTRUE(all.equal(logZoom$layout$panel_params[[1L]]$x.range, c(0, 2) + c(-1, 1) * 0.05 * 2)))
+   # facets: one fit per panel, equal to lm() on each subset
+   faceted <- request('code', 'axdat', chosen$revision, 'u', 'w',
+                      list(fit = 'lm', facet_by = 'k', facet_ncol = 2, facet_scales = 'free_y'))
+   stopifnot(grepl('ggplot2::facet_wrap(ggplot2::vars(.data[["k"]]), ncol = 2, scales = "free_y")',
+                   faceted$code, fixed = TRUE),
+             length(faceted$fit_summary) == 2L,
+             identical(vapply(faceted$fit_summary, function(e) as.character(e$group), ''), c('p', 'q')))
+   for (entry in faceted$fit_summary) {
+      part <- axdat[axdat$k == entry$group, ]
+      stopifnot(isTRUE(all.equal(as.numeric(entry$slope), unname(stats::coef(stats::lm(w ~ u, data = part))[2L]))))
+   }
+   facetBuild <- built(faceted)
+   stopifnot(nrow(facetBuild$layout$layout) == 2L)
+   gridded <- request('code', 'axdat', chosen$revision, 'u', 'w', list(facet_rows = 'k'))
+   stopifnot(grepl('ggplot2::facet_grid(rows = ggplot2::vars(.data[["k"]]))', gridded$code, fixed = TRUE),
+             nrow(built(gridded)$layout$layout) == 2L)
+   map <- request('render', 'axdat', chosen$revision, 'u', 'w', list(facet_by = 'k'))$interactive
+   roles <- vapply(map$regions, function(r) as.character(r$role), '')
+   stopifnot(sum(roles == 'panel') == 2L, 'strip' %in% roles,
+             sum(vapply(map$elements, function(e) e$role == 'points', NA)) == 2L)
+   # tick labels and gridlines
+   styled <- request('code', 'axdat', chosen$revision, 'u', 'w',
+                     list(x_format = 'comma', y_format = 'scientific', grid_minor = FALSE, theme = 'bw'))
+   plot <- eval(parse(text = styled$code), envir = globalenv())
+   stopifnot(grepl('ggplot2::scale_x_continuous(labels = scales::label_comma())', styled$code, fixed = TRUE),
+             grepl('ggplot2::scale_y_continuous(labels = scales::label_scientific())', styled$code, fixed = TRUE),
+             inherits(plot$theme$panel.grid.minor, 'element_blank'),
+             !inherits(plot$theme$panel.grid.major, 'element_blank'))
+   # boxplot on a log10 Y: statistics on the transformed values, as drawn
+   box <- request('code', 'axdat', chosen$revision, 'k', 'w', list(kind = 'boxplot', y_scale = 'log10'))
+   middle <- quiet(built(box))$data[[1L]]$middle
+   stopifnot(isTRUE(all.equal(vapply(box$summary, function(e) as.numeric(e$median), 0), middle)),
+             isTRUE(all.equal(middle, as.vector(tapply(log10(axdat$w), axdat$k, stats::median)))))
+   # density on a log10 X: bandwidth of the log values
+   dens <- request('code', 'axdat', chosen$revision, 'u', '', list(kind = 'density', x_scale = 'log10'))
+   stopifnot(isTRUE(all.equal(as.numeric(dens$summary[[1L]]$bandwidth), stats::bw.nrd0(log10(positive$u)))))
+   # histogram counts only what the filter keeps
+   hist <- request('code', 'axdat', chosen$revision, 'u', '',
+                   list(kind = 'histogram', x_min = 0, x_max = 20, limits_mode = 'filter'))
+   stopifnot(hist$summary[[1L]]$n == sum(axdat$u >= 0 & axdat$u <= 20))
+   # combinations that would be meaningless are refused
+   reject(request('code', 'axdat', chosen$revision, 'k', 'w', list(kind = 'boxplot', x_scale = 'log10')), 'continuous X')
+   reject(request('code', 'axdat', chosen$revision, 'u', '', list(kind = 'histogram', y_scale = 'log10')), 'log Y')
+   reject(request('code', 'axdat', chosen$revision, 'u', '',
+                  list(kind = 'histogram', y_max = 3, limits_mode = 'filter')), 'only zoom')
+   reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(x_min = 5, x_max = 5)), 'below its maximum')
+   reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(x_scale = 'log10', x_min = 0)), 'positive')
+   reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(facet_by = 'k', facet_rows = 'k')), 'different')
+   reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(facet_by = 'u')), 'Facet by')
+   reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(x_min = 'a')), 'numbers')
+   reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(facet_ncol = 1.5)), 'whole number')
+   cat('PASS: axes and facets (log10 fits vs lm on log values, filter vs zoom, panel ranges, per-panel fits, formats, gridlines, log boxplot/density, validation)\n')
 
    # Interactive preview: an SVG plus an element map located through the
    # gtable layout and ggplot_build() data. Checked against ggplot2's

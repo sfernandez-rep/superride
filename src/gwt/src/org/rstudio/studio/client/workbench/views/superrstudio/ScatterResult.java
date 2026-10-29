@@ -19,6 +19,7 @@ public class ScatterResult extends JavaScriptObject
    public final native JsArray<SummaryEntry> summary() /*-{ return this.summary || []; }-*/;
    public final native String warnings() /*-{ return (this.warnings || []).join('\n'); }-*/;
    public final native PlotMap interactive() /*-{ return this.interactive || null; }-*/;
+   public final native String notes() /*-{ return (this.notes || []).join('\n'); }-*/;
    public final native String provenance() /*-{
       return '# SuperRStudio ' + this.spec.kind + ' v' + this.spec.schema_version +
          '\n# Specification: ' + JSON.stringify(this.spec) +
