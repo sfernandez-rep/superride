@@ -31,7 +31,7 @@ compiler output on failure. All were executed on 2026-10-28.
 | Command | What it does |
 | --- | --- |
 | `dev-build.ps1` | Native session targets (`rsession`, `rsession-utf8`, `rpostback`, `consoleio`, `diagnostics`) with Ninja in `build\superrstudio-windows`, configured once (RelWithDebInfo, `GWT_BUILD=OFF`); then the GWT client with upstream `ant draft`. A no-op native build takes about 2 s; GWT is skipped when nothing under `src\gwt\src` or `acesupport` changed since the last successful draft (about 75 s otherwise). `-Component native\|gwt\|javac`, `-Force`, `-Reconfigure`. |
-| `dev-run.ps1` | Starts Electron with `RSTUDIO_CPP_BUILD_OUTPUT=build\superrstudio-windows`, so `rdesktop-dev.conf` serves the GWT client from `src\gwt\www` and session R modules from this checkout. `-Experimental` sets `SUPER_RSTUDIO_EXPERIMENTAL=1` for the session only. `-Wait` stays attached and returns the IDE's exit code. |
+| `dev-run.ps1` | Starts Electron with `RSTUDIO_CPP_BUILD_OUTPUT=build\superrstudio-windows`, so `rdesktop-dev.conf` serves the GWT client from `src\gwt\www` and the session R modules staged by the native build (`build\superrstudio-windows\src\cpp\session\modules\R`; run `dev-build.ps1 -Component native` after editing a session `.R` file). `-Experimental` sets `SUPER_RSTUDIO_EXPERIMENTAL=1` for the session only. `-Wait` stays attached and returns the IDE's exit code. |
 | `dev.ps1` | `dev-build.ps1`, then `dev-run.ps1` with the same run options (`-NoBuild` to skip). |
 | `dev-clean.ps1` | Explicit, `-WhatIf`-capable cleanup: `-ProfileName a,b` / `-AllProfiles`, `-Gwt` (upstream `ant clean`), `-Native` (Ninja clean; configuration kept, next build is a full ~20 min compile). Refuses running profiles and path-like names. |
 | `install-vscode.ps1` | Merges `.vscode/superrstudio/{tasks,launch}.json` into the Git-ignored `.vscode/tasks.json` and `launch.json` (created from upstream's `.vscode/open-source/` templates if missing). Idempotent; keeps `*.bak`. |
@@ -99,6 +99,22 @@ Known limitation: when a non-interactive tool runs `dev-run.ps1` without
 `-Wait`, that tool's output pipe stays open until the desktop exits, because the
 child inherits the console handles. Interactive shells and VS Code tasks are
 unaffected; automation should run the launcher in the background.
+
+## SuperR Windows installer
+
+```powershell
+tools\superrstudio\package-superr.ps1         # optimised package build + NSIS installer in dist\superr
+tools\superrstudio\test-packaged.ps1          # install for the current user, test, uninstall
+tools\superrstudio\check-identity.ps1         # product identity copies and generated branding consistent
+tools\superrstudio\branding\make-branding.ps1 # regenerate icons and installer artwork from the logo master
+Rscript tests\superrstudio\deps.R             # optional-package installation contract
+tools\superrstudio\test-gui-scatter.ps1 -Scenario deps   # the same, live in the desktop
+```
+
+The package build uses `build\superr-package` and takes about 35 minutes from
+scratch. Its design, the side-by-side rules and signing are described in
+[docs/superrstudio/packaging-windows.md](docs/superrstudio/packaging-windows.md).
+Release conditions: [docs/superrstudio/release/RELEASE-CHECKLIST.md](docs/superrstudio/release/RELEASE-CHECKLIST.md).
 
 ## Observed environment, 2026-10-27
 

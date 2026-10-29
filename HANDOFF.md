@@ -1,6 +1,10 @@
-# SuperRStudio handoff
+# SuperR handoff
 
-Updated 2026-10-29 (third session), America/Montevideo, by Claude Code (continuing Codex's work).
+Updated 2026-10-29 (fifth session: SuperR rename, Windows package, optional
+packages, Beverton–Holt Z / yield per recruit), America/Montevideo, by Claude
+Code (continuing Codex's work). The product is now **SuperR**; the
+repository, directories and internal identifiers keep the `superrstudio`
+names (owner decision, see docs/superrstudio/BRANDING.md).
 Continue this repository; do not restart initialization, recreate the GitHub
 fork, clone RStudio again or reinstall verified dependencies. The original brief
 is [PROJECT_BRIEF.md](docs/superrstudio/PROJECT_BRIEF.md); supplemental
@@ -21,6 +25,25 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
 - Main checkout `D:\Git\SuperRStudio`; pristine detached baseline worktree
   `D:\Git\SuperRStudio-baseline` (keep pristine); shared dependencies
   `D:\Git\rstudio-tools`.
+
+## Fifth session: SuperR preview (2026-10-29)
+
+Brief: "SUPERR — MASTER DEVELOPMENT AND FIRST PUBLIC PREVIEW RELEASE", plus
+the owner's added requirement of on-demand R package installation.
+
+| Item | State | Record |
+| --- | --- | --- |
+| Logo master and icon set (16–1024 px PNG, 10-size ICO, installer bitmaps, legibility sheet) | Done, reproducible: `tools/superrstudio/branding/make-branding.ps1` | docs/superrstudio/BRANDING.md |
+| Central product identity `package/superr/product.json` (SuperR 0.1.0-preview.1) | Done; `tools/superrstudio/check-identity.ps1` checks the GWT, desktop and R copies | BRANDING.md |
+| User-visible rename (window title, About dialog with notice and source link, menus, messages, generated comments) | Done; internal identifiers and file formats unchanged | BRANDING.md |
+| Preliminary naming/trademark review | Done: **name not cleared** (no register search; repository name contains "rstudio") | docs/superrstudio/legal/superr-naming-review.md |
+| Windows x64 installer `SuperR-0.1.0-preview.1-Windows-x64.exe` (CPack/NSIS, optimised, update check compiled out, unsigned) | Built (smoke build 466.8 MB); release-candidate rebuild pending | docs/superrstudio/packaging-windows.md |
+| Side by side with RStudio (own folder/identity/ProgIDs, no default-program change, own settings in %APPDATA%/%LOCALAPPDATA%\SuperR) | Verified by `test-packaged.ps1` (no official RStudio installed here) | packaging-windows.md |
+| Project compatibility (synthetic fixture, copy-and-compare script) | Fixture + `tools/superrstudio/test-project-copy.ps1` | docs/superrstudio/project-compatibility.md |
+| Release automation | `.github/workflows/superr-release.yml` (manual, self-hosted runner, artifact; draft pre-release only after approval), `superr-checks.yml` (push checks) | docs/superrstudio/release/ |
+| Beverton–Holt Z (mean length) and yield per recruit (TropFishR) | Done, verified against direct TropFishR and the published formulas | docs/superrstudio/features/lfq-tropfishr.md |
+| On-demand installation of optional R packages (consent dialog, renv-aware) | Done | docs/superrstudio/features/optional-packages.md |
+| Public pre-release | **Not published**: condition 1 (name clearance) not met | docs/superrstudio/release/RELEASE-CHECKLIST.md |
 
 ## Implemented and verified
 

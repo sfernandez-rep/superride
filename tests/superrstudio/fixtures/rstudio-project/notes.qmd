@@ -1,0 +1,11 @@
+---
+title: "Synthetic survey notes"
+format: html
+---
+
+Invented data for the SuperR project-compatibility check.
+
+```{r}
+catches <- read.csv(file.path("data", "catches.csv"))
+summary(catches$length_cm)
+```

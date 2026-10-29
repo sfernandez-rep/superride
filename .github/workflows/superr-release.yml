@@ -1,0 +1,122 @@
+# SuperR Windows x64 preview build. SPDX-License-Identifier: AGPL-3.0-only
+#
+# Manual only (workflow_dispatch): nothing builds or publishes on push.
+#
+# The installer build needs the pinned Windows toolchain described in
+# BUILDING.md (VS Build Tools 18 / MSVC 14.5, Boost msvc145, R 3.6.3 build
+# input, NSIS, rstudio-tools dependencies). GitHub-hosted runners do not carry
+# it, so the build job runs on a self-hosted runner registered by the owner
+# with the labels below. No secrets are used by the build job.
+#
+# Output: a workflow artifact with the installer, its SHA-256 file, the
+# provenance record (commit SHA), release notes, licence notices and the
+# corresponding-source note. A GitHub release is created only when
+# `create_draft_prerelease` is chosen, only as a *draft pre-release*, and only
+# after approval in the `superr-release` environment; the owner publishes the
+# draft by hand once docs/superrstudio/release/RELEASE-CHECKLIST.md is met.
+name: SuperR Windows preview build
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_packaged_tests:
+        description: 'Install, test and uninstall the package on the runner (tools/superrstudio/test-packaged.ps1)'
+        type: boolean
+        default: true
+      create_draft_prerelease:
+        description: 'Also create a DRAFT pre-release (requires approval in the superr-release environment)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: [self-hosted, Windows, X64, superr-build]
+    timeout-minutes: 360
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      installer: ${{ steps.meta.outputs.installer }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          clean: false
+
+      - name: Product identity and branding consistent
+        shell: powershell
+        run: tools/superrstudio/check-identity.ps1
+
+      - name: R contract tests (plot editor, length-frequency, optional packages)
+        shell: powershell
+        run: |
+          $env:R_LIBS_USER = "$env:GITHUB_WORKSPACE\.cache\superrstudio\r-library"
+          & C:\R\R-4.6.1\bin\x64\Rscript.exe tests/superrstudio/visual-scatter.R
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & C:\R\R-4.6.1\bin\x64\Rscript.exe tests/superrstudio/lfq-tropfishr.R
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & C:\R\R-4.6.1\bin\x64\Rscript.exe tests/superrstudio/deps.R
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Build installer (optimised package build, unsigned)
+        shell: powershell
+        run: tools/superrstudio/package-superr.ps1
+
+      - name: Packaged application tests
+        if: ${{ inputs.run_packaged_tests }}
+        shell: powershell
+        run: tools/superrstudio/test-packaged.ps1
+
+      - name: Assemble release files
+        id: meta
+        shell: powershell
+        run: |
+          $product = Get-Content package/superr/product.json -Raw | ConvertFrom-Json
+          $version = "$($product.version)-$($product.prerelease)"
+          $installer = "$($product.productName)-$version-Windows-x64.exe"
+          $out = "dist/release"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item "dist/superr/$installer", "dist/superr/$installer.sha256", "dist/superr/$installer.provenance.json" $out
+          Copy-Item docs/superrstudio/release/RELEASE-NOTES.md, COPYING, NOTICE $out
+          @(
+            "SuperR $version corresponding source",
+            "Repository: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY",
+            "Commit: $env:GITHUB_SHA",
+            "Source archive: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/archive/$env:GITHUB_SHA.zip",
+            "Licence: GNU Affero General Public License v3 (COPYING); third-party notices in NOTICE.",
+            "Build instructions: BUILDING.md and docs/superrstudio/packaging-windows.md"
+          ) | Set-Content "$out/SOURCE.txt" -Encoding utf8
+          # AGPL-3.0 section 5(a): the files this fork changed, against the upstream release
+          "SuperR modifications against upstream RStudio $($product.upstream.version) ($($product.upstream.commit)):" | Set-Content "$out/MODIFIED-FILES.txt" -Encoding utf8
+          git diff --name-status $product.upstream.commit $env:GITHUB_SHA | Add-Content "$out/MODIFIED-FILES.txt" -Encoding utf8
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "installer=$installer" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: SuperR-${{ steps.meta.outputs.version }}-Windows-x64
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 30
+
+  draft-prerelease:
+    needs: build
+    if: ${{ inputs.create_draft_prerelease }}
+    runs-on: ubuntu-24.04
+    environment: superr-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: SuperR-${{ needs.build.outputs.version }}-Windows-x64
+          path: release
+      - name: Create draft pre-release (not public until published by the owner)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "superr-v${{ needs.build.outputs.version }}" release/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "SuperR ${{ needs.build.outputs.version }} (experimental preview)" \
+            --notes-file release/RELEASE-NOTES.md --draft --prerelease

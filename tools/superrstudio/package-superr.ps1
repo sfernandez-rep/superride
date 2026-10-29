@@ -137,6 +137,11 @@ $provenance = [ordered]@{
    build_host_os = (Get-CimInstance Win32_OperatingSystem).Caption
 }
 $provenance | ConvertTo-Json | Set-Content -Path (Join-Path $dist "$name.provenance.json") -Encoding utf8
+# AGPL-3.0 section 5(a): the files this fork changed, against the upstream release
+$modified = Join-Path $dist "$name.MODIFIED-FILES.txt"
+"SuperR modifications against upstream RStudio $($product.upstream.version) ($($product.upstream.commit)), at $commit" |
+   Set-Content -Path $modified -Encoding utf8
+git -C $SrsRoot diff --name-status $product.upstream.commit $commit | Add-Content -Path $modified -Encoding utf8
 if ($dirty) { Write-Warning 'The working tree had uncommitted changes; the provenance records this.' }
 Write-SrsStep ("Installer: {0} ({1:n1} MB, sha256 {2})" -f (Join-Path $dist $name), ((Get-Item (Join-Path $dist $name)).Length / 1MB), $hash)
 Write-SrsStep ("Finished in {0:n0} min" -f ((Get-Date) - $started).TotalMinutes)

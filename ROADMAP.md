@@ -6,13 +6,13 @@ All acceptance checks require recorded execution, not just compilation.
 | --- | --- | --- |
 | 0. Upstream investigation | Initial assessment recorded | Verified source pin, architecture, license inventory, host/toolchain evidence and risks; complete dependency/build assessment with M1 |
 | 1. Reproducible baseline | Windows 11 development baseline accepted; GUI smoke PASS; distribution audit remains open | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
-| 2. Foundation | Planned; gated on M1 | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
+| 2. Foundation | **Done for the preview**: feature switch, branding/identity module (`package/superr/product.json`), update check compiled out of the package, optional packages installed only on request | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
 | 3. Visual dataset workflow | **First slice desktop-verified** (opt-in scatter: live data/columns, same-session ggplot2 preview, R code export, stale-data tests, appearance with undo, colour mapping, lines and lm/LOESS fits with model statistics, histogram/boxplot/bar/density, tibble/data.table, non-modal editor, load from script; [record](docs/superrstudio/features/visual-scatter.md)) | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
 | 4. ggplot2 editor | **In progress**: specification schema 4 with layers, axes, scales, facets, themes, undo/redo, interactive element editing and export, desktop-verified | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
 | 5. Statistical interface | Planned | Guided methods/assumptions and diagnostics, trusted numerical references and complete reproducibility records |
-| 6. Biological extensions | **First slice desktop-verified**: TropFishR length-frequency preparation and ELEFAN growth runs with comparison ([record](docs/superrstudio/features/lfq-tropfishr.md)); domain review pending | Evaluate vegan/FSA/TropFishR methods individually with reference datasets, applicability and version checks |
-| 7. Modern UI | Planned | Light/dark themes, accents, accessible keyboard interaction, high-DPI and English/Spanish acceptance checks |
-| 8. Cross-platform releases | Planned | Windows installer and Ubuntu 24.04 .deb tested in clean machines; license/source/branding review and reproducible release records |
+| 6. Biological extensions | **Desktop-verified**: TropFishR length-frequency preparation, ELEFAN growth with comparison, saved analyses, catch curves, Beverton–Holt Z and yield per recruit ([record](docs/superrstudio/features/lfq-tropfishr.md)); domain review pending | Evaluate vegan/FSA/TropFishR methods individually with reference datasets, applicability and version checks |
+| 7. Modern UI | **In progress**: light/dark switch, design tokens, dockable Visual tab, Spanish SuperR windows, resizable canvas | Light/dark themes, accents, accessible keyboard interaction, high-DPI and English/Spanish acceptance checks |
+| 8. Cross-platform releases | **Windows x64 preview built and tested** (SuperR 0.1.0-preview.1, [packaging](docs/superrstudio/packaging-windows.md), [checklist](docs/superrstudio/release/RELEASE-CHECKLIST.md)); public pre-release blocked on name clearance; Windows 10 and Ubuntu not verified | Windows installer and Ubuntu 24.04 .deb tested in clean machines; license/source/branding review and reproducible release records |
 
 ## Next engineering tasks
 
@@ -41,5 +41,12 @@ All acceptance checks require recorded execution, not just compilation.
 11. Done 2026-10-28: TropFishR length-frequency module, first slice (M6).
 12. Done 2026-10-29: LFQ saved analyses, preprocessing (sampling period, quarterly samples), configuration comparison, catch-curve mortality; Spanish SuperRStudio windows; date/time axes; design-system and branding foundation; benchmark suite with a measured preview optimisation. Next: dockable Visual tab (investigated, see docs/superrstudio/features/dockable-workspace.md); domain review by fisheries scientists.
 
-No dataset editor, general statistical module, package-management extension,
-modernized workbench, installer or Linux build is implemented yet.
+13. Done 2026-10-29 (fifth session): product renamed SuperR (user-visible
+    surfaces), branding assets from the logo master, Windows x64 installer
+    beside RStudio, packaged-app tests, release workflows, Beverton–Holt Z and
+    yield per recruit, on-demand installation of optional R packages. Next:
+    owner decision on name clearance and repository name; signing
+    certificate; Windows 10 test machine; dockable length-frequency window;
+    Thompson–Bell / VPA; domain review.
+
+No dataset editor, general statistical module or Linux build is implemented yet.
