@@ -32,7 +32,14 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    explicit order and grouping, lm/LOESS fits with confidence bands and a
    fitted-model panel validated against reference R, and histogram/boxplot
    plot types plus bar (counts) and density, in the same non-modal editor
-   window (spec schema 3, `kind`); tibbles and data.tables supported.
+   window; tibbles and data.tables supported. 2026-10-28 (second session):
+   **interactive preview with right-click editing** of points, lines, fits,
+   bars/boxes/densities, titles, axes, legend, strips and panel (element map
+   from gtable cells + `ggplot_build()` data; redo; legend position),
+   **axes and facets** (log10, zoom vs filter limits, tick labels, gridlines,
+   facet_wrap/grid; statistics on the transformed/filtered/per-panel data;
+   spec schema 4) and **image export** (PNG/SVG/PDF via `ggsave()` with a
+   reproducible script). Settings are in three accessible tabs.
    Details, design and evidence: [visual-scatter.md](docs/superrstudio/features/visual-scatter.md).
 2. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
@@ -64,7 +71,7 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | `visual-scatter.R`, R 4.6.1 + ggplot2 | PASS |
 | `visual-scatter.R`, R 3.6.3 | PASS missing-package path; rendering SKIP |
 | Upstream R-session suite on feature build, feature off and on | 654 passed / 655 (1 skipped), same as baseline |
-| Live desktop scatter: ggplot2 (incl. appearance, undo, reset, colour mapping, lines, lm/loess fits, histogram, boxplot) / no-ggplot2 / disabled | PASS / PASS / PASS |
+| Live desktop scatter: ggplot2 (incl. appearance, undo, reset, colour mapping, lines, lm/loess fits, histogram, boxplot, right-click editing, axes/facets, export) / no-ggplot2 / disabled | PASS / PASS / PASS |
 | Debug launch (DevTools 9222, Node inspector 9229), `-Wait` exit code | PASS |
 
 Known failures/limitations (unchanged from baseline unless noted):
@@ -85,12 +92,13 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    support with copy-free staleness checks (Milestone 4). Done: bar (counts) and
    density kinds. Done: *Load from script* restores a plot's specification
    from its generated code (foundation for structured editing).
-   **Next:** right-click/contextual editing needs an interactive rendering of
-   the plot (e.g. SVG with element ids mapped to specification paths); then
-   faceting and scale controls (log axes, limits) in the specification.
-   Branding (Milestone 6) is investigated in
-   [BRANDING.md](docs/superrstudio/BRANDING.md) and **blocked on an owner
-   decision**: the public name contains the RStudio trademark.
+   Done (second session): interactive right-click editing, axes/facets,
+   image export. **Next:** TropFishR length-frequency module (Milestone E,
+   separate module reusing the session/dataset infrastructure; TropFishR
+   optional), then date/time X scales, dockable workspace investigation.
+   Branding: the owner keeps "SuperRStudio" as a provisional development
+   name and defers the public decision; keep branding modular, publish no
+   branded releases ([BRANDING.md](docs/superrstudio/BRANDING.md)).
 5. M4 groundwork: saving/loading specifications and contextual editing on a
    structured specification (not on the raster image).
 6. Before release: dependency audit, localized logging test, `es` locale build.

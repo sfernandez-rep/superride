@@ -8,7 +8,7 @@ All acceptance checks require recorded execution, not just compilation.
 | 1. Reproducible baseline | Windows 11 development baseline accepted; GUI smoke PASS; distribution audit remains open | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
 | 2. Foundation | Planned; gated on M1 | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
 | 3. Visual dataset workflow | **First slice desktop-verified** (opt-in scatter: live data/columns, same-session ggplot2 preview, R code export, stale-data tests, appearance with undo, colour mapping, lines and lm/LOESS fits with model statistics, histogram/boxplot/bar/density, tibble/data.table, non-modal editor, load from script; [record](docs/superrstudio/features/visual-scatter.md)) | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
-| 4. ggplot2 editor | Planned | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
+| 4. ggplot2 editor | **In progress**: specification schema 4 with layers, axes, scales, facets, themes, undo/redo, interactive element editing and export, desktop-verified | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
 | 5. Statistical interface | Planned | Guided methods/assumptions and diagnostics, trusted numerical references and complete reproducibility records |
 | 6. Biological extensions | Planned | Evaluate vegan/FSA/TropFishR methods individually with reference datasets, applicability and version checks |
 | 7. Modern UI | Planned | Light/dark themes, accents, accessible keyboard interaction, high-DPI and English/Spanish acceptance checks |
@@ -36,7 +36,8 @@ All acceptance checks require recorded execution, not just compilation.
 8. Done 2026-10-28: colour-by-column, lines/fits, five plot types, tibble/
    data.table, non-modal editor, load from script. Next: contextual editing on
    an interactive (SVG) rendering, faceting and scales (M4 ggplot2 editor).
-9. M8 branding is blocked on the public-name decision (docs/superrstudio/BRANDING.md).
+9. M8 branding: provisional development name kept; public name decided before any release (docs/superrstudio/BRANDING.md).
+10. Done 2026-10-28: interactive right-click editing, axes/scales/facets, image export (M4 ggplot2 editor slice). Next: TropFishR length-frequency module (M6 biological extensions).
 
 No dataset editor, full plot editor, statistical module, package-management
 extension, modernized workbench, installer or Linux build is implemented yet.

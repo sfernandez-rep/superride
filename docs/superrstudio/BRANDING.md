@@ -1,9 +1,17 @@
 # Branding investigation (Milestone 6)
 
 Status 2026-10-28: **investigated, not implemented.** Nothing in this fork
-changes the product name, icons or About dialog yet. One decision blocks the
-work and is for the project owner (with legal advice), not an engineering
-default: the public name. This is a technical record, not legal advice.
+changes the product name, icons or About dialog yet. This is a technical
+record, not legal advice.
+
+Owner decision (2026-10-28): "SuperRStudio" remains the provisional
+development identifier; the public/commercial name is decided before any
+official binaries are distributed. Until then: keep branding changes modular
+and reversible, preserve upstream copyright and licence notices, never imply
+endorsement by Posit, publish no branded installers or releases, and add no
+new public-facing uses of the RStudio trademark beyond the existing
+provisional identifier. Preparing a branding system (one module per layer,
+below) is allowed.
 
 ## Trademark and licence constraints
 
