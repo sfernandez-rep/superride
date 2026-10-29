@@ -14,6 +14,13 @@ const devLoggerPort = process.env.RSTUDIO_DESKTOP_LOGGER_PORT
   ? Number(process.env.RSTUDIO_DESKTOP_LOGGER_PORT)
   : undefined;
 
+// SUPERR CHANGE: on Windows the desktop is packaged as SuperR, with the
+// identity from package/superr/product.json (the build copies this directory
+// to src/node/desktop-build-<arch>, so the relative path is the same)
+const path = require('path');
+const superr = require(path.join(__dirname, '..', '..', '..', 'package', 'superr', 'product.json'));
+const superrWindows = process.platform === 'win32';
+
 const config = {
   plugins: [
     {
@@ -77,7 +84,21 @@ const config = {
   ],
 
   // https://electron.github.io/electron-packager/main/interfaces/electronpackager.options.html 
-  packagerConfig: {
+  packagerConfig: superrWindows ? {
+    icon: path.join(__dirname, '..', '..', '..', 'assets', 'branding', 'generated', 'superr'),
+    appBundleId: superr.bundleId,
+    appCopyright: `Copyright (C) 2009-${new Date().getFullYear()} Posit Software, PBC; SuperR changes (C) ${superr.vendor}`,
+    name: superr.productName,
+    executableName: superr.executableName,
+    win32metadata: {
+      CompanyName: superr.vendor,
+      FileDescription: superr.productName,
+      InternalName: superr.productName,
+      ProductName: superr.productName,
+      OriginalFilename: `${superr.executableName}.exe`,
+    },
+    extendInfo: './Info.plist',
+  } : {
     icon: './resources/icons/RStudio',
     appBundleId: 'com.rstudio.desktop',
     appCopyright: `Copyright (C) ${new Date().getFullYear()} by Posit Software, PBC`,

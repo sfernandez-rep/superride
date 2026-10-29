@@ -15,16 +15,23 @@
 
 import { flipFuses, FuseVersion, FuseV1Options } from '@electron/fuses';
 import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { arch, platform } from 'process';
 
 // figure out path to Electron executable
 let prefix = `out/RStudio-${platform}-${arch}`;
 
+// SUPERR CHANGE: the Windows desktop is packaged as SuperR (see forge.config.js)
+const superr = JSON.parse(readFileSync(new URL('../../../../package/superr/product.json', import.meta.url), 'utf8'));
+if (platform === 'win32') {
+  prefix = `out/${superr.productName}-${platform}-${arch}`;
+}
+
 let exePath = "";
 if (platform === 'darwin') {
   exePath = `${prefix}/RStudio.app/Contents/MacOS/RStudio`;
 } else if (platform === 'win32') {
-  exePath = `${prefix}/RStudio.exe`;
+  exePath = `${prefix}/${superr.executableName}.exe`;
 } else if (platform === 'linux') {
   exePath = `${prefix}/rstudio`;
 } else {

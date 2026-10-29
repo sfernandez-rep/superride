@@ -3,7 +3,8 @@
 ;--------------------------------
 ; You must define these values
 
-  !define VERSION "@CPACK_PACKAGE_VERSION@"
+  ; SUPERR CHANGE - the installed product's version, as shown in Apps & features
+  !define VERSION "@CPACK_SUPERR_DISPLAY_VERSION@"
   !define PATCH  "@CPACK_PACKAGE_VERSION_PATCH@"
   !define INST_DIR "@CPACK_TEMPORARY_DIRECTORY@"
 
@@ -32,8 +33,9 @@
   !addplugindir /x86-ansi    "@CPACK_DEPENDENCIES_DIR@/nsis-multiuser/@CPACK_NSIS_MULTIUSER_VERSION@/Plugins/x86-ansi"
   !addplugindir /x86-unicode "@CPACK_DEPENDENCIES_DIR@/nsis-multiuser/@CPACK_NSIS_MULTIUSER_VERSION@/Plugins/x86-unicode"
 
-  !define PRODUCT_NAME "RStudio"
-  !define PROGEXE "rstudio.exe"
+  ; SUPERR CHANGE - product identity from package/superr/product.json
+  !define PRODUCT_NAME "@CPACK_SUPERR_PRODUCT_NAME@"
+  !define PROGEXE "@CPACK_SUPERR_EXE@"
   !define COMPANY_NAME "@CPACK_PACKAGE_VENDOR@"
   !define CONTACT "@CPACK_NSIS_CONTACT@"
   !define URL_INFO_ABOUT "@CPACK_NSIS_URL_INFO_ABOUT@"
@@ -83,15 +85,17 @@
   ; Each component of VIProductVersion must fit in 16 bits (NSIS limit, max
   ; 65535); concatenating MAJOR+MINOR overflows and gets truncated, leaving
   ; setup.exe's File Version showing an unrelated value (#17128).
-  VIProductVersion "@CPACK_PACKAGE_VERSION_MAJOR@.@CPACK_PACKAGE_VERSION_MINOR@.@CPACK_PACKAGE_VERSION_PATCH@.0"
-  VIAddVersionKey ProductVersion "@CPACK_PACKAGE_VERSION_MAJOR@.@CPACK_PACKAGE_VERSION_MINOR@.@CPACK_PACKAGE_VERSION_PATCH@.0"
-  VIAddVersionKey FileVersion "@CPACK_PACKAGE_VERSION_MAJOR@.@CPACK_PACKAGE_VERSION_MINOR@.@CPACK_PACKAGE_VERSION_PATCH@.0"
-  VIAddVersionKey ProductName "RStudio"
-  VIAddVersionKey CompanyName "Posit Software, PBC"
-  VIAddVersionKey FileDescription "RStudio"
-  VIAddVersionKey InternalName "RStudio"
-  VIAddVersionKey LegalCopyright "Copyright (C) @CPACK_COPYRIGHT_YEAR@ by Posit Software, PBC"
-  VIAddVersionKey LegalTrademarks "RStudio (TM) is a trademark of Posit Software, PBC"
+  ; SUPERR CHANGE - SuperR version info; the upstream copyright is kept and
+  ; the notice states that SuperR is not a Posit product
+  VIProductVersion "@CPACK_SUPERR_NUMERIC_VERSION@"
+  VIAddVersionKey ProductVersion "@CPACK_SUPERR_DISPLAY_VERSION@"
+  VIAddVersionKey FileVersion "@CPACK_SUPERR_NUMERIC_VERSION@"
+  VIAddVersionKey ProductName "@CPACK_SUPERR_PRODUCT_NAME@"
+  VIAddVersionKey CompanyName "@CPACK_PACKAGE_VENDOR@"
+  VIAddVersionKey FileDescription "@CPACK_SUPERR_PRODUCT_NAME@ @CPACK_SUPERR_DISPLAY_VERSION@ Setup"
+  VIAddVersionKey InternalName "@CPACK_SUPERR_PRODUCT_NAME@"
+  VIAddVersionKey LegalCopyright "Copyright (C) 2009-@CPACK_COPYRIGHT_YEAR@ Posit Software, PBC; SuperR changes (C) @CPACK_COPYRIGHT_YEAR@ @CPACK_PACKAGE_VENDOR@. AGPL-3.0."
+  VIAddVersionKey LegalTrademarks "@CPACK_SUPERR_NOTICE@"
 
   ;Set compression
   SetCompressor @CPACK_NSIS_COMPRESSOR@
@@ -474,14 +478,14 @@ Section "-Core installation"
   !insertmacro MULTIUSER_RegistryAddInstallSizeInfo
 
   ;Create shortcuts
-  CreateShortCut "$SMPROGRAMS\RStudio.lnk" "$INSTDIR\.\rstudio.exe"
+  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}.lnk" "$INSTDIR\${PROGEXE}"
   
   ;
   ; RSTUDIO CHANGE - add shortcut to diagnostics
   ;
   CreateShortCut "$INSTDIR\resources\app\bin\Run Diagnostics.lnk" \
                  "$WINDIR\system32\cmd.exe" \
-                 "/K $\"$INSTDIR\rstudio.exe$\" --run-diagnostics" \
+                 "/K $\"$INSTDIR\${PROGEXE}$\" --run-diagnostics" \
                  "$WINDIR\system32\cmd.exe" 0 \
                  SW_SHOWNORMAL
   
@@ -604,7 +608,7 @@ Section "Uninstall"
   ;
   ; RSTUDIO CHANGE - Remove shortcuts
   ;
-  Delete "$SMPROGRAMS\RStudio.lnk" 
+  Delete "$SMPROGRAMS\${PRODUCT_NAME}.lnk"
   Delete "$INSTDIR\resources\app\bin\Run Diagnostics.lnk"
   RMDir /r "$INSTDIR\resources"
   
@@ -665,7 +669,7 @@ Function .onInit
   ; Guard the running-app check so it runs only in the (unelevated) outer
   ; instance, before MULTIUSER_INIT (which may relaunch elevated).
   ${ifnot} ${UAC_IsInnerInstance}
-    ${nsProcess::FindProcess} "rstudio.exe" $R0
+    ${nsProcess::FindProcess} "${PROGEXE}" $R0
     ${If} $R0 = 0
       MessageBox MB_OK|MB_ICONEXCLAMATION "@CPACK_PACKAGE_NAME@ is currently running. Please close it before installing a new version." /SD IDOK
       Abort
