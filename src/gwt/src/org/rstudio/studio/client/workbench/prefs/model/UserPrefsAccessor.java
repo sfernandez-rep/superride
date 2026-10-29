@@ -4154,13 +4154,15 @@ public class UserPrefsAccessor extends Prefs
          _constants.uiLanguageDescription(), 
          new String[] {
             UI_LANGUAGE_EN,
-            UI_LANGUAGE_FR
+            UI_LANGUAGE_FR,
+            UI_LANGUAGE_ES
          },
          "en");
    }
 
    public final static String UI_LANGUAGE_EN = "en";
    public final static String UI_LANGUAGE_FR = "fr";
+   public final static String UI_LANGUAGE_ES = "es";
 
    /**
     * Hide desktop menu bar until Alt key is pressed.

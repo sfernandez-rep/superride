@@ -147,7 +147,7 @@ M = [
     ('mResult', 'M = {0}; F = Z − M = {1}; E = F / Z = {2}.', 'M = {0}; F = Z − M = {1}; E = F / Z = {2}.'),
     ('ogiveResult', 'Selection ogive: L50 = {0} cm, L75 = {1} cm.', 'Ojiva de selección: L50 = {0} cm, L75 = {1} cm.'),
     ('diagnostics', 'Diagnostics:', 'Diagnósticos:'),
-    ('dAutomatic', 'Points {0} to {1} were chosen by TropFishR\'s automatic rule (from the class after the highest point to the last class above 0.2); check them on the plot.', 'Los puntos {0} a {1} fueron elegidos por la regla automática de TropFishR (desde la clase siguiente al punto más alto hasta la última clase sobre 0,2); revísalos en el gráfico.'),
+    ('dAutomatic', 'Points {0} to {1} were chosen by TropFishR\'s automatic rule (from the class after the highest point to the last class above 0.2); check them on the plot.', 'Los puntos {0} a {1} fueron elegidos por la regla automática de TropFishR (desde la clase siguiente al punto más alto hasta la última clase sobre 0.2); revísalos en el gráfico.'),
     ('dBeforePeak', 'The regression starts at or before the highest point of the curve. Those length classes are not fully selected by the gear, which biases Z downwards.', 'La regresión empieza en el punto más alto de la curva o antes. Esas clases de talla no están totalmente seleccionadas por el arte de pesca, lo que sesga Z hacia abajo.'),
     ('dFewPoints', 'Only {0} points are in the regression; Z is poorly determined.', 'Solo hay {0} puntos en la regresión; Z queda mal determinada.'),
     ('dLowR2', 'The regression points are far from a straight line (R² {0}).', 'Los puntos de la regresión se alejan de una recta (R² {0}).'),
@@ -232,3 +232,6 @@ assert len(keys) == len(set(keys)), 'duplicate message keys'
 for key, en, es in M:
     assert arity(en) == arity(es), key
 print('ok', len(M))
+# the Spanish Java implementations used at run time (SuperRStudioLanguage)
+import runpy
+runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'spanish_messages.py'))

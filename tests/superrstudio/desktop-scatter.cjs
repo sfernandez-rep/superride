@@ -171,6 +171,7 @@ async function closeDialog(page)
       'SCATTER_SETUP_OK');
 
    let dialog = await openDialog(page);
+   if (/Ã|Â|â€|�/.test(await dialog.innerText())) throw new Error('broken characters in the plot editor');
    const datasets = await page.$$eval('#superrstudio_dataset option', o => o.map(x => x.value));
    log('datasets offered:', datasets);
    // Only plain data frames with unique, nonempty names are offered.

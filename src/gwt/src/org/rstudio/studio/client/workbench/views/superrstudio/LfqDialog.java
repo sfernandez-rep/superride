@@ -1412,7 +1412,7 @@ public class LfqDialog extends DialogBox
    private String job_ = "", version_ = "";
    private boolean busy_ = false, installed_ = false, createdOk_ = false, polling_ = false;
    private static LfqDialog instance_;
-   private static final LfqMessages messages_ = GWT.create(LfqMessages.class);
+   private static final LfqMessages messages_ = SuperRStudioLanguage.lfq();
    // settings typed as text; every other text box holds a number
    private static final List<String> TEXT_KEYS = Arrays.asList("seeds", "label", "period_start", "period_end");
 }

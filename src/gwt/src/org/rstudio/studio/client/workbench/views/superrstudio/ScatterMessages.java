@@ -102,7 +102,7 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Units") String exportUnits();
    @DefaultMessage("Resolution (PNG)") String exportDpi();
    @DefaultMessage("File") String exportPath();
-   @DefaultMessage("Browseâ€¦") String exportBrowse();
+   @DefaultMessage("Browse…") String exportBrowse();
    @DefaultMessage("Export image") String exportImage();
    @DefaultMessage("Export plot image") String exportCaption();
    @DefaultMessage("PNG (bitmap)") String exportPng();

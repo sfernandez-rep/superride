@@ -207,6 +207,7 @@ public interface PrefsConstants extends com.google.gwt.i18n.client.Messages {
     String experimentalLabel();
     String englishLabel();
     String frenchLabel();
+    String spanishLabel();
     String otherShowLastDotValueLabel();
     String helpFontSizeLabel();
     String generalTabListLabel();

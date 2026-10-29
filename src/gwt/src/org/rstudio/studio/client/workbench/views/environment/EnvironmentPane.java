@@ -71,6 +71,7 @@ import org.rstudio.studio.client.workbench.views.superrstudio.LfqMessages;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterDialog;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRStudioLanguage;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArray;
@@ -563,7 +564,7 @@ public class EnvironmentPane extends WorkbenchPane
    // toolbar position but stays hidden unless the session module is enabled.
    private Widget createScatterButton()
    {
-      ScatterMessages messages = GWT.create(ScatterMessages.class);
+      ScatterMessages messages = SuperRStudioLanguage.scatter();
       ToolbarButton button = new ToolbarButton(
             messages.toolbarLabel(),
             messages.title(),
@@ -594,7 +595,7 @@ public class EnvironmentPane extends WorkbenchPane
    // plot editor.
    private Widget createLfqButton()
    {
-      LfqMessages messages = GWT.create(LfqMessages.class);
+      LfqMessages messages = SuperRStudioLanguage.lfq();
       ToolbarButton button = new ToolbarButton(
             messages.toolbarLabel(),
             messages.title(),

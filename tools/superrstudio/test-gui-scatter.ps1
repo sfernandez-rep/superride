@@ -15,6 +15,8 @@
      disabled    no -Experimental (button hidden, IDE unchanged)
      lfq         -Experimental, isolated library with TropFishR (length-frequency
                  workflow; tests\superrstudio\desktop-lfq.cjs; not in the default set)
+     es          -Experimental with ui_language "es": SuperRStudio windows in Spanish
+                 (tests\superrstudio\desktop-es.cjs; not in the default set)
 
    Screenshots and generated code go to .cache\superrstudio\gui-scatter.
 #>
@@ -30,7 +32,7 @@ param(
 $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 foreach ($name in $Scenario)
 {
-   if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq') { throw "Unknown scenario: $name" }
+   if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es') { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
 $env:SUPER_RSTUDIO_CDP_PORT = "$Port"
@@ -44,6 +46,16 @@ foreach ($name in $Scenario)
    $run = @{ ProfileName = $profileName; DebugPort = $Port; Automation = $true }
    if ($name -ne 'disabled') { $run.Experimental = $true }
    if ($name -eq 'no-ggplot2') { $run.RLibrary = Join-Path $SrsProfilesDir "$profileName\empty-library" }
+   if ($name -eq 'es')
+   {
+      # the user-interface language preference, seeded like dev-run.ps1 does
+      $configHome = Join-Path $SrsProfilesDir "$profileName\config-home"
+      New-Item -ItemType Directory -Force $configHome | Out-Null
+      $work = (Join-Path $SrsProfilesDir "$profileName\work") -replace '\\', '/'
+      @{ restore_last_project = $false; save_workspace = 'never'; load_workspace = $false
+         check_for_updates = $false; initial_working_directory = $work; ui_language = 'es' } |
+         ConvertTo-Json | Set-Content -Path (Join-Path $configHome 'rstudio-prefs.json') -Encoding utf8
+   }
 
    Write-SrsStep "Scenario $name"
    & (Join-Path $PSScriptRoot 'dev-run.ps1') @run
@@ -57,7 +69,7 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      $test = if ($name -eq 'lfq') { 'desktop-lfq.cjs' } else { 'desktop-scatter.cjs' }
+      $test = switch ($name) { 'lfq' { 'desktop-lfq.cjs' } 'es' { 'desktop-es.cjs' } default { 'desktop-scatter.cjs' } }
       & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $name | Out-Host
       $results[$name] = if ($LASTEXITCODE -eq 0) { 'PASS' } else { "FAIL (exit $LASTEXITCODE)" }
    }

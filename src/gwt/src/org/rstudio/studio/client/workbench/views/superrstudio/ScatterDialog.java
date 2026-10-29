@@ -1620,5 +1620,5 @@ public class ScatterDialog extends DialogBox
    private String revision_ = "";
    private int requestId_ = 0;
    private static ScatterDialog instance_;
-   private static final ScatterMessages messages_ = GWT.create(ScatterMessages.class);
+   private static final ScatterMessages messages_ = SuperRStudioLanguage.scatter();
 }

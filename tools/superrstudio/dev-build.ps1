@@ -84,7 +84,10 @@ function Build-Gwt
    $started = Get-Date
    $code = Invoke-Ant 'draft'
    if ($code -ne 0) { throw "GWT build failed (exit $code). See the javac/GWT errors above." }
+   # the stamp carries the start time: sources edited during the compile are
+   # newer than it, so the next build does not skip them
    Set-Content -Path $stamp -Value (Get-Date -Format o) -Encoding ascii
+   (Get-Item $stamp).LastWriteTimeUtc = $started.ToUniversalTime()
    Write-SrsStep ("GWT build OK in {0:n0}s" -f ((Get-Date) - $started).TotalSeconds)
 }
 
