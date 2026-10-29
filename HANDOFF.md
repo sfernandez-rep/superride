@@ -71,15 +71,21 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    styles, focus ring; contrast >= 4.5:1 checked in both themes) and
    `.rs.superrstudioBrand()` (one place for the product name in generated
    comments; file-format identifiers stay fixed).
-5. **Benchmarks** (third session): `tools/superrstudio/bench.ps1` (R level
+5. **Dockable Visual workspace** (fourth session): a `Visual` workbench tab
+   (suppressed unless the session reports `superrstudio_experimental`; new
+   layouts keep it in the hidden tab set; saved layouts without it are
+   migrated in `PaneConfig.validateAndAutoCorrect`) into which the one plot
+   editor docks, keeping its state; float/dock buttons; zoom command.
+   Record: [dockable-workspace.md](docs/superrstudio/features/dockable-workspace.md).
+6. **Benchmarks** (third session): `tools/superrstudio/bench.ps1` (R level
    and desktop: baseline upstream build vs features off/on). Record:
    [benchmarks.md](docs/superrstudio/benchmarks.md).
    TropFishR 1.6.6 and its dependencies are installed only in the isolated
    test library (`.cache\superrstudio\r-library`).
-6. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
+7. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
    `install-vscode.ps1`. Usage: [BUILDING.md](BUILDING.md#superrstudio-development-mode-windows).
-7. Windows baseline (Codex): full native/GWT/Electron build, R-session suites,
+8. Windows baseline (Codex): full native/GWT/Electron build, R-session suites,
    live GUI smoke. [GUI record](docs/superrstudio/baseline/windows-gui-2026-10-28.md),
    [provisioning record](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
 
@@ -94,6 +100,7 @@ tools\superrstudio\test-session.cmd experimental # upstream rsession suite
 tools\superrstudio\test-gui-scatter.ps1          # live desktop acceptance (3 scenarios)
 tools\superrstudio\test-gui-scatter.ps1 -Scenario lfq   # length-frequency window
 tools\superrstudio\test-gui-scatter.ps1 -Scenario es    # Spanish windows
+tools\superrstudio\test-gui-scatter.ps1 -Scenario visual  # Visual tab: old layout, restart, features off
 tools\superrstudio\bench.ps1 -Runs 3                    # benchmarks (R + desktop vs baseline)
 python tools\superrstudio\i18n\lfq_messages.py         # regenerate LFQ + Spanish messages
 ```
@@ -120,6 +127,7 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | Upstream R-session suite (feature on), after the LFQ completion and again after all third-session changes (incl. the ui_language header) | 654 passed / 655 (1 skipped), both times |
 | `visual-scatter.R` incl. date/time axes and the SVG/PNG choice by vertices | PASS |
 | Live desktop: ggplot2 (incl. sampling dates, dark theme, contrast) / no-ggplot2 / disabled / es / lfq | PASS / PASS / PASS / PASS / PASS (final builds of 2026-10-29) |
+| Visual tab (`-Scenario visual`: migrate / restart / off) and regression ggplot2, no-ggplot2, disabled, es, lfq (fourth session) | PASS (all 8); upstream suite 654/655 |
 | Benchmarks (`bench.ps1`, 3 runs + warm-up): ready baseline 3.32 s / off 3.34 s / on 3.41 s; console 29-30 ms; session 128 / 128 / 132 MB | recorded in docs/superrstudio/benchmarks.md |
 
 Known failures/limitations (unchanged from baseline unless noted):
@@ -146,12 +154,13 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    comparison of configurations, seasonal GUI test, catch-curve mortality;
    Spanish windows; date/time axes; design-system/branding foundation;
    benchmark suite and the measured line-preview optimisation.
-   **Next exact task:** Milestone D, the dockable "Visual" workbench tab,
-   following [dockable-workspace.md](docs/superrstudio/features/dockable-workspace.md)
-   (suppressed unless experimental; hiddenTabSet default plus a fix-up for
-   saved layouts, which otherwise leave a new tab in no panel and NPE on
-   activation; refactor the plot editor body into a widget shared by the
-   floating window and the tab; restart/migration desktop test).
+   Done (fourth session): dockable Visual tab with layout migration.
+   **Next (fourth-session brief):** (B) one-click light/dark toggle in the
+   global toolbar (switch the global `editor_theme` and `theme` state like
+   Appearance > Apply; remember the last light and dark theme; gated by the
+   experimental flag); (C) resizable preview canvas with aspect presets and
+   two export modes, dimensions in the spec; (D) responsive editor layout for
+   narrow panes; (E) benchmarks of the new features.
    Then: remaining in-window preview overhead for 100,000-point scatter
    plots (2.4 s; R side 2.0 s is Cairo rasterisation of points), an
    optimised (non-draft) GWT build for memory comparisons with the

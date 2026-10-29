@@ -106,6 +106,10 @@ public class ScatterMessagesEs implements ScatterMessages
    @Override public String exportPath() { return "Archivo"; }
    @Override public String exportBrowse() { return "Examinar\u2026"; }
    @Override public String dateBreaks() { return "Intervalo de fechas"; }
+   @Override public String visualTab() { return "Visual"; }
+   @Override public String dockHere() { return "Acoplar en el panel Visual"; }
+   @Override public String floatWindow() { return "Abrir como ventana flotante"; }
+   @Override public String visualPlaceholder() { return "El editor de gr\u00e1ficos est\u00e1 abierto como ventana flotante. Ac\u00f3plalo aqu\u00ed para trabajar con \u00e9l junto a la consola y el editor de c\u00f3digo."; }
    @Override public String dateLabels() { return "Formato de fechas"; }
    @Override public String timezone() { return "Zona horaria (vac\u00edo: la de la columna)"; }
    @Override public String exportImage() { return "Exportar imagen"; }

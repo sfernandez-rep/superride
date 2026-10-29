@@ -611,6 +611,11 @@ public class SessionInfo extends JavaScriptObject
       return this.connections_enabled;
    }-*/;
 
+   // SuperRStudio: SUPER_RSTUDIO_EXPERIMENTAL=1 in the session
+   public final native boolean getSuperRStudioExperimental() /*-{
+      return this.superrstudio_experimental === true;
+   }-*/;
+
    public final native boolean getActivateConnections() /*-{
       return this.activate_connections;
    }-*/;

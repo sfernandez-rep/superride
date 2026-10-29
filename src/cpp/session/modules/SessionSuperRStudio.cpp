@@ -69,9 +69,14 @@ Error dataRequest(const json::JsonRpcRequest& request, json::JsonRpcResponse* re
 }
 } // namespace
 
+bool enabled()
+{
+   return core::system::getenv("SUPER_RSTUDIO_EXPERIMENTAL") == "1";
+}
+
 Error initialize()
 {
-   s_enabled = core::system::getenv("SUPER_RSTUDIO_EXPERIMENTAL") == "1";
+   s_enabled = enabled();
    if (s_enabled)
    {
       for (const char* file : {"SessionSuperRStudio.R", "SessionSuperRStudioLfq.R",

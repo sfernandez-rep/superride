@@ -1,33 +1,62 @@
-# Dockable scientific workspace: investigation (phase 4, Milestone D)
+# Dockable Visual workspace
 
-Status 2026-10-29: **investigated, not yet implemented.** The plot editor and the length-frequency window stay non-modal floating windows. They are the supported path, and the console, editor and panes remain usable while they are open.
+Status 2026-10-29: **implemented and desktop-verified** as an experimental feature (`SUPER_RSTUDIO_EXPERIMENTAL=1`).
 
-## How RStudio's panes work (pinned sources)
+## What it does
 
-| Concern | Where |
+**Showing the tab**
+- *View → Panes → Show Other Panes → Show Visual (SuperRStudio)* shows the **Visual** tab, using RStudio's own workbench tab infrastructure.
+- It also has a zoom command (*Zoom Visual*), and Pane Layout can move it between quadrants like any other tab.
+- On first use the tab joins the first visible tab set.
+
+**The plot editor docks into it**
+- The same editor object moves into the pane: its data selection, settings, undo history and preview.
+- *Open as a floating window* moves it back out, and the pane then offers *Dock in the Visual pane*. The floating window has the same button.
+- The Environment toolbar's *Plot editor* button shows the docked editor instead of opening a second one.
+
+**Defaults and fallback**
+- Default pane locations are unchanged. New layouts keep "Visual" in the hidden tab set until the user shows it.
+- The floating window remains available as before.
+
+## Safety of the layout change
+
+| Risk | Handling |
 | --- | --- |
-| Tab identity | `PaneManager.Tab` enum. Its names are what the `panes` preference stores. `PaneManager` maps tabs to widgets, labels, zoom commands and pane-layout commands in `getTab`, `getAllTabs`, `tabForName`, `getLayoutCommandForTab` and `getLayoutCommands`. |
-| Valid layouts | `PaneConfig.getAllTabs()` is the master list. `PaneConfig.createDefault()` is the default layout. |
-| Validation | `PaneConfig.validateAndAutoCorrect()` → `PaneManager.validateConfig()`. |
-| Widgets | One `WorkbenchTab` per tab (usually `DelayLoadWorkbenchTab` with a presenter and pane), bound with `bindTab(name, Class)` in `RStudioGinModule`. |
-| Commands | `activateXxx` and `layoutZoomXxx` are defined in `Commands.cmd.xml`, plus `.MD5`, `Commands.java`, `CmdConstants*` and `AppCommands.R`. Handlers live in `WorkbenchScreen`. |
-| Hidden or conditional tabs | `WorkbenchTab.isSuppressed()`, used by Connections, Build, VCS and Presentation. Alternatively, the flag checks used for Chat in `PaneManager` and `PaneLayoutPreferencesPane`. |
-| Preference defaults | `user-prefs-schema.json` (`panes`). The generated `UserPrefsAccessor` and `UserPrefValues` hold the fallbacks. |
+| A layout saved before the tab existed (the tab would be placed in no panel, and activating it would throw an NPE) | `PaneConfig.validateAndAutoCorrect()` adds "Visual" to the hidden tab set when no tab set mentions it. This includes layouts without a `hiddenTabSet` or `sidebar` field, through a JSNI setter, because `getHiddenTabSet()` returns a new empty array when the field is absent. |
+| A layout saved with "Visual" visible, then the features turned off | `VisualTab.isSuppressed()` returns true unless the session reports `superrstudio_experimental` at client init. This is the mechanism upstream uses for Connections and Build. The tab is not rendered, its commands are removed, and its Pane Layout checkbox is hidden. The saved layout is kept as it was. |
+| Activating or zooming a tab that ends up in no panel | `PaneManager.activateTab` and `zoomTab` now log and return instead of throwing. This is a defensive guard for any tab. |
+| Customised layouts | Never rewritten, apart from the one name added to the hidden set. The test layout swaps History and Help, and the swap survives every launch. |
 
-A new tab touches about ten upstream files (Java, the command XML and its checksum, constants, and the R command list).
+## Changed upstream files (small, additive)
 
-**Finding that matters for safety:** a saved layout that lacks a new tab name is accepted by validation, but the tab is then placed in no panel. `activateTab` and `zoomTab` dereference the missing panel, which causes an NPE. Upstream avoided this for Chat by adding a new `sidebar` field whose default holds the tab. A SuperRStudio tab therefore needs a migration step that adds the name to `hiddenTabSet` when it is absent. That needs a setter, because `getHiddenTabSet()` returns a fresh array when the field is missing.
+| File | Change |
+| --- | --- |
+| `SessionClientInit.cpp` | `superrstudio_experimental` added to session info |
+| `SessionInfo.java` | Getter for that flag |
+| `PaneManager.java` | `Tab.Visual`, `VISUAL_PANE`, tab and command mapping, and the null-panel guard |
+| `PaneConfig.java` | Tab list, default hidden set and migration |
+| `PaneLayoutPreferencesPane.java` | Checkbox hidden while the features are off |
+| `RStudioGinModule.java` | Bindings |
+| `WorkbenchScreen.java` | `activateVisual` and `layoutZoomVisual` handlers |
+| Commands | `Commands.cmd.xml` (two commands and their menu entries) and `Commands.java`. `CmdConstants*` were generated by upstream's own script; the French labels, `.MD5` and `AppCommands.R` were updated to match. |
 
-## Recommended smallest safe foundation
+The new code is in `workbench/views/visual/` (`VisualTab`, `VisualPresenter`, `VisualPane`) and in `ScatterDialog.dock` / `undock`.
 
-1. Add a **"Visual" workbench tab** that hosts the plot editor's content (preview, settings tabs, code, export).
-   - It is a `DelayLoadWorkbenchTab` that is suppressed unless `SUPER_RSTUDIO_EXPERIMENTAL=1` is reported by the session (`isSuppressed()`, as for Connections).
-   - Its pane-layout checkbox is hidden while suppressed.
-   - Its `activateVisual` and `layoutZoomVisual` commands are hidden on session start when suppressed (as Presentation2 does).
-2. **Default placement:** `hiddenTabSet` in `PaneConfig.createDefault()` and in the schema default. A fix-up in `validateAndAutoCorrect()` adds "Visual" to `hiddenTabSet` for saved layouts that do not mention it. Activation moves it into a visible pane with RStudio's own `moveTabToVisiblePanel`.
-3. **Refactor the editor once** so that its body is a widget that can live either in the existing floating `DialogBox` or in the tab. Keep the floating window as the fallback; the toolbar button keeps opening it.
-4. **Tests:**
-   - A desktop scenario: activate the tab, render, zoom the pane, move it between quadrants in Pane Layout, then restart with a saved layout that predates the tab.
-   - With the feature off, the IDE must be byte-for-byte unchanged in behaviour, so the `disabled` scenario must still pass.
+## Verification
 
-Not done in this session: the change spans the command registry, its checksum and the pane configuration, which every IDE start depends on. It needs its own focused session with the restart and migration tests above.
+`tools\superrstudio\test-gui-scatter.ps1 -Scenario visual` launches one isolated profile three times.
+
+1. **migrate** (features on, a customised layout saved before the tab existed):
+   - start-up has no client exceptions;
+   - "Visual" is placed in the hidden set and the customised tabs stay in place;
+   - showing Visual docks the editor, and it renders a preview and code;
+   - floating and docking again keep the same dataset, columns and code;
+   - the toolbar button shows the pane instead of opening a second window;
+   - zoom works and the console responds.
+2. **restart** (features on): the layout saved by the first launch, with Visual in tab set 1 and History still in tab set 2, is restored. The editor docks at start-up and lists data created afterwards when the tab is shown again. A defect found here was fixed: an editor docked before any data existed kept an empty list.
+3. **off** (features disabled, with that saved layout): no Visual tab, the commands are invisible, the plot-editor button is hidden, there are no client exceptions, and the layout is preserved.
+
+## Limitations and next steps
+
+- In a quarter-screen pane the editor's two columns need horizontal scrolling. Zoom the pane (*Zoom Visual*) to use the full window. A layout that adapts to narrow panes belongs with the resizable preview canvas.
+- The length-frequency window is not dockable yet; the same `dock` / `undock` approach applies.

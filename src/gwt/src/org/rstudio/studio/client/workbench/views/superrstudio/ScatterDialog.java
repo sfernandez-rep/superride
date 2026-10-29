@@ -50,9 +50,15 @@ import org.rstudio.studio.client.workbench.views.source.model.SourcePosition;
 // content, so global shortcuts and console keys are unaffected.
 public class ScatterDialog extends DialogBox
 {
-   // Opens the editor, or brings the already open one to the front.
+   // Opens the editor, or brings the already open one to the front. A
+   // docked editor is shown in its Visual pane instead.
    public static void open(SuperRStudioServerOperations server, EventBus events, Commands commands)
    {
+      if (instance_ != null && instance_.docked_)
+      {
+         commands.activateVisual().execute();
+         return;
+      }
       if (instance_ != null && instance_.isShowing())
       {
          instance_.show();
@@ -64,6 +70,72 @@ public class ScatterDialog extends DialogBox
       instance_.setPopupPosition(16, 40);
       instance_.focusFirst();
       instance_.refresh();
+   }
+
+   // Moves the editor into a workbench pane (the Visual tab), creating it if
+   // no editor is open. The same editor moves, so its data, settings, undo
+   // history and preview are kept; the placeholder returns when it floats.
+   public static void dock(SimplePanel host, Widget placeholder, SuperRStudioServerOperations server,
+                           EventBus events, Commands commands)
+   {
+      boolean fresh = instance_ == null || (!instance_.isShowing() && !instance_.docked_);
+      if (fresh)
+         instance_ = new ScatterDialog(server, events, commands);
+      ScatterDialog editor = instance_;
+      if (editor.docked_ && editor.host_ == host)
+      {
+         // shown again: an editor that found no data frames looks again
+         // (for example when it was docked at start-up, before any data)
+         if (editor.datasets_.getItemCount() == 0 && !editor.inFlight_)
+            editor.refresh();
+         return;
+      }
+      if (editor.isShowing())
+      {
+         editor.moving_ = true;
+         editor.hide();
+         editor.moving_ = false;
+      }
+      editor.host_ = host;
+      editor.placeholder_ = placeholder;
+      host.setWidget(editor.body_);
+      editor.setDocked(true);
+      if (fresh)
+         editor.refresh();
+   }
+
+   // Moves a docked editor back into its floating window.
+   private void undock()
+   {
+      if (!docked_)
+         return;
+      setWidget(body_);
+      if (host_ != null && placeholder_ != null)
+         host_.setWidget(placeholder_);
+      setDocked(false);
+      show();
+      setPopupPosition(16, 40);
+      focusFirst();
+   }
+
+   private void dockFromWindow()
+   {
+      commands_.activateVisual().execute();
+   }
+
+   private void setDocked(boolean docked)
+   {
+      docked_ = docked;
+      close_.setVisible(!docked);
+      dock_.setVisible(!docked && commands_.activateVisual().isVisible());
+      float_.setVisible(docked);
+      body_.getElement().setAttribute("data-superrstudio-docked", String.valueOf(docked));
+   }
+
+   // the editor's requests answer only while its body is shown (docked or floating)
+   private boolean live()
+   {
+      return body_ != null && body_.isAttached();
    }
 
    // An undoable plot setting: its JSON key, editing widget, value type and
@@ -131,6 +203,8 @@ public class ScatterDialog extends DialogBox
       export_ = new ThemedButton(messages_.exportCode(), e -> generate(true));
       refresh_ = new ThemedButton(messages_.refresh(), e -> refresh());
       close_ = new ThemedButton(messages_.close(), e -> closeDialog());
+      dock_ = new ThemedButton(messages_.dockHere(), e -> dockFromWindow());
+      float_ = new ThemedButton(messages_.floatWindow(), e -> undock());
       undo_ = new ThemedButton(messages_.undo(), e -> undo());
       redo_ = new ThemedButton(messages_.redo(), e -> redo());
       editSelected_ = new ThemedButton(messages_.editSelected(), e -> {
@@ -294,7 +368,9 @@ public class ScatterDialog extends DialogBox
       for (Setting setting : settings_)
          if (setting.widget instanceof ListBox)
             ((ListBox) setting.widget).addChangeHandler(e -> settingsChanged());
-      setWidget(createMainWidget());
+      body_ = createMainWidget();
+      setWidget(body_);
+      setDocked(false);
    }
 
    private void focusFirst()
@@ -433,7 +509,10 @@ public class ScatterDialog extends DialogBox
       button(leftButtons, export_, "superrstudio_export");
       buttons.add(leftButtons);
       HorizontalPanel rightButtons = new HorizontalPanel();
+      button(rightButtons, dock_, "superrstudio_dock");
+      button(rightButtons, float_, "superrstudio_float");
       button(rightButtons, close_, "superrstudio_close");
+      float_.setVisible(false);
       buttons.add(rightButtons);
       buttons.setCellHorizontalAlignment(rightButtons, HasHorizontalAlignment.ALIGN_RIGHT);
       panel.add(buttons);
@@ -818,7 +897,7 @@ public class ScatterDialog extends DialogBox
    // Re-renders the interactive preview only (no Plots pane entry).
    private void render()
    {
-      if (revision_.isEmpty() || !columnsChosen() || !isAttached())
+      if (revision_.isEmpty() || !columnsChosen() || !live())
          return;
       if (inFlight_)
       {
@@ -832,7 +911,7 @@ public class ScatterDialog extends DialogBox
          new ServerRequestCallback<ScatterResult>() {
             @Override public void onResponseReceived(ScatterResult result)
             {
-               if (!isAttached() || renderId != renderId_) return;
+               if (!live() || renderId != renderId_) return;
                showResult(result);
                // live updates leave other messages alone, but replace their
                // own earlier error and report warnings
@@ -843,7 +922,7 @@ public class ScatterDialog extends DialogBox
             }
             @Override public void onError(ServerError error)
             {
-               if (!isAttached() || renderId != renderId_) return;
+               if (!live() || renderId != renderId_) return;
                renderError_ = true;
                JSONValue info = error.getClientInfo();
                SuperRStudioTheme.status(status_, info != null && info.isString() != null
@@ -1574,7 +1653,7 @@ public class ScatterDialog extends DialogBox
          new ServerRequestCallback<ScatterResult>() {
             @Override public void onResponseReceived(ScatterResult result)
             {
-               if (!isAttached() || requestId != requestId_) return;
+               if (!live() || requestId != requestId_) return;
                inFlight_ = false;
                busy(false);
                status_.removeStyleName(SuperRStudioTheme.ERROR);
@@ -1582,7 +1661,7 @@ public class ScatterDialog extends DialogBox
             }
             @Override public void onError(ServerError error)
             {
-               if (!isAttached() || requestId != requestId_) return;
+               if (!live() || requestId != requestId_) return;
                inFlight_ = false;
                busy(false);
                JSONValue info = error.getClientInfo();
@@ -1595,6 +1674,12 @@ public class ScatterDialog extends DialogBox
    }
    @Override protected void onUnload()
    {
+      // moving into the Visual pane is not closing: requests and the selection stay
+      if (moving_ || docked_)
+      {
+         super.onUnload();
+         return;
+      }
       ++requestId_;
       ++renderId_;
       inFlight_ = false;
@@ -1693,5 +1778,9 @@ public class ScatterDialog extends DialogBox
    private String revision_ = "";
    private int requestId_ = 0;
    private static ScatterDialog instance_;
+   private Widget body_, placeholder_;
+   private SimplePanel host_;
+   private boolean docked_ = false, moving_ = false;
+   private ThemedButton dock_, float_;
    private static final ScatterMessages messages_ = SuperRStudioLanguage.scatter();
 }

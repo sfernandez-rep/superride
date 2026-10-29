@@ -4,5 +4,7 @@
 #include <shared_core/Error.hpp>
 namespace rstudio { namespace session { namespace modules { namespace superrstudio {
 core::Error initialize();
+// SUPER_RSTUDIO_EXPERIMENTAL=1: SuperRStudio features (reported to the client at init)
+bool enabled();
 }}}}
 #endif

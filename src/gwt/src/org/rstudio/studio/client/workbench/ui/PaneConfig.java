@@ -88,6 +88,8 @@ public class PaneConfig extends UserPrefsAccessor.Panes
       tabSet2.push(PaneManager.PRESENTATIONS_PANE);
 
       JsArrayString hiddenTabSet = createArray().cast();
+      // SuperRStudio: the Visual tab starts hidden; default pane locations are unchanged
+      hiddenTabSet.push(PaneManager.VISUAL_PANE);
 
       JsArrayString sidebarTabs = createArray().cast();
       sidebarTabs.push(PaneManager.CHAT_PANE);
@@ -133,7 +135,7 @@ public class PaneConfig extends UserPrefsAccessor.Panes
                            PaneManager.PLOTS_PANE, PaneManager.CONNECTIONS_PANE,
                            PaneManager.PACKAGES_PANE, PaneManager.HELP_PANE, PaneManager.BUILD_PANE,
                            PaneManager.VCS_PANE, PaneManager.TUTORIAL_PANE, PaneManager.VIEWER_PANE,
-                           PaneManager.CHAT_PANE,
+                           PaneManager.CHAT_PANE, PaneManager.VISUAL_PANE,
                            PaneManager.PRESENTATIONS_PANE, PaneManager.PRESENTATION_PANE};
    }
 
@@ -292,8 +294,29 @@ public class PaneConfig extends UserPrefsAccessor.Panes
          return false;
       }
 
+      // SuperRStudio: layouts saved before the Visual tab existed do not
+      // mention it; a tab in no tab set would be placed in no panel, so it is
+      // added to the hidden tab set (where new layouts keep it by default)
+      addMissingTabToHiddenTabSet(PaneManager.VISUAL_PANE);
+
       return true;
    }
+
+   private void addMissingTabToHiddenTabSet(String tab)
+   {
+      for (JsArrayString tabs : new JsArrayString[] {getTabSet1(), getTabSet2(), getHiddenTabSet(), getSidebar()})
+         for (String name : JsUtil.asIterable(tabs))
+            if (StringUtil.equals(name, tab))
+               return;
+      // getHiddenTabSet() returns a new empty array when the field is absent
+      JsArrayString hidden = copy(getHiddenTabSet());
+      hidden.push(tab);
+      setHiddenTabSet(hidden);
+   }
+
+   private native void setHiddenTabSet(JsArrayString tabs) /*-{
+      this.hiddenTabSet = tabs;
+   }-*/;
 
    private static boolean isSubset(Set<String> set, Iterable<String> possibleSubset)
    {

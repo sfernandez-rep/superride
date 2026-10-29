@@ -498,6 +498,8 @@
    tutorialRefresh = "tutorialRefresh",
    tutorialStop = "tutorialStop",
    tutorialHome = "tutorialHome",
+   activateVisual = "activateVisual",
+   layoutZoomVisual = "layoutZoomVisual",
    activateChat = "activateChat",
    layoutZoomChat = "layoutZoomChat",
    activateViewer = "activateViewer",

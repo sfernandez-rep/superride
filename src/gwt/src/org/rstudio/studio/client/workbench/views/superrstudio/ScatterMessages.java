@@ -104,6 +104,10 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("File") String exportPath();
    @DefaultMessage("Browse…") String exportBrowse();
    @DefaultMessage("Date breaks") String dateBreaks();
+   @DefaultMessage("Visual") String visualTab();
+   @DefaultMessage("Dock in the Visual pane") String dockHere();
+   @DefaultMessage("Open as a floating window") String floatWindow();
+   @DefaultMessage("The plot editor is open as a floating window. Dock it here to work with it beside the console and the source editor.") String visualPlaceholder();
    @DefaultMessage("Date labels") String dateLabels();
    @DefaultMessage("Time zone (blank: the column''s)") String timezone();
    @DefaultMessage("Export image") String exportImage();
