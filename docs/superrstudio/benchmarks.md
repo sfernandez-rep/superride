@@ -127,6 +127,25 @@ The same commands were run after adding the Visual workbench tab, the light/dark
 
 A large canvas costs about 0.1 s more per preview. The 2,400-pixel cap bounds the cost beyond about 12 in.
 
+## Like-for-like: optimised clients on both sides (2026-10-29)
+
+`dev-build.ps1 -Component gwt -Optimized` compiles this fork's client with upstream's normal `gwtc` target, the one release builds use, instead of draft mode. The result is 13.41 MB of JavaScript, against 13.26 MB in the baseline: the SuperRStudio features add about 0.15 MB to the client. With both clients optimised, the same benchmark gives:
+
+| Configuration (medians of 3 + warm-up) | Ready | Console | R session | Electron |
+| --- | --- | --- | --- | --- |
+| Upstream baseline build | 3.70 s | 43 ms | 128.1 MB | 563 MB |
+| This fork, features off | 3.50 s | 39 ms | 128.1 MB | 562 MB |
+| This fork, features on, idle | 3.67 s | 44 ms | 132.0 MB | 567 MB |
+| Features on, after a 100,000-row preview | 3.65 s | 42 ms | 268 MB | 620 MB |
+
+**Conclusion**
+- The fork starts as fast as unmodified RStudio and uses the same Electron memory.
+- The earlier Electron difference (+67 MB) and the start-up gap under load (0.35 s) were caused entirely by the unoptimised draft client used for development.
+- With the features on, the R session uses 4 MB more at idle (the sourced modules).
+- The baseline's warm-up launch took 97.7 s (a first launch after the client changed on disk). It is excluded by design, like every warm-up.
+
+The ggplot2, visual and theme desktop scenarios pass on the optimised client too.
+
 ## Not measured or not comparable yet
 
 - **Unmodified installed RStudio.** It was not used, to keep the official installation untouched. The baseline is the pristine upstream build in the `SuperRStudio-baseline` worktree, run through the same development launcher.

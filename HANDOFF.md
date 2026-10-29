@@ -171,11 +171,14 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    Done: responsive docked layout (preview first in narrow panes); benchmarks
    of the new features (no start-up cost from features on vs off; canvas
    cost recorded in docs/superrstudio/benchmarks.md).
-   **Next exact task:** build an optimised (non-draft) client of this fork
-   and repeat `bench.ps1` against the baseline, to settle the 0.35 s start-up
-   gap seen under load. Then: dockable length-frequency window (same
-   dock/undock approach); remaining TropFishR features (Beverton-Holt Z,
-   yield per recruit) with reference data; domain review.
+   Done: optimised-client benchmark (`dev-build.ps1 -Component gwt -Optimized`):
+   start-up and Electron memory equal to the unmodified baseline.
+   **Next exact task:** dockable length-frequency window (same dock/undock
+   approach as the plot editor, in the Visual tab or its own tab); then the
+   remaining TropFishR features (Beverton-Holt Z, yield per recruit) with
+   reference data; domain review by fisheries scientists.
+   Note: the working client may be the optimised build; the next normal
+   `dev-build.ps1` recompiles the draft client (the draft stamp was removed).
    Then: remaining in-window preview overhead for 100,000-point scatter
    plots (2.4 s; R side 2.0 s is Cairo rasterisation of points), an
    optimised (non-draft) GWT build for memory comparisons with the

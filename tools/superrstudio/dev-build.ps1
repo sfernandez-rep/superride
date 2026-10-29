@@ -25,6 +25,10 @@ param(
    [switch]$Reconfigure,
    # Rebuild GWT even when no client source changed.
    [switch]$Force,
+   # GWT: an optimised compile (upstream's gwtc target, as release builds use)
+   # instead of draft mode; slower to build, for like-for-like benchmarks.
+   # Always rebuilds and replaces the draft client in src\gwt\www.
+   [switch]$Optimized,
    [int]$Parallel = [Math]::Max(2, [Environment]::ProcessorCount - 2)
 )
 
@@ -64,6 +68,17 @@ function Build-Gwt
    $stamp = Join-Path $SrsStampDir 'gwt-draft.stamp'
    $inputs = @("$SrsRoot\src\gwt\src", "$SrsRoot\src\gwt\acesupport")
    $output = Join-Path $SrsRoot 'src\gwt\www\rstudio\rstudio.nocache.js'
+   if ($Optimized)
+   {
+      Write-SrsStep 'GWT optimised compile (several minutes)'
+      $started = Get-Date
+      $code = Invoke-Ant 'generate-i18n gwtc'
+      if ($code -ne 0) { throw "GWT build failed (exit $code). See the javac/GWT errors above." }
+      # the draft stamp no longer describes the client
+      Remove-Item $stamp -ErrorAction SilentlyContinue
+      Write-SrsStep ("GWT optimised build OK in {0:n0}s" -f ((Get-Date) - $started).TotalSeconds)
+      return
+   }
    if (-not $Force -and (Test-Path $stamp) -and (Test-Path $output))
    {
       $built = (Get-Item $stamp).LastWriteTimeUtc
