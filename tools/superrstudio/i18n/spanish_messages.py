@@ -21,7 +21,7 @@ import sys
 here = os.path.dirname(os.path.abspath(__file__))
 folder = os.path.normpath(os.path.join(
     here, '..', '..', '..', 'src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio'))
-INTERFACES = ['ScatterMessages', 'LfqMessages']
+INTERFACES = ['ScatterMessages', 'LfqMessages', 'DependencyMessages']
 
 METHOD = re.compile(r'@DefaultMessage\("((?:[^"\\]|\\.)*)"\)\s*String\s+(\w+)\s*\(([^)]*)\)\s*;')
 

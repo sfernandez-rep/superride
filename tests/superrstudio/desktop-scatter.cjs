@@ -52,7 +52,17 @@ async function openDialog(page)
    const button = page.locator('#rstudio_superrstudio_scatter');
    await button.waitFor({state: 'visible', timeout: 30000});
    await button.click();
-   const dialog = page.getByRole('dialog');
+   // without ggplot2 the editor first asks to install it (optional-package
+   // dialog); this scenario declines, so nothing is installed
+   if (mode === 'no-ggplot2')
+   {
+      const deps = page.locator('#superrstudio_deps_dialog');
+      await deps.waitFor({timeout: 60000});
+      await page.locator('#rstudio_superrstudio_deps_cancel').click();
+      await deps.waitFor({state: 'detached'});
+      log('PASS optional-package dialog shown for ggplot2 and declined');
+   }
+   const dialog = page.getByRole('dialog').filter({has: page.locator('#superrstudio_dataset')});
    await dialog.waitFor();
    await page.waitForFunction(() => document.getElementById('superrstudio_dataset')?.options.length > 0);
    return dialog;

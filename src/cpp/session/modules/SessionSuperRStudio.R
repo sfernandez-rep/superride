@@ -27,6 +27,9 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       # the length-frequency module (SessionSuperRStudioLfq.R) shares this RPC
       if (startsWith(operation, 'lfq_'))
          .rs.superrstudioLfq(operation, dataset, appearance, available)
+      # optional packages (SessionSuperRStudioDeps.R): dataset names the feature
+      else if (startsWith(operation, 'deps_'))
+         .rs.superrstudioDepsRpc(operation, dataset, appearance)
       else
          .rs.superrstudioData(operation, dataset, revision, x, y, available, appearance),
       error = function(e) list(error = I(conditionMessage(e))))

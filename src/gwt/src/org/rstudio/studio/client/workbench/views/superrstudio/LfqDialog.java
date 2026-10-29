@@ -123,6 +123,9 @@ public class LfqDialog extends DialogBox
       status_.getElement().setAttribute("aria-live", "polite");
       status_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
       panel.add(status_);
+      ElementIds.assignElementId(depsButton_, "superrstudio_lfq_deps_open");
+      depsButton_.setVisible(false);
+      panel.add(depsButton_);
 
       option(unit_, "cm", "cm");
       option(unit_, "mm", "mm");
@@ -671,6 +674,12 @@ public class LfqDialog extends DialogBox
       saveLibrary_.setEnabled(!busy_);
    }
 
+   private void checkPackages(boolean prompt)
+   {
+      DependencyDialog.ensure(server_, "lfq", prompt, this::start, missing ->
+         depsButton_.setText(deps_.installButton(missing)));
+   }
+
    // Requests -------------------------------------------------------------------
 
    private void start()
@@ -679,6 +688,11 @@ public class LfqDialog extends DialogBox
          installed_ = result.flag("tropfishr");
          version_ = installed_ ? messages_.packageVersion(result.str("version"), result.str("r_version")) : "";
          status_.setText(installed_ ? version_ : messages_.missingPackage());
+         depsButton_.setVisible(!installed_);
+         // opened by the user: offer to install TropFishR if it is missing;
+         // after the installation the window starts again with it
+         if (!installed_)
+            checkPackages(true);
          request("lfq_list", "", null, list -> {
             JsArrayString names = list.strings("datasets");
             datasets_.clear();
@@ -1507,7 +1521,8 @@ public class LfqDialog extends DialogBox
       duplicate_ = new ThemedButton(messages_.duplicate(), e -> libraryAction("lfq_lib_duplicate", false)),
       delete_ = new ThemedButton(messages_.delete(), e -> libraryAction("lfq_lib_delete", false)),
       compareAnalyses_ = new ThemedButton(messages_.compare(), e -> compareAnalyses()),
-      close_ = new ThemedButton(messages_.close(), e -> hide());
+      close_ = new ThemedButton(messages_.close(), e -> hide()),
+      depsButton_ = new ThemedButton("", e -> checkPackages(true));
    private final Image rawImage_ = new Image(), restructuredImage_ = new Image(), fitImage_ = new Image(),
                        ccImage_ = new Image(), yieldImage_ = new Image();
    private final Grid table_ = new Grid(1, 1), points_ = new Grid(1, 1);
@@ -1533,6 +1548,7 @@ public class LfqDialog extends DialogBox
    private boolean busy_ = false, installed_ = false, createdOk_ = false, polling_ = false;
    private static LfqDialog instance_;
    private static final LfqMessages messages_ = SuperRStudioLanguage.lfq();
+   private static final DependencyMessages deps_ = SuperRStudioLanguage.deps();
    // settings typed as text; every other text box holds a number
    private static final List<String> TEXT_KEYS = Arrays.asList("seeds", "label", "period_start", "period_end");
 }

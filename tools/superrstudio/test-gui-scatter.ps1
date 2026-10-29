@@ -22,6 +22,11 @@
                  experimental; restart; features off) with desktop-visual.cjs
      theme       the one-click light/dark switch: one fresh profile launched three
                  times (toggle and remembered theme; restart; features off)
+     deps        optional packages: a fresh, empty R library and the local test
+                 repository (tests\superrstudio\make-local-repo.R); missing
+                 package prompt, cancel, unavailable and broken packages, stop,
+                 successful installation that resumes the editor, no repeated
+                 prompt, a real renv project (tests\superrstudio\desktop-deps.cjs)
 
    Screenshots and generated code go to .cache\superrstudio\gui-scatter.
 #>
@@ -40,7 +45,7 @@ $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 foreach ($name in $Scenario)
 {
    if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es', 'visual-migrate', 'visual-restart', 'visual-off',
-                    'theme-first', 'theme-restart', 'theme-off')
+                    'theme-first', 'theme-restart', 'theme-off', 'deps')
    { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
@@ -73,6 +78,21 @@ foreach ($name in $Scenario)
          ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $configHome 'rstudio-prefs.json') -Encoding utf8
    }
    if ($name -eq 'no-ggplot2') { $run.RLibrary = Join-Path $SrsProfilesDir "$profileName\empty-library" }
+   if ($name -eq 'deps')
+   {
+      # a fresh, empty library each run: nothing installed before the test
+      $library = Join-Path $SrsProfilesDir "$profileName\fresh-library"
+      Remove-Item -Recurse -Force $library -ErrorAction SilentlyContinue
+      New-Item -ItemType Directory -Force $library | Out-Null
+      $run.RLibrary = $library
+      $env:SUPER_RSTUDIO_TEST_LIBRARY = $library.Replace('\', '/')
+      $repo = Join-Path $SrsCache 'local-repo'
+      if (-not (Test-Path (Join-Path $repo 'full')))
+      {
+         & 'C:\R\R-4.6.1\bin\x64\Rscript.exe' (Join-Path $SrsRoot 'tests\superrstudio\make-local-repo.R') $repo | Out-Host
+      }
+      $env:SUPER_RSTUDIO_TEST_REPO = $repo.Replace('\', '/')
+   }
    if ($name -eq 'es')
    {
       # the user-interface language preference, seeded like dev-run.ps1 does
@@ -96,7 +116,7 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
+      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
                                          default { 'desktop-scatter.cjs' } }
       $argument = if ($name -like 'visual-*') { $name.Substring(7) } elseif ($name -like 'theme-*') { $name.Substring(6) } else { $name }
       & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $argument | Out-Host

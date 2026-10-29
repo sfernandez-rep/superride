@@ -70,6 +70,8 @@ public class ScatterDialog extends DialogBox
       instance_.setPopupPosition(16, 40);
       instance_.focusFirst();
       instance_.refresh();
+      // opened by the user: offer to install ggplot2 if it is missing
+      instance_.checkPackages(true);
    }
 
    // Moves the editor into a workbench pane (the Visual tab), creating it if
@@ -101,7 +103,26 @@ public class ScatterDialog extends DialogBox
       host.setWidget(editor.body_);
       editor.setDocked(true);
       if (fresh)
+      {
          editor.refresh();
+         // the Visual tab can be restored at start-up: no prompt, only the
+         // install button when ggplot2 is missing
+         editor.checkPackages(false);
+      }
+   }
+
+   // Optional packages of the editor (ggplot2): a prompt when asked, and an
+   // install button in the window while they are missing.
+   private void checkPackages(boolean prompt)
+   {
+      DependencyDialog.ensure(server_, "plot", prompt, () -> {
+         depsHint_.setVisible(false);
+         refresh();
+      }, missing -> {
+         depsLabel_.setText(deps_.missingHint(DependencyDialog.featureName("plot"), missing));
+         depsButton_.setText(deps_.installButton(missing));
+         depsHint_.setVisible(true);
+      });
    }
 
    // Moves a docked editor back into its floating window.
@@ -411,6 +432,13 @@ public class ScatterDialog extends DialogBox
       status_.getElement().setAttribute("tabindex", "-1");
       status_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
       panel.add(status_);
+      depsHint_.setSpacing(4);
+      depsHint_.getElement().setId("superrstudio_deps_hint");
+      depsHint_.add(SuperRStudioTheme.hint(depsLabel_));
+      ElementIds.assignElementId(depsButton_, "superrstudio_deps_open");
+      depsHint_.add(depsButton_);
+      depsHint_.setVisible(false);
+      panel.add(depsHint_);
 
       Grid data = section(messages_.dataHeading(), 6);
       row(data, 0, messages_.dataset(), datasets_, "superrstudio_dataset");
@@ -1911,4 +1939,8 @@ public class ScatterDialog extends DialogBox
    private boolean docked_ = false, moving_ = false;
    private ThemedButton dock_, float_;
    private static final ScatterMessages messages_ = SuperRStudioLanguage.scatter();
+   private final HorizontalPanel depsHint_ = new HorizontalPanel();
+   private final Label depsLabel_ = new Label();
+   private final ThemedButton depsButton_ = new ThemedButton("", e -> checkPackages(true));
+   private static final DependencyMessages deps_ = SuperRStudioLanguage.deps();
 }
