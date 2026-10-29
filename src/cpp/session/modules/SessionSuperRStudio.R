@@ -9,10 +9,16 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 
 # RPC entry point. Validation failures are returned as data rather than raised,
 # so the dialog reports them without R also printing them in the console.
-.rs.addFunction('superrstudioDataRpc', function(...)
+.rs.addFunction('superrstudioDataRpc', function(operation, dataset = '', revision = '', x = '', y = '',
+                                              available = character(), appearance = list())
 {
-   tryCatch(.rs.superrstudioData(...),
-            error = function(e) list(error = I(conditionMessage(e))))
+   tryCatch(
+      # the length-frequency module (SessionSuperRStudioLfq.R) shares this RPC
+      if (startsWith(operation, 'lfq_'))
+         .rs.superrstudioLfq(operation, dataset, appearance, available)
+      else
+         .rs.superrstudioData(operation, dataset, revision, x, y, available, appearance),
+      error = function(e) list(error = I(conditionMessage(e))))
 })
 
 #' Validate a group of plot settings against their defaults

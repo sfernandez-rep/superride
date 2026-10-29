@@ -77,6 +77,9 @@ Error initialize()
       Error error = module_context::sourceModuleRFile("SessionSuperRStudio.R");
       if (error)
          return error;
+      error = module_context::sourceModuleRFile("SessionSuperRStudioLfq.R");
+      if (error)
+         return error;
    }
    return module_context::registerRpcMethod("superrstudio_data", dataRequest);
 }
