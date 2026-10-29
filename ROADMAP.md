@@ -38,7 +38,8 @@ All acceptance checks require recorded execution, not just compilation.
    an interactive (SVG) rendering, faceting and scales (M4 ggplot2 editor).
 9. M8 branding: provisional development name kept; public name decided before any release (docs/superrstudio/BRANDING.md).
 10. Done 2026-10-28: interactive right-click editing, axes/scales/facets, image export (M4 ggplot2 editor slice).
-11. Done 2026-10-28: TropFishR length-frequency module, first slice (M6). Next: saved configurations, lfqModify options, mortality; domain review by fisheries scientists.
+11. Done 2026-10-28: TropFishR length-frequency module, first slice (M6).
+12. Done 2026-10-29: LFQ saved analyses, preprocessing (sampling period, quarterly samples), configuration comparison, catch-curve mortality; Spanish SuperRStudio windows; date/time axes; design-system and branding foundation; benchmark suite with a measured preview optimisation. Next: dockable Visual tab (investigated, see docs/superrstudio/features/dockable-workspace.md); domain review by fisheries scientists.
 
 No dataset editor, general statistical module, package-management extension,
 modernized workbench, installer or Linux build is implemented yet.

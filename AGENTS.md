@@ -25,6 +25,12 @@ TropFishR (with its dependencies) is installed only in the isolated test
 library for the length-frequency module; never install it into user or
 project libraries. Long analyses run in a separate Rscript process, never on
 the session thread.
+SuperRStudio texts: edit English and Spanish together
+(`tools/superrstudio/i18n/lfq_messages.py`, `ScatterMessages_es.properties`)
+and regenerate the `*MessagesEs.java` classes; keep numbers with a decimal
+point and never translate R code. Do not edit files while a GWT build runs
+without rebuilding afterwards (`dev-build.ps1 -Component gwt -Force` if in
+doubt). In bash heredocs `\\` collapses: write edit scripts with a file.
 
 - This is an RStudio fork. Preserve the existing GWT workbench, Electron shell,
   C++/R session, `.Rproj`, packages, themes, shortcuts and reporting workflows.
