@@ -43,7 +43,10 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    if (operation == 'lfq_poll') return(.rs.superrstudioLfqPoll(settings$job))
    if (operation == 'lfq_cancel') return(.rs.superrstudioLfqCancel(settings$job))
    if (operation == 'lfq_run_plot') return(.rs.superrstudioLfqRunPlot(settings$run_id))
-   if (!operation %in% c('lfq_columns', 'lfq_check', 'lfq_create', 'lfq_start'))
+   # saved analyses (SessionSuperRStudioLfqLibrary.R)
+   if (startsWith(operation, 'lfq_lib'))
+      return(.rs.superrstudioLfqLibrary(operation, dataset, settings, available))
+   if (!operation %in% c('lfq_columns', 'lfq_check', 'lfq_create', 'lfq_start', 'lfq_mortality'))
       fail('Unsupported operation.')
    if (!dataset %in% available) fail('Dataset no longer exists or is not a data frame. Refresh the list.')
    data <- get(dataset, envir = .GlobalEnv, inherits = FALSE)
@@ -51,9 +54,11 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    if (nrow(data) > 2e6) fail('This experimental module supports up to 2,000,000 rows.')
    if (operation == 'lfq_columns') return(.rs.superrstudioLfqColumns(data))
    # analyses use the prepared data and its recorded settings, not the form's
-   if (operation == 'lfq_start')
+   if (operation %in% c('lfq_start', 'lfq_mortality'))
    {
       if (!installed) fail('TropFishR is not installed in the active R library.')
+      if (operation == 'lfq_mortality')   # SessionSuperRStudioLfqMortality.R
+         return(.rs.superrstudioLfqMortality(data, dataset, settings))
       return(.rs.superrstudioLfqStart(data, dataset, settings))
    }
    # a check may come before a species is chosen (it lists the species)
@@ -86,6 +91,7 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    fail <- function(message) stop(message, call. = FALSE)
    defaults <- list(length = '', date = '', date_format = '', freq = '', species_column = '',
                     species = '', unit = 'cm', bin_size = 1, lmin = 0, aggregate_dates = FALSE,
+                    aggregate = 'none', period_start = '', period_end = '',
                     plus_group = 0, ma = 5, addl_sqrt = FALSE,
                     method = 'ga', seasonalised = FALSE,
                     linf_min = '', linf_max = '', k_min = 0.05, k_max = 1, t_min = 0, t_max = 1,
@@ -94,16 +100,33 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
                     elitism = 3, seeds = '1',
                     sa_stop = 'iterations', sa_maxit = 300, sa_time = 60, sa_temp = 1e5,
                     linf_init = '', k_init = 0.3, t_init = 0.5,
-                    linf_steps = 20, k_steps = 30, label = '', job = '', run_id = '')
+                    linf_steps = 20, k_steps = 30, label = '', job = '', run_id = '',
+                    # mortality (SessionSuperRStudioLfqMortality.R)
+                    cc_linf = '', cc_k = '', cc_c = '', cc_ts = '', cc_year = '', cc_plus = 'linf',
+                    cc_plus_value = '', cc_method = 'pauly', cc_first = '', cc_last = '', cc_ogive = FALSE,
+                    m_method = 'none', m_temp = '', m_tmax = '', m_value = '', m_schooling = FALSE)
    known <- intersect(names(settings), names(defaults))
    values <- utils::modifyList(defaults, settings[known])
    text <- function(key) if (!.rs.superrstudioIsText(values[[key]])) fail(paste0('Setting ', key, ' must be text.'))
    for (key in c('length', 'date', 'date_format', 'freq', 'species_column', 'species', 'unit',
-                 'method', 'seeds', 'sa_stop', 'label'))
+                 'method', 'seeds', 'sa_stop', 'label', 'aggregate', 'period_start', 'period_end',
+                 'cc_year', 'cc_plus', 'cc_method', 'm_method'))
       text(key)
    flag <- function(key) if (!is.logical(values[[key]]) || length(values[[key]]) != 1L || is.na(values[[key]]))
       fail(paste0('Setting ', key, ' must be true or false.'))
-   for (key in c('aggregate_dates', 'addl_sqrt', 'seasonalised')) flag(key)
+   for (key in c('aggregate_dates', 'addl_sqrt', 'seasonalised', 'cc_ogive', 'm_schooling')) flag(key)
+   # samples combined by month (lfqCreate) or quarter (lfqModify); the older
+   # aggregate_dates flag is the monthly case
+   if (!values$aggregate %in% c('none', 'month', 'quarter'))
+      fail('Samples can be combined by month or by quarter.')
+   if (values$aggregate_dates && values$aggregate == 'none') values$aggregate <- 'month'
+   values$aggregate_dates <- values$aggregate == 'month'
+   for (key in c('period_start', 'period_end'))
+      if (nzchar(values[[key]]) && (!grepl('^[0-9]{4}-[0-9]{2}-[0-9]{2}$', values[[key]]) ||
+                                    is.na(as.Date(values[[key]], format = '%Y-%m-%d'))))
+         fail('Sampling period dates must be written as YYYY-MM-DD.')
+   if (nzchar(values$period_start) && nzchar(values$period_end) && values$period_start > values$period_end)
+      fail('The sampling period must start before it ends.')
    number <- function(key, low, high, message)
    {
       value <- values[[key]]
@@ -188,6 +211,15 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
            if (s$lmin > 0) call('>=', quote(lfq_input$length), s$lmin / factor)),
       rule(if (nzchar(s$date_format)) sprintf('missing date or not in format %s', s$date_format) else 'missing date',
            !is.na(frame$date), quote(!is.na(lfq_input$date))))
+   # the sampling period is a filter on the data (counted like the other rules)
+   if (nzchar(s$period_start))
+      conditions <- c(conditions, rule(sprintf('sampled before %s', s$period_start),
+                                       !is.na(frame$date) & frame$date >= as.Date(s$period_start),
+                                       call('>=', quote(lfq_input$date), call('as.Date', s$period_start))))
+   if (nzchar(s$period_end))
+      conditions <- c(conditions, rule(sprintf('sampled after %s', s$period_end),
+                                       !is.na(frame$date) & frame$date <= as.Date(s$period_end),
+                                       call('<=', quote(lfq_input$date), call('as.Date', s$period_end))))
    if (nzchar(s$freq))
       conditions <- c(conditions, rule('missing or negative frequency', is.finite(frame$freq) & frame$freq >= 0,
                                        quote(is.finite(lfq_input$freq) & lfq_input$freq >= 0)))
@@ -238,6 +270,10 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
       list(Lmin = s$lmin, length_unit = s$unit,
            plus_group = if (s$plus_group > 0) call('c', TRUE, s$plus_group) else FALSE,
            aggregate_dates = s$aggregate_dates)))
+   # quarterly samples are combined by lfqModify(), which keeps any existing
+   # rcounts unchanged; restructuring therefore always runs afterwards
+   modifyCall <- if (s$aggregate == 'quarter')
+      call('<-', quote(lfq), as.call(list(quote(TropFishR::lfqModify), quote(lfq), aggregate = 'quarter')))
    restructureCall <- call('<-', quote(lfq), as.call(list(quote(TropFishR::lfqRestructure), quote(lfq),
                                                           MA = s$ma, addl.sqrt = s$addl_sqrt)))
    env <- new.env(parent = baseenv())
@@ -245,6 +281,9 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    warnings <- character()
    lfq <- withCallingHandlers({
       env$lfq <- eval(createCall, envir = env)
+      if (!is.null(modifyCall)) eval(modifyCall, envir = env)
+      if (length(env$lfq$dates) < 2L)
+         fail('ELEFAN needs length frequencies from at least two sampling dates after combining samples.')
       eval(restructureCall, envir = env)
    }, warning = function(w) {
       warnings <<- c(warnings, conditionMessage(w))
@@ -255,14 +294,28 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
                            utils::packageVersion('TropFishR'), getRversion()),
                    input$report$code,
                    paste(deparse(call('<-', quote(lfq), createCall), width.cutoff = 90L), collapse = '\n'),
+                   if (!is.null(modifyCall)) paste(deparse(modifyCall, width.cutoff = 90L), collapse = '\n'),
                    paste(deparse(restructureCall, width.cutoff = 90L), collapse = '\n')), collapse = '\n')
+   # every transformation between the data frame and the fitted scores
+   transformations <- c(
+      sprintf('Data: %d of %d rows kept (%s individuals); filters as listed in the data check.',
+              input$report$kept, input$report$rows, format(input$report$individuals)),
+      sprintf('lfqCreate: length classes of %s cm from %s cm%s%s.', format(s$bin_size), format(s$lmin),
+              if (s$plus_group > 0) sprintf(', plus group at %s cm', format(s$plus_group)) else '',
+              if (s$aggregate == 'month') ', samples combined by month (dates set to the 15th)' else ''),
+      if (s$aggregate == 'quarter')
+         'lfqModify: samples combined by quarter (dates set to the 15th of February, May, August and November).',
+      sprintf('lfqRestructure: moving average over %d classes%s.', s$ma,
+              if (s$addl_sqrt) ', additional square-root transformation' else ''))
    # the prepared object and the exact data it came from (for staleness)
    state$prepared <- list(lfq = lfq, dataset = dataset, data = if (inherits(data, 'data.table'))
                              serialize(data, NULL, version = 2) else data,
-                          settings = s, code = code, report = input$report)
+                          settings = s, code = code, report = input$report,
+                          signature = .rs.superrstudioLfqSignature(data, s))
    image <- function(draw) .rs.superrstudioLfqImage(draw)
    lmax <- max(lfq$midLengths)
-   list(code = I(code), warnings = unique(warnings),
+   list(code = I(code), warnings = unique(warnings), transformations = transformations,
+        years = unique(format(lfq$dates, '%Y')),
         dates = I(length(lfq$dates)), classes = I(length(lfq$midLengths)),
         total = I(sum(lfq$catch)), asp = I(lfq$ASP), ma = I(lfq$MA),
         max_length = I(lmax), report = input$report,
@@ -288,6 +341,29 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    suppressWarnings(draw())
    grDevices::dev.off(device)
    .rs.rBase64Encode(readBin(file, 'raw', file.size(file)))
+})
+
+#' A fingerprint of the mapped columns (to detect changed input data)
+#'
+#' The MD5 of a canonical text form of each mapped column (name, class and
+#' values), independent of the R version's serialization format.
+.rs.addFunction('superrstudioLfqSignature', function(data, s)
+{
+   columns <- unique(c(s$length, s$date, s$freq, s$species_column))
+   columns <- columns[nzchar(columns) & columns %in% names(data)]
+   file <- tempfile('superrstudio-lfq-signature-')
+   on.exit(unlink(file))
+   con <- file(file, 'wb')
+   for (name in columns)
+   {
+      value <- data[[name]]
+      text <- if (inherits(value, 'POSIXct')) format(value, '%Y-%m-%d %H:%M:%OS6', tz = 'UTC')
+         else if (inherits(value, 'Date')) format(value, '%Y-%m-%d')
+         else as.character(value)
+      writeLines(enc2utf8(c(name, class(value)[[1L]], ifelse(is.na(text), '\001NA', text))), con, useBytes = TRUE)
+   }
+   close(con)
+   list(rows = I(nrow(data)), columns = unname(columns), md5 = I(unname(as.character(tools::md5sum(file)))))
 })
 
 #' Seeds from text: "1", "1, 2, 5" or "1-10" (at most 50 runs)
@@ -410,6 +486,22 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    'saveRDS(results, paste0(job$output, ".tmp"))',
    'file.rename(paste0(job$output, ".tmp"), job$output)')
 
+#' Settings that define the prepared data (travel with it, not with the form)
+.rs.addFunction('superrstudioLfqPreparationKeys', function()
+   c('length', 'date', 'date_format', 'freq', 'species_column', 'species', 'unit', 'period_start',
+     'period_end', 'bin_size', 'lmin', 'aggregate_dates', 'aggregate', 'plus_group', 'ma', 'addl_sqrt'))
+
+#' The prepared LFQ, if it was made from exactly this data frame
+.rs.addFunction('superrstudioLfqPrepared', function(data, dataset)
+{
+   prepared <- .rs.superrstudioLfqState$prepared
+   if (is.null(prepared)) stop('Create the length-frequency data first.', call. = FALSE)
+   current <- if (inherits(data, 'data.table')) serialize(data, NULL, version = 2) else data
+   if (!identical(prepared$dataset, dataset) || !identical(prepared$data, current))
+      stop('The dataset changed after the length-frequency data were created. Create them again.', call. = FALSE)
+   prepared
+})
+
 #' Start ELEFAN in a separate R process
 #'
 #' The session's R is never blocked: the analysis runs in its own Rscript
@@ -419,16 +511,15 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
 {
    fail <- function(message) stop(message, call. = FALSE)
    state <- .rs.superrstudioLfqState
-   prepared <- state$prepared
-   if (is.null(prepared)) fail('Create the length-frequency data first.')
-   current <- if (inherits(data, 'data.table')) serialize(data, NULL, version = 2) else data
-   if (!identical(prepared$dataset, dataset) || !identical(prepared$data, current))
-      fail('The dataset changed after the length-frequency data were created. Create them again.')
+   prepared <- .rs.superrstudioLfqPrepared(data, dataset)
    s <- .rs.superrstudioLfqSettings(settings)
    # restructuring settings travel with the prepared data, not the form
-   for (key in c('length', 'date', 'date_format', 'freq', 'species_column', 'species', 'unit',
-                 'bin_size', 'lmin', 'aggregate_dates', 'plus_group', 'ma', 'addl_sqrt'))
+   for (key in .rs.superrstudioLfqPreparationKeys())
       s[[key]] <- prepared$settings[[key]]
+   # the data-derived default Linf range is recorded as the values used
+   lmax <- max(prepared$lfq$midLengths)
+   if (identical(s$linf_min, '')) s$linf_min <- signif(0.8 * lmax, 3)
+   if (identical(s$linf_max, '')) s$linf_max <- signif(1.2 * lmax, 3)
    calls <- .rs.superrstudioLfqCalls(s, prepared$lfq)
    running <- Filter(function(job) is.null(job$finished), state$jobs)
    if (length(running)) fail('An analysis is already running. Wait for it or cancel it.')
@@ -445,7 +536,7 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    system2(rscript, c('--vanilla', shQuote(file.path(folder, 'runner.R')), shQuote(file.path(folder, 'job.rds'))),
            wait = FALSE, stdout = file.path(folder, 'stdout.txt'), stderr = file.path(folder, 'stderr.txt'))
    state$jobs[[id]] <- list(id = id, folder = folder, job = job, settings = s, started = Sys.time(),
-                            label = s$label, prepared = prepared[c('dataset', 'settings', 'code', 'report')])
+                            label = s$label, prepared = prepared[c('dataset', 'settings', 'code', 'report', 'signature')])
    list(job = I(id), runs = I(length(calls)), status = I('started'))
 })
 
@@ -517,9 +608,7 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    method <- c(ga = 'ELEFAN_GA', sa = 'ELEFAN_SA', elefan = 'ELEFAN')[[s$method]]
    seed <- if (!is.null(call$seed)) call$seed else NA
    # what the score is, and which runs it can be compared with
-   preprocessing <- entry$prepared$settings[c('length', 'date', 'date_format', 'freq', 'species_column',
-                                               'species', 'unit', 'bin_size', 'lmin', 'aggregate_dates',
-                                               'plus_group', 'ma', 'addl_sqrt')]
+   preprocessing <- entry$prepared$settings[.rs.superrstudioLfqPreparationKeys()]
    search <- call
    search$seed <- NULL
    code <- paste(c(entry$prepared$code, '',
@@ -546,9 +635,46 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
                warnings = unname(if (is.null(result$warnings)) character() else result$warnings),
                r_version = I(as.character(getRversion())),
                tropfishr_version = I(as.character(utils::packageVersion('TropFishR'))),
-               code = I(code), lfq_par = par, lfq_object = entry$job$lfq)
+               code = I(code), lfq_par = par, lfq_object = entry$job$lfq,
+               # the complete configuration of this run (seed included) for saving
+               lfq_settings = utils::modifyList(s, list(seeds = if (is.na(seed)) s$seeds else as.character(seed),
+                                                        job = '', run_id = '')),
+               lfq_signature = entry$prepared$signature)
    state$runs[[length(state$runs) + 1L]] <- Filter(Negate(is.null), run)
    invisible(run)
+})
+
+#' Which kinds of settings differ between two configurations
+#'
+#' Each configuration is a list with settings, dataset, md5 (of the mapped
+#' data), tropfishr and r (versions). Only settings that the method actually
+#' uses are compared, so for example SA options never make two GA runs differ.
+#' Returns category codes: data, classes, aggregation, restructuring,
+#' ranges, method, optimiser, seed, versions.
+.rs.addFunction('superrstudioLfqDifferences', function(a, b)
+{
+   same <- function(keys) isTRUE(all.equal(unname(a$settings[keys]), unname(b$settings[keys])))
+   method <- a$settings$method
+   ranges <- c('linf_min', 'linf_max', 'k_min', 'k_max', if (method != 'elefan') c('t_min', 't_max', 'seasonalised'),
+               if (method != 'elefan' && isTRUE(a$settings$seasonalised)) c('c_min', 'c_max', 'ts_min', 'ts_max'))
+   optimiser <- switch(method,
+      ga = c('pop_size', 'max_iter', 'run', 'pmutation', 'pcrossover', 'elitism'),
+      sa = c('sa_stop', if (identical(a$settings$sa_stop, 'time')) 'sa_time' else 'sa_maxit', 'sa_temp',
+             'linf_init', 'k_init', 't_init'),
+      c('linf_steps', 'k_steps'))
+   differs <- c(
+      data = !identical(a$dataset, b$dataset) || !identical(a$md5, b$md5) ||
+         !same(c('length', 'date', 'date_format', 'freq', 'species_column', 'species', 'unit',
+                 'period_start', 'period_end')),
+      classes = !same(c('bin_size', 'lmin', 'plus_group')),
+      aggregation = !same('aggregate'),
+      restructuring = !same(c('ma', 'addl_sqrt')),
+      method = !identical(method, b$settings$method),
+      ranges = !same(ranges),
+      optimiser = identical(method, b$settings$method) && !same(optimiser),
+      seed = identical(method, 'ga') && identical(method, b$settings$method) && !same('seeds'),
+      versions = !identical(a$tropfishr, b$tropfishr) || !identical(a$r, b$r))
+   names(differs)[differs]
 })
 
 #' All recorded runs plus the comparison of each configuration group
@@ -559,8 +685,14 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
 .rs.addFunction('superrstudioLfqRuns', function()
 {
    runs <- .rs.superrstudioLfqState$runs
-   public <- lapply(runs, function(run) run[setdiff(names(run), c('lfq_par', 'lfq_object'))])
-   key <- vapply(runs, function(run) paste(run$method, run$dataset, run$preprocessing, run$search, sep = '|'), '')
+   public <- lapply(runs, function(run) run[!startsWith(names(run), 'lfq_')])
+   key <- vapply(runs, function(run) paste(run$method, run$dataset, run$preprocessing, run$search,
+                                           run$tropfishr_version, sep = '|'), '')
+   configuration <- function(run) list(settings = run$lfq_settings, dataset = as.character(run$dataset),
+                                       md5 = as.character(run$lfq_signature$md5),
+                                       tropfishr = as.character(run$tropfishr_version),
+                                       r = as.character(run$r_version))
+   first <- if (length(runs)) configuration(runs[[1L]])
    groups <- lapply(unique(key), function(k) {
       members <- runs[key == k]
       ok <- Filter(function(run) !nzchar(run$error) && !is.null(run$linf), members)
@@ -572,8 +704,13 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
       }
       list(method = I(members[[1L]]$method), runs = I(length(members)), succeeded = I(length(ok)),
            ids = vapply(members, function(run) as.character(run$id), ''),
+           # what this configuration changes relative to the first group
+           differs = setdiff(.rs.superrstudioLfqDifferences(first, configuration(members[[1L]])), 'seed'),
            linf = spread('linf'), k = spread('k'), phil = spread('phil'))
    })
+   # every kind of setting that varies among the recorded runs
+   varies <- unique(unlist(lapply(runs, function(run)
+      .rs.superrstudioLfqDifferences(first, configuration(run)))))
    notes <- character()
    if (length(unique(key)) > 1L)
    {
@@ -584,7 +721,8 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
          notes <- c(notes, 'Runs use different data preparation (dataset, filters, length classes, moving average): their scores are computed on different restructured data and are not comparable.')
       notes <- c(notes, 'A better score does not by itself make an estimate correct; compare stability across seeds, data quality and biological plausibility.')
    }
-   list(runs = unname(public), groups = groups, notes = notes)
+   list(runs = unname(public), groups = groups, notes = notes,
+        varies = if (is.null(varies)) character() else varies)
 })
 
 #' Restructured data with the growth curves of one run (TropFishR plotting)

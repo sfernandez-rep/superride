@@ -74,12 +74,13 @@ Error initialize()
    s_enabled = core::system::getenv("SUPER_RSTUDIO_EXPERIMENTAL") == "1";
    if (s_enabled)
    {
-      Error error = module_context::sourceModuleRFile("SessionSuperRStudio.R");
-      if (error)
-         return error;
-      error = module_context::sourceModuleRFile("SessionSuperRStudioLfq.R");
-      if (error)
-         return error;
+      for (const char* file : {"SessionSuperRStudio.R", "SessionSuperRStudioLfq.R",
+                               "SessionSuperRStudioLfqLibrary.R", "SessionSuperRStudioLfqMortality.R"})
+      {
+         Error error = module_context::sourceModuleRFile(file);
+         if (error)
+            return error;
+      }
    }
    return module_context::registerRpcMethod("superrstudio_data", dataRequest);
 }
