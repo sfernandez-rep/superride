@@ -118,6 +118,7 @@ public class ScatterDialog extends DialogBox
    private ScatterDialog(SuperRStudioServerOperations server, EventBus events, Commands commands)
    {
       super(false, false);   // no auto-hide, not modal
+      SuperRStudioTheme.dialog(this);
       setGlassEnabled(false);
       setText(messages_.title());
       addStyleDependentName("ModalDialog");   // same look and z-order as RStudio dialogs
@@ -313,6 +314,7 @@ public class ScatterDialog extends DialogBox
       panel.setWidth("560px");
       panel.add(new Label(messages_.help()));
       status_.getElement().setId("superrstudio_status");
+      status_.addStyleName(SuperRStudioTheme.STATUS);
       status_.getElement().setAttribute("role", "status");
       status_.getElement().setAttribute("aria-live", "polite");
       status_.getElement().setAttribute("tabindex", "-1");
@@ -342,7 +344,7 @@ public class ScatterDialog extends DialogBox
       row(layers, 11, messages_.adjust(), adjust_, "superrstudio_adjust");
       orderHint_.getElement().setId("superrstudio_order_hint");
       orderHint_.setWidth("260px");
-      orderHint_.getElement().getStyle().setProperty("fontSize", "90%");
+      SuperRStudioTheme.hint(orderHint_);
 
       Grid look = section(messages_.appearanceHeading(), 13);
       row(look, 0, messages_.plotTitle(), title_, "superrstudio_title");
@@ -393,7 +395,7 @@ public class ScatterDialog extends DialogBox
       row(facets, 6, "", gridMinor_, "superrstudio_grid_minor");
       Label limitsHint = new Label(messages_.limitsHint());
       limitsHint.setWidth("270px");
-      limitsHint.getElement().getStyle().setProperty("fontSize", "90%");
+      SuperRStudioTheme.hint(limitsHint);
 
       VerticalPanel dataColumn = column(heading(messages_.dataHeading()), data);
       VerticalPanel layersColumn = column(heading(messages_.layersHeading()), layers, orderHint_);
@@ -444,7 +446,7 @@ public class ScatterDialog extends DialogBox
       preview.add(heading(messages_.interactiveHeading()));
       Label help = new Label(messages_.interactiveHelp());
       help.setWidth("480px");
-      help.getElement().getStyle().setProperty("fontSize", "90%");
+      SuperRStudioTheme.hint(help);
       preview.add(help);
       plot_.getElement().setAttribute("aria-label", messages_.interactiveHeading());
       preview.add(plot_);
@@ -719,7 +721,7 @@ public class ScatterDialog extends DialogBox
       {
          Label note = new Label(messages_.someDisabled());
          note.setWidth("260px");
-         note.getElement().getStyle().setProperty("fontSize", "90%");
+         SuperRStudioTheme.hint(note);
          content.add(note);
       }
       popupRefreshers_ = refreshers;
@@ -837,15 +839,16 @@ public class ScatterDialog extends DialogBox
                if (renderError_ || !result.warnings().isEmpty())
                   status_.setText(messages_.rendered() + (result.warnings().isEmpty() ? "" : "\n" + result.warnings()));
                renderError_ = false;
+               status_.removeStyleName(SuperRStudioTheme.ERROR);
             }
             @Override public void onError(ServerError error)
             {
                if (!isAttached() || renderId != renderId_) return;
                renderError_ = true;
                JSONValue info = error.getClientInfo();
-               status_.setText(info != null && info.isString() != null
+               SuperRStudioTheme.status(status_, info != null && info.isString() != null
                   ? info.isString().stringValue()
-                  : error.getUserMessage());
+                  : error.getUserMessage(), SuperRStudioTheme.ERROR);
             }
          });
    }
@@ -1470,6 +1473,8 @@ public class ScatterDialog extends DialogBox
 
    private void busy(boolean busy)
    {
+      status_.setStyleName(SuperRStudioTheme.BUSY, busy);
+      status_.getElement().setAttribute("aria-busy", String.valueOf(busy));
       datasets_.setEnabled(!busy && datasets_.getItemCount() > 0);
       kind_.setEnabled(!busy && !revision_.isEmpty());
       x_.setEnabled(!busy && x_.getItemCount() > 0);
@@ -1572,6 +1577,7 @@ public class ScatterDialog extends DialogBox
                if (!isAttached() || requestId != requestId_) return;
                inFlight_ = false;
                busy(false);
+               status_.removeStyleName(SuperRStudioTheme.ERROR);
                done.execute(result);
             }
             @Override public void onError(ServerError error)
@@ -1580,9 +1586,9 @@ public class ScatterDialog extends DialogBox
                inFlight_ = false;
                busy(false);
                JSONValue info = error.getClientInfo();
-               status_.setText(info != null && info.isString() != null
+               SuperRStudioTheme.status(status_, info != null && info.isString() != null
                   ? info.isString().stringValue()
-                  : error.getUserMessage());
+                  : error.getUserMessage(), SuperRStudioTheme.ERROR);
                status_.getElement().focus();
             }
          });

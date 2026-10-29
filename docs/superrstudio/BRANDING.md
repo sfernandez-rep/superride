@@ -67,3 +67,12 @@ below) is allowed.
 Until then, development builds are distinguished by their isolated profiles,
 the `Plot editor` button (opt-in, `SUPER_RSTUDIO_EXPERIMENTAL=1`) and the
 `SuperRStudio <kind> vN` header in generated code.
+
+## Implemented so far (2026-10-29, foundation only)
+
+- **R side.** `.rs.superrstudioBrand()` in `SessionSuperRStudio.R` is the one place for the product name. The generated comments and file notes of the SuperRStudio features use it: length-frequency preparation, run records, catch curves, and the saved-analyses note and messages.
+- **Format identifiers are not branding.**
+  - The `# SuperRStudio <kind> vN` headers and the `superrstudio-lfq-analyses` JSON format stay fixed under any future name, so that saved scripts and files keep loading.
+  - The `srs-` CSS class prefix is also not part of the brand.
+- **Client side.** The windows' look is defined once in `SuperRStudioTheme.java`, as design tokens and shared styles. A future visual identity can change those tokens without touching the dialogs.
+- **Not touched.** No upstream logo, product name, installer, identity or About text has been changed, and no branded build is published.

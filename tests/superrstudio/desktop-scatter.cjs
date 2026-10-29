@@ -776,6 +776,50 @@ async function closeDialog(page)
       await closeDialog(page);
       log('PASS load from script restores the specification; preview reproduces identical code');
       await page.evaluate(() => window.rstudio.documents.closeAllNoSave());
+
+      // Design tokens: hint and error text keep at least 4.5:1 contrast against
+      // the dialog background in the default light theme and a dark theme.
+      const contrast = () => page.evaluate(() => {
+         const rgb = text => (text.match(/[\d.]+/g) || []).map(Number);
+         const luminance = ([r, g, b]) => [r, g, b].map(v => v / 255)
+            .map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
+            .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+         const background = node => {
+            for (; node; node = node.parentElement) {
+               const c = rgb(getComputedStyle(node).backgroundColor);
+               if (c.length >= 3 && (c.length < 4 || c[3] > 0.5)) return c.slice(0, 3);
+            }
+            return [255, 255, 255];
+         };
+         const ratio = node => {
+            const a = luminance(rgb(getComputedStyle(node).color).slice(0, 3)), b = luminance(background(node));
+            return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+         };
+         const dialog = document.querySelector('.srs-dialog');
+         const hint = dialog.querySelector('.srs-hint');
+         const status = document.getElementById('superrstudio_status');
+         status.classList.add('srs-error');
+         const error = ratio(status);
+         status.classList.remove('srs-error');
+         return {ide: document.getElementById('rstudio_container').classList.contains('rstudio-themes-dark'), dialog: dialog.classList.contains('rstudio-themes-dark'), hint: ratio(hint), error};
+      });
+      dialog = await openDialog(page);
+      const light = await contrast();
+      await closeDialog(page);
+      await run(page, ".rs.api.applyTheme('Tomorrow Night')");
+      await page.waitForFunction(() => document.getElementById('rstudio_container').classList.contains('rstudio-themes-dark'), null, {timeout: 30000});
+      dialog = await openDialog(page);
+      const dark = await contrast();
+      await shot(page, '8-dark-theme');
+      await closeDialog(page);
+      await run(page, ".rs.api.applyTheme('Textmate (default)')");
+      log('contrast:', JSON.stringify({light, dark}));
+      // dark modal dialogs are on by default (use_dark_theme_modal_dialogs), as upstream's
+      if (light.ide || light.dialog || !dark.ide || !dark.dialog ||
+          Math.min(light.hint, light.error, dark.hint, dark.error) < 4.5 ||
+          Math.abs(light.hint - light.error) < 0.01 || Math.abs(dark.hint - dark.error) < 0.01)
+         throw new Error('insufficient contrast: ' + JSON.stringify({light, dark}));
+      log('PASS theme-aware windows (dark with the IDE theme) and contrast >= 4.5:1 for hint and error text in both');
    }
 
    const errors = await page.evaluate(() => window.rstudio.errors.list());

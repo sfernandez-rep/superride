@@ -114,7 +114,8 @@
    z <- as.numeric(result$Z[[1L]])
    m <- if (!is.null(mCall)) { eval(mCall, envir = env); env$M }
    code <- paste(c(prepared$code, '',
-                   sprintf('# SuperRStudio catch curve (TropFishR %s, R %s)', utils::packageVersion('TropFishR'), getRversion()),
+                   sprintf('# %s catch curve (TropFishR %s, R %s)', .rs.superrstudioBrand(),
+                           utils::packageVersion('TropFishR'), getRversion()),
                    vapply(steps, function(step) paste(deparse(step, width.cutoff = 90L), collapse = '\n'), ''),
                    paste(deparse(call('<-', quote(cc), curve(used)), width.cutoff = 90L), collapse = '\n'),
                    'cc$Z; cc$se; cc$confidenceInt',

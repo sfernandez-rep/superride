@@ -243,7 +243,8 @@
 .rs.addFunction('superrstudioLfqLibraryWrite', function(path, analyses)
 {
    document <- list(format = 'superrstudio-lfq-analyses', version = 1L,
-                    note = 'Saved length-frequency analyses (SuperRStudio, experimental). Settings are TropFishR arguments; see the generated R code of each run.',
+                    note = sprintf('Saved length-frequency analyses (%s, experimental). Settings are TropFishR arguments; see the generated R code of each run.',
+                                   .rs.superrstudioBrand()),
                     analyses = unname(analyses))
    text <- .rs.superrstudioJsonWrite(document)
    temporary <- paste0(path, '.tmp')
@@ -271,10 +272,10 @@
    text <- paste(readLines(path, encoding = 'UTF-8', warn = FALSE), collapse = '\n')
    document <- tryCatch(.rs.superrstudioJsonRead(text), error = function(e) fail('The file is not valid JSON.'))
    if (!is.list(document) || !identical(document$format, 'superrstudio-lfq-analyses'))
-      fail('This is not a SuperRStudio saved-analyses file.')
+      fail(sprintf('This is not a %s saved-analyses file.', .rs.superrstudioBrand()))
    if (!is.numeric(document$version) || length(document$version) != 1L)
       fail('The saved-analyses file has no format version.')
-   if (document$version > 1) fail('The saved analyses were written by a newer version of SuperRStudio.')
+   if (document$version > 1) fail(sprintf('The saved analyses were written by a newer version of %s.', .rs.superrstudioBrand()))
    if (!is.list(document$analyses) || !is.null(names(document$analyses)))
       fail('The saved-analyses file has no list of analyses.')
    text1 <- function(value) .rs.superrstudioIsText(value)

@@ -290,8 +290,8 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
       invokeRestart('muffleWarning')
    })
    lfq <- env$lfq
-   code <- paste(c(sprintf('# SuperRStudio length-frequency preparation (TropFishR %s, R %s)',
-                           utils::packageVersion('TropFishR'), getRversion()),
+   code <- paste(c(sprintf('# %s length-frequency preparation (TropFishR %s, R %s)',
+                           .rs.superrstudioBrand(), utils::packageVersion('TropFishR'), getRversion()),
                    input$report$code,
                    paste(deparse(call('<-', quote(lfq), createCall), width.cutoff = 90L), collapse = '\n'),
                    if (!is.null(modifyCall)) paste(deparse(modifyCall, width.cutoff = 90L), collapse = '\n'),
@@ -612,7 +612,7 @@ assign('.rs.superrstudioLfqState', new.env(parent = emptyenv()), envir = .rs.too
    search <- call
    search$seed <- NULL
    code <- paste(c(entry$prepared$code, '',
-                   sprintf('# %s run recorded by SuperRStudio (TropFishR %s, R %s)', method,
+                   sprintf('# %s run recorded by %s (TropFishR %s, R %s)', method, .rs.superrstudioBrand(),
                            utils::packageVersion('TropFishR'), getRversion()),
                    paste(deparse(call('<-', quote(fit), call), width.cutoff = 90L), collapse = '\n'),
                    'fit$par', 'fit$Rn_max'), collapse = '\n')

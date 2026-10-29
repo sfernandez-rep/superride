@@ -67,6 +67,7 @@ public class LfqDialog extends DialogBox
       getElement().setAttribute("aria-modal", "false");
       server_ = server;
       events_ = events;
+      SuperRStudioTheme.dialog(this);
       addDomHandler(e -> {
          if (e.getNativeKeyCode() == KeyCodes.KEY_ESCAPE)
          {
@@ -115,6 +116,7 @@ public class LfqDialog extends DialogBox
       Label help = new Label(messages_.help());
       panel.add(help);
       status_.getElement().setId("superrstudio_lfq_status");
+      status_.addStyleName(SuperRStudioTheme.STATUS);
       status_.getElement().setAttribute("role", "status");
       status_.getElement().setAttribute("aria-live", "polite");
       status_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
@@ -251,7 +253,7 @@ public class LfqDialog extends DialogBox
       VerticalPanel growthPage = new VerticalPanel();
       growthPage.setSpacing(4);
       methodHint_.setWidth("740px");
-      methodHint_.getElement().getStyle().setProperty("fontSize", "90%");
+      SuperRStudioTheme.hint(methodHint_);
       growthPage.add(methodHint_);
       growthPage.add(growth);
       HorizontalPanel run = new HorizontalPanel();
@@ -284,7 +286,7 @@ public class LfqDialog extends DialogBox
       groups_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
       comparePage.add(groups_);
       notes_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
-      notes_.getElement().getStyle().setProperty("fontSize", "90%");
+      SuperRStudioTheme.hint(notes_);
       comparePage.add(notes_);
       HorizontalPanel selection = new HorizontalPanel();
       selection.setSpacing(4);
@@ -453,9 +455,8 @@ public class LfqDialog extends DialogBox
 
    private static Label small(String text)
    {
-      Label label = new Label(text);
+      Label label = SuperRStudioTheme.hint(new Label(text));
       label.setWidth("740px");
-      label.getElement().getStyle().setProperty("fontSize", "90%");
       return label;
    }
 
@@ -728,7 +729,7 @@ public class LfqDialog extends DialogBox
    {
       request("lfq_start", value(datasets_), settings(), result -> {
          job_ = result.str("job");
-         progress_.setText(messages_.running("…", "0"));
+         SuperRStudioTheme.status(progress_, messages_.running("…", "0"), SuperRStudioTheme.BUSY);
          enableSteps();
          poll_.scheduleRepeating(1000);
       });
@@ -751,27 +752,28 @@ public class LfqDialog extends DialogBox
             String status = result.str("status");
             if ("running".equals(status))
             {
-               progress_.setText(messages_.running(result.str("progress"), result.str("elapsed")));
+               SuperRStudioTheme.status(progress_, messages_.running(result.str("progress"), result.str("elapsed")),
+                                        SuperRStudioTheme.BUSY);
                return;
             }
             finishJob();
             if ("done".equals(status))
             {
-               progress_.setText(messages_.done());
+               SuperRStudioTheme.status(progress_, messages_.done(), "");
                showRuns(result);
                showTab(3);
             }
             else if ("failed".equals(status))
-               progress_.setText(messages_.failed(result.str("message")));
+               SuperRStudioTheme.status(progress_, messages_.failed(result.str("message")), SuperRStudioTheme.ERROR);
             else
-               progress_.setText(messages_.cancelled());
+               SuperRStudioTheme.status(progress_, messages_.cancelled(), "");
          }
 
          @Override public void onError(ServerError error)
          {
             polling_ = false;
             finishJob();
-            progress_.setText(message(error));
+            SuperRStudioTheme.status(progress_, message(error), SuperRStudioTheme.ERROR);
          }
       });
    }
@@ -789,7 +791,7 @@ public class LfqDialog extends DialogBox
       json.put("job", new JSONString(job_));
       request("lfq_cancel", "", json, result -> {
          finishJob();
-         progress_.setText(messages_.cancelled());
+         SuperRStudioTheme.status(progress_, messages_.cancelled(), "");
       });
    }
 
@@ -1256,14 +1258,14 @@ public class LfqDialog extends DialogBox
    {
       busy_ = true;
       enableSteps();
-      status_.setText(messages_.working());
+      SuperRStudioTheme.status(status_, messages_.working(), SuperRStudioTheme.BUSY);
       server_.superrstudioData(operation, dataset, "", "", "", json, new ServerRequestCallback<ScatterResult>()
       {
          @Override public void onResponseReceived(ScatterResult response)
          {
             if (!isAttached()) return;
             busy_ = false;
-            status_.setText(installed_ ? version_ : messages_.missingPackage());
+            SuperRStudioTheme.status(status_, installed_ ? version_ : messages_.missingPackage(), "");
             done.execute(response.cast());
             enableSteps();
          }
@@ -1272,7 +1274,7 @@ public class LfqDialog extends DialogBox
          {
             if (!isAttached()) return;
             busy_ = false;
-            status_.setText(message(error));
+            SuperRStudioTheme.status(status_, message(error), SuperRStudioTheme.ERROR);
             enableSteps();
          }
       });
