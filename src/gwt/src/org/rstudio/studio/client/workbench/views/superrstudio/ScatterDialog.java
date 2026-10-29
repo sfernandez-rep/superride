@@ -355,14 +355,28 @@ public class ScatterDialog extends DialogBox
       settings_.add(new Setting("grid_minor", gridMinor_, TYPE_BOOLEAN, "true"));
       settings_.add(new Setting("facet_ncol", facetNcol_, TYPE_NUMBER, "0"));
       settings_.add(new Setting("facet_scales", facetScales_, TYPE_STRING, "fixed"));
+      settings_.add(new Setting("canvas_width", canvasWidth_, TYPE_NUMBER, "5"));
+      settings_.add(new Setting("canvas_height", canvasHeight_, TYPE_NUMBER, "3.75"));
+      settings_.add(new Setting("canvas_aspect", canvasAspect_, TYPE_STRING, "free"));
+      settings_.add(new Setting("canvas_lock", canvasLock_, TYPE_BOOLEAN, "false"));
       defaults_ = new String[settings_.size()];
       for (int i = 0; i < defaults_.length; i++)
          defaults_[i] = settings_.get(i).defaultValue;
       apply(defaults_);
       current_ = defaults_;
 
-      for (TextBox text : new TextBox[] {title_, xLabel_, yLabel_, binWidth_, xMin_, xMax_, yMin_, yMax_})
+      for (TextBox text : new TextBox[] {title_, xLabel_, yLabel_, binWidth_, xMin_, xMax_, yMin_, yMax_, xTimezone_})
          text.addValueChangeHandler(e -> settingsChanged());
+      // canvas: a preset or the lock keeps the proportions (adjusted before the
+      // generic handlers below record the change)
+      canvasWidth_.addValueChangeHandler(e -> canvasEdited(true));
+      canvasHeight_.addValueChangeHandler(e -> canvasEdited(false));
+      canvasAspect_.addChangeHandler(e -> keepProportions(true));
+      canvasLock_.addValueChangeHandler(e -> {
+         if (canvasLock_.getValue())
+            lockedRatio_ = parse(canvasWidth_, 5) / parse(canvasHeight_, 3.75);
+         settingsChanged();
+      });
       for (CheckBox check : new CheckBox[] {fitSe_, showOutliers_, showPoints_, gridMajor_, gridMinor_})
          check.addValueChangeHandler(e -> settingsChanged());
       for (Setting setting : settings_)
@@ -528,7 +542,9 @@ public class ScatterDialog extends DialogBox
       SuperRStudioTheme.hint(help);
       preview.add(help);
       plot_.getElement().setAttribute("aria-label", messages_.interactiveHeading());
+      plot_.setResizable((width, height) -> canvasDragged(width, height));
       preview.add(plot_);
+      preview.add(createCanvasPanel());
       editSelected_.getElement().setId("superrstudio_edit_selected");
       editSelected_.setEnabled(false);
       preview.add(editSelected_);
@@ -540,6 +556,104 @@ public class ScatterDialog extends DialogBox
       main.add(panel);
       main.add(preview);
       return main;
+   }
+
+   // Canvas -----------------------------------------------------------------
+
+   private Widget createCanvasPanel()
+   {
+      option(canvasAspect_, messages_.aspectFree(), "free");
+      for (String ratio : new String[] {"1:1", "4:3", "3:2", "16:9"})
+         option(canvasAspect_, ratio, ratio);
+      canvasLock_.setText(messages_.canvasLock());
+      Grid grid = new Grid(2, 4);
+      grid.setCellSpacing(2);
+      exportCell(grid, 0, 0, messages_.canvasWidth(), canvasWidth_, "superrstudio_canvas_width", "50px");
+      exportCell(grid, 0, 2, messages_.canvasHeight(), canvasHeight_, "superrstudio_canvas_height", "50px");
+      exportCell(grid, 1, 0, messages_.canvasAspect(), canvasAspect_, "superrstudio_canvas_aspect", "80px");
+      canvasLock_.getElement().setId("superrstudio_canvas_lock");
+      grid.setWidget(1, 3, canvasLock_);
+      VerticalPanel panel = new VerticalPanel();
+      panel.add(grid);
+      Label hint = SuperRStudioTheme.hint(new Label(messages_.canvasHint()));
+      hint.setWidth("470px");
+      panel.add(hint);
+      return panel;
+   }
+
+   private static double parse(TextBox box, double fallback)
+   {
+      try
+      {
+         return Double.parseDouble(box.getValue().trim());
+      }
+      catch (NumberFormatException e)
+      {
+         return fallback;
+      }
+   }
+
+   private static String inches(double value)
+   {
+      double clamped = Math.max(1, Math.min(20, value));
+      return String.valueOf(Math.round(clamped * 100) / 100.0);
+   }
+
+   // the proportions a preset or the lock imposes (0: none)
+   private double ratio()
+   {
+      switch (canvasAspect_.getSelectedValue())
+      {
+         case "1:1": return 1;
+         case "4:3": return 4.0 / 3;
+         case "3:2": return 1.5;
+         case "16:9": return 16.0 / 9;
+         default: return canvasLock_.getValue() ? lockedRatio_ : 0;
+      }
+   }
+
+   private void keepProportions(boolean fromWidth)
+   {
+      double width = parse(canvasWidth_, 5), height = parse(canvasHeight_, 3.75), ratio = ratio();
+      if (ratio > 0)
+      {
+         if (fromWidth)
+            height = width / ratio;
+         else
+            width = height * ratio;
+      }
+      canvasWidth_.setValue(inches(width));
+      canvasHeight_.setValue(inches(height));
+      if (!"free".equals(canvasAspect_.getSelectedValue()) || !canvasLock_.getValue())
+         lockedRatio_ = parse(canvasWidth_, 5) / parse(canvasHeight_, 3.75);
+      updateExportHeight();
+   }
+
+   private void canvasEdited(boolean fromWidth)
+   {
+      keepProportions(fromWidth);
+      settingsChanged();
+   }
+
+   // a drag of the preview's corner, in screen pixels (96 per inch)
+   private void canvasDragged(int width, int height)
+   {
+      canvasWidth_.setValue(inches(width / 96.0));
+      canvasHeight_.setValue(inches(height / 96.0));
+      keepProportions(true);
+      settingsChanged();
+   }
+
+   // with "preview proportions" the export height follows the canvas
+   private void updateExportHeight()
+   {
+      boolean proportional = "preview".equals(exportMode_.getSelectedValue());
+      exportHeight_.setEnabled(!proportional);
+      if (proportional)
+      {
+         double height = parse(exportWidth_, 16) * parse(canvasHeight_, 3.75) / parse(canvasWidth_, 5);
+         exportHeight_.setValue(String.valueOf(Math.round(height * 1000) / 1000.0));
+      }
    }
 
    // Export -----------------------------------------------------------------
@@ -556,6 +670,10 @@ public class ScatterDialog extends DialogBox
       select(exportDpi_, "300");
       exportWidth_.setValue("16");
       exportHeight_.setValue("12");
+      option(exportMode_, messages_.exportModeExact(), "exact");
+      option(exportMode_, messages_.exportModePreview(), "preview");
+      exportMode_.addChangeHandler(e -> updateExportHeight());
+      exportWidth_.addValueChangeHandler(e -> updateExportHeight());
       exportFormat_.addChangeHandler(e -> {
          // keep the file name's extension in step with the format
          String path = exportPath_.getValue().trim();
@@ -564,8 +682,9 @@ public class ScatterDialog extends DialogBox
             exportPath_.setValue(path.substring(0, dot + 1) + exportFormat_.getSelectedValue());
          exportDpi_.setEnabled("png".equals(exportFormat_.getSelectedValue()));
       });
-      Grid grid = new Grid(3, 4);
+      Grid grid = new Grid(4, 4);
       grid.setCellSpacing(2);
+      exportCell(grid, 3, 0, messages_.exportMode(), exportMode_, "superrstudio_export_mode", "220px");
       exportCell(grid, 0, 0, messages_.exportFormat(), exportFormat_, "superrstudio_export_format", "150px");
       exportCell(grid, 0, 2, messages_.exportDpi(), exportDpi_, "superrstudio_export_dpi", "70px");
       exportCell(grid, 1, 0, messages_.exportWidth(), exportWidth_, "superrstudio_export_width", "60px");
@@ -1260,7 +1379,7 @@ public class ScatterDialog extends DialogBox
          return;
       }
       double version = number(spec, "schema_version", 0);
-      if (version < 1 || version > 5)
+      if (version < 1 || version > 6)
       {
          status_.setText(messages_.loadUnsupported(String.valueOf(version)));
          return;
@@ -1454,6 +1573,7 @@ public class ScatterDialog extends DialogBox
          json.put("export_path", new JSONString(exportPath_.getValue().trim()));
          json.put("export_format", new JSONString(exportFormat_.getSelectedValue()));
          json.put("export_units", new JSONString(exportUnits_.getSelectedValue()));
+         json.put("export_mode", new JSONString(exportMode_.getSelectedValue()));
          json.put("export_dpi", new JSONNumber(Double.parseDouble(exportDpi_.getSelectedValue())));
          for (String[] side : new String[][] {{"export_width", exportWidth_.getValue()},
                                               {"export_height", exportHeight_.getValue()}})
@@ -1726,6 +1846,10 @@ public class ScatterDialog extends DialogBox
                               editSelected_;
    private final ListBox exportFormat_ = new ListBox(), exportUnits_ = new ListBox(), exportDpi_ = new ListBox();
    private final TextBox exportWidth_ = new TextBox(), exportHeight_ = new TextBox(), exportPath_ = new TextBox();
+   private final TextBox canvasWidth_ = new TextBox(), canvasHeight_ = new TextBox();
+   private final ListBox canvasAspect_ = new ListBox(), exportMode_ = new ListBox();
+   private final CheckBox canvasLock_ = new CheckBox();
+   private double lockedRatio_ = 4.0 / 3;
    private final ThemedButton exportImage_ = new ThemedButton(messages_.exportImage(), e -> exportImage());
    private boolean exporting_ = false;
    private final ListBox legendPosition_ = new ListBox(), xScale_ = new ListBox(), yScale_ = new ListBox(),

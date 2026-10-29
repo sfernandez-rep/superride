@@ -105,6 +105,15 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Browse…") String exportBrowse();
    @DefaultMessage("Date breaks") String dateBreaks();
    @DefaultMessage("Visual") String visualTab();
+   @DefaultMessage("Canvas width (in)") String canvasWidth();
+   @DefaultMessage("Height (in)") String canvasHeight();
+   @DefaultMessage("Proportions") String canvasAspect();
+   @DefaultMessage("Free") String aspectFree();
+   @DefaultMessage("Lock proportions") String canvasLock();
+   @DefaultMessage("Drag the preview''s lower-right corner to resize the canvas; the plot is drawn at this physical size. Resizing the IDE window never changes it.") String canvasHint();
+   @DefaultMessage("Size") String exportMode();
+   @DefaultMessage("Exact dimensions") String exportModeExact();
+   @DefaultMessage("Preview proportions (height from width)") String exportModePreview();
    @DefaultMessage("Switch to the dark theme ({0})") String themeToDark(String theme);
    @DefaultMessage("Switch to the light theme ({0})") String themeToLight(String theme);
    @DefaultMessage("Dock in the Visual pane") String dockHere();

@@ -221,6 +221,46 @@ facet strip, panel columns and scales; on the panel, theme and gridlines.
 
 ![Sampling dates as X](visual-dates.png)
 
+## Resizable preview canvas and export proportions (fourth session)
+
+**The canvas is a physical size.** It is the plot's size in inches (default 5 × 3.75 in).
+- The preview is drawn at that size and shown at 96 px per inch. The preview's layout (text and legend relative to the panels) is therefore the layout of an export at the same physical size.
+- The canvas is saved in the specification (schema 6: `canvas_width`, `canvas_height`, `canvas_aspect`, `canvas_lock` in `appearance`), and *Load from script* restores it.
+- Changes are undoable.
+
+**How it changes.** Only explicit actions resize the canvas; resizing the IDE window never does.
+- **Dragging** the preview's lower-right corner. The new size is applied when the drag settles.
+- **Typing** a width or height, from 1 to 20 inches.
+- **Choosing proportions:** free, 1:1, 4:3, 3:2 or 16:9.
+- **Locking the current proportions** when they are free. A preset or the lock keeps the ratio while the other side is edited or the corner is dragged.
+
+**Bitmap previews** are capped at 2,400 pixels a side for large canvases.
+
+**Export has two explicit modes**
+- **Exact dimensions:** the width, height, units (cm, mm, in) and PNG resolution as entered. This is the previous behaviour and stays the default.
+- **Preview proportions:** the width as entered and the height from the canvas's aspect ratio. The height field shows the computed value and is disabled. The session computes the height again, and the export script states it (`width = 16, height = 8, units = "cm"`).
+- Screen pixels are never used as print dimensions.
+
+**Verified**
+
+`visual-scatter.R` checks:
+- the preview size equals the canvas (6 × 3 in → 576 × 288);
+- presets are validated against the size;
+- the bitmap cap (16 × 8 in → 2,400 × 1,200 px);
+- a preview-proportion PNG (16 × 8 cm at 150 dpi, pixel size read from the file);
+- a 1:1 SVG (216 × 216 pt);
+- exact mode ignores the canvas;
+- invalid sizes, proportions and modes are refused.
+
+The desktop test checks:
+- dragging the real resize grip gives 6 × 3 in and a 576 × 288 px preview;
+- undo restores the canvas;
+- the 16:9 preset works;
+- a preview-proportion export of 16 × 8.992 cm, verified from R;
+- the canvas is restored from the script.
+
+![Canvas resized by dragging](visual-canvas.png)
+
 ## Image export (Milestone D)
 
 *Export image* under the preview writes the current plot with

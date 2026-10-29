@@ -70,7 +70,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    defaults <- list(title = '', x_label = '', y_label = '', colour = '',
                     size = 1.5, alpha = 1, theme = 'grey',
                     line_colour = '', line_width = 0.5, line_type = 'solid', fit_colour = '',
-                    fill = '', legend_position = 'right')
+                    fill = '', legend_position = 'right',
+                    canvas_width = 5, canvas_height = 3.75, canvas_aspect = 'free', canvas_lock = FALSE)
    result <- .rs.superrstudioSettings(appearance, defaults, 'Appearance')
    for (field in c('title', 'x_label', 'y_label'))
       if (!.rs.superrstudioIsText(result[[field]]) || nchar(result[[field]]) > 200L)
@@ -90,7 +91,22 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (!.rs.superrstudioIsText(result$legend_position) ||
        !result$legend_position %in% c('right', 'bottom', 'top', 'left', 'none'))
       fail('Legend position must be right, bottom, top, left or none.')
-   for (field in c('size', 'alpha', 'line_width')) result[[field]] <- as.numeric(result[[field]])
+   # the canvas is the plot's physical size (inches): the preview is drawn at
+   # it, so its layout (text relative to panels) is what an export of the
+   # same size shows; it changes only through explicit resizing
+   for (side in c('canvas_width', 'canvas_height'))
+      if (!.rs.superrstudioIsNumber(result[[side]], 1, 20))
+         fail('The preview canvas must be between 1 and 20 inches wide and high.')
+   ratios <- c(`1:1` = 1, `4:3` = 4 / 3, `3:2` = 3 / 2, `16:9` = 16 / 9)
+   if (!.rs.superrstudioIsText(result$canvas_aspect) || !result$canvas_aspect %in% c('free', names(ratios)))
+      fail('Canvas proportions must be free, 1:1, 4:3, 3:2 or 16:9.')
+   if (!is.logical(result$canvas_lock) || length(result$canvas_lock) != 1L || is.na(result$canvas_lock))
+      fail('The canvas proportion lock must be true or false.')
+   if (result$canvas_aspect != 'free' &&
+       abs(result$canvas_width / result$canvas_height / ratios[[result$canvas_aspect]] - 1) > 0.02)
+      fail(sprintf('The canvas is not %s; choose free proportions or resize it.', result$canvas_aspect))
+   for (field in c('size', 'alpha', 'line_width', 'canvas_width', 'canvas_height'))
+      result[[field]] <- as.numeric(result[[field]])
    result[names(defaults)]
 })
 
@@ -197,11 +213,12 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    rows <- vapply(built$data, NROW, 0)
    vector <- sum(rows[!path]) <= svg_rows && sum(rows[path]) <= svg_vertices
    file <- tempfile('superrstudio-', fileext = if (vector) '.svg' else '.png')
+   res <- min(192, 2400 / max(width, height))   # double resolution, at most 2400 pixels a side
    previous <- grDevices::dev.cur()
    if (vector)
       grDevices::svg(file, width = width, height = height)
    else
-      grDevices::png(file, width = width * 192, height = height * 192, res = 192,
+      grDevices::png(file, width = width * res, height = height * res, res = res,
                      type = if (capabilities('cairo')) 'cairo' else getOption('bitmapType'))
    device <- grDevices::dev.cur()
    on.exit({
@@ -344,17 +361,25 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #' The file is written with ggplot2::ggsave(): PNG through ggsave's own
 #' bitmap device at the given resolution, SVG through R's svg() device and
 #' PDF through cairo_pdf() (embedded fonts), so no extra packages are needed.
-.rs.addFunction('superrstudioExportOptions', function(export = list())
+#' @param canvas c(width, height) of the preview canvas in inches; with
+#'   export_mode "preview" the height follows the canvas proportions.
+.rs.addFunction('superrstudioExportOptions', function(export = list(), canvas = c(5, 3.75))
 {
    fail <- function(message) stop(message, call. = FALSE)
    defaults <- list(export_path = '', export_format = 'png', export_width = 16,
-                    export_height = 12, export_units = 'cm', export_dpi = 300)
+                    export_height = 12, export_units = 'cm', export_dpi = 300, export_mode = 'exact')
    result <- .rs.superrstudioSettings(export, defaults, 'Export')
    if (!.rs.superrstudioIsText(result$export_format) || !result$export_format %in% c('png', 'svg', 'pdf'))
       fail('Export format must be PNG, SVG or PDF.')
    if (!.rs.superrstudioIsText(result$export_units) || !result$export_units %in% c('cm', 'mm', 'in'))
       fail('Export size units must be cm, mm or in.')
    inches <- c(cm = 2.54, mm = 25.4, `in` = 1)[[result$export_units]]
+   if (!.rs.superrstudioIsText(result$export_mode) || !result$export_mode %in% c('exact', 'preview'))
+      fail('Export size must be exact dimensions or the preview proportions.')
+   # preview proportions: the given width, the canvas's aspect ratio (no
+   # screen pixels involved); the height is stated in the export script
+   if (result$export_mode == 'preview' && .rs.superrstudioIsNumber(result$export_width, 0, Inf))
+      result$export_height <- signif(as.numeric(result$export_width) * canvas[[2L]] / canvas[[1L]], 4L)
    for (side in c('export_width', 'export_height'))
       if (!.rs.superrstudioIsNumber(result[[side]], 0.5 * inches, 50 * inches))
          fail('Image width and height must be between 0.5 and 50 inches (1.27 to 127 cm).')
@@ -390,7 +415,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #' Evaluate a plot expression on a private copy of the binding: print it to
 #' the Plots pane ("preview") and render the interactive preview ("preview"
 #' and "render"). Warnings are collected once each instead of printed.
-.rs.addFunction('superrstudioRender', function(operation, expression, dataset, data, export = NULL)
+.rs.addFunction('superrstudioRender', function(operation, expression, dataset, data, export = NULL,
+                                             canvas = c(5, 3.75))
 {
    warnings <- character()
    interactive <- NULL
@@ -417,7 +443,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          assign(dataset, data, envir = env)
          plot <- eval(expression, envir = env)
          if (operation == 'preview') print(plot)
-         interactive <- .rs.superrstudioInteractive(plot)
+         interactive <- .rs.superrstudioInteractive(plot, width = canvas[[1L]], height = canvas[[2L]])
       }, warning = function(w) {
          warnings <<- c(warnings, conditionMessage(w))
          invokeRestart('muffleWarning')
@@ -1070,12 +1096,13 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    mapping <- appearance[intersect(names(appearance), mappingKeys)]
    options <- .rs.superrstudioScatterOptions(appearance[intersect(names(appearance), optionKeys)])
    exportKeys <- c('export_path', 'export_format', 'export_width', 'export_height',
-                   'export_units', 'export_dpi')
+                   'export_units', 'export_dpi', 'export_mode')
    axes <- appearance[intersect(names(appearance), axisKeys)]
    export <- appearance[intersect(names(appearance), exportKeys)]
    appearance <- .rs.superrstudioScatterAppearance(
       appearance[setdiff(names(appearance), c(mappingKeys, optionKeys, axisKeys, exportKeys))])
-   export <- if (operation == 'export') .rs.superrstudioExportOptions(export)
+   canvas <- c(appearance$canvas_width, appearance$canvas_height)
+   export <- if (operation == 'export') .rs.superrstudioExportOptions(export, canvas)
    column <- function(value, allowed, message)
    {
       if (is.null(value)) return('')
@@ -1153,7 +1180,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
                                  name(x, 'x'), name(y, 'y'))
    modelCode <- if (options$fit == 'lm') .rs.superrstudioFitCode(dataset, x, y, fitGroups, axes) else ''
 
-   rendered <- .rs.superrstudioRender(operation, expression, dataset, data, export)
+   rendered <- .rs.superrstudioRender(operation, expression, dataset, data, export,
+                                      c(appearance$canvas_width, appearance$canvas_height))
    # The revision is a session-scoped staleness token, not part of the
    # reproducible specification: the same selection yields the same record.
    list(code = I(paste0(code, '\n')), model_code = I(modelCode),
@@ -1162,7 +1190,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
         notes = if (options$fit != 'none') stat$notes
                 else grep('statistics are computed', stat$notes, value = TRUE, invert = TRUE, fixed = TRUE),
         warnings = rendered$warnings, interactive = rendered$interactive,
-        spec = list(schema_version = I(5L), kind = I('scatter'), dataset = I(dataset),
+        spec = list(schema_version = I(6L), kind = I('scatter'), dataset = I(dataset),
                     x = I(x), y = I(y), colour_by = I(colourBy), group_by = I(groupBy),
                     facet_by = I(facetBy), facet_rows = I(facetRows),
                     layers = lapply(options[.rs.superrstudioKindOptions('scatter')], I),
@@ -1237,12 +1265,13 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          list(group = I(name), n = I(length(v)), bandwidth = I(stats::bw.nrd0(v) * options$adjust))
       })
    }
-   rendered <- .rs.superrstudioRender(operation, expression, dataset, data, export)
+   rendered <- .rs.superrstudioRender(operation, expression, dataset, data, export,
+                                      c(appearance$canvas_width, appearance$canvas_height))
    list(code = I(paste0(code, '\n')), model_code = I(''),
         export_code = I(.rs.superrstudioExportCode(code, export)), saved = rendered$saved,
         fit_summary = list(), summary = summary, notes = stat$notes,
         warnings = rendered$warnings, interactive = rendered$interactive,
-        spec = list(schema_version = I(5L), kind = I(kind), dataset = I(dataset),
+        spec = list(schema_version = I(6L), kind = I(kind), dataset = I(dataset),
                     x = I(x), y = I(y), fill_by = I(fill_by),
                     facet_by = I(facet_by), facet_rows = I(facet_rows),
                     layers = lapply(options[.rs.superrstudioKindOptions(kind)], I),

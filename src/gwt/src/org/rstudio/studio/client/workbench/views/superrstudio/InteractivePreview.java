@@ -70,6 +70,47 @@ public class InteractivePreview extends Composite
       initWidget(panel_);
    }
 
+   // The preview's lower-right corner resizes it (the canvas). Only drags by
+   // the user are reported, once they settle; sizes set by a new plot are not.
+   public void setResizable(ResizeListener listener)
+   {
+      resizeListener_ = listener;
+      panel_.getElement().getStyle().setProperty("resize", "both");
+      panel_.getElement().getStyle().setOverflow(com.google.gwt.dom.client.Style.Overflow.HIDDEN);
+      panel_.getElement().getStyle().setProperty("minWidth", "96px");
+      panel_.getElement().getStyle().setProperty("minHeight", "96px");
+      panel_.getElement().getStyle().setProperty("border", "1px dashed rgba(127, 127, 127, 0.6)");
+      image_.getElement().getStyle().setProperty("width", "100%");
+      image_.getElement().getStyle().setProperty("height", "100%");
+      observe(panel_.getElement());
+   }
+
+   public interface ResizeListener
+   {
+      void onResized(int width, int height);
+   }
+
+   private native void observe(com.google.gwt.dom.client.Element element) /*-{
+      var self = this;
+      var timer = null;
+      if (!$wnd.ResizeObserver)
+         return;
+      new $wnd.ResizeObserver(function() {
+         if (timer) $wnd.clearTimeout(timer);
+         timer = $wnd.setTimeout($entry(function() {
+            self.@org.rstudio.studio.client.workbench.views.superrstudio.InteractivePreview::resized(II)(
+               element.clientWidth, element.clientHeight);
+         }), 350);
+      }).observe(element);
+   }-*/;
+
+   private void resized(int width, int height)
+   {
+      if (resizeListener_ == null || (Math.abs(width - width_) <= 1 && Math.abs(height - height_) <= 1))
+         return;
+      resizeListener_.onResized(width, height);
+   }
+
    public void setPlot(PlotMap map)
    {
       map_ = map;
@@ -132,8 +173,11 @@ public class InteractivePreview extends Composite
       width_ = width;
       height_ = height;
       panel_.setPixelSize(width, height);
-      image_.setPixelSize(width, height);
+      if (resizeListener_ == null)
+         image_.setPixelSize(width, height);
    }
+
+   private ResizeListener resizeListener_;
 
    private void hover(MouseMoveEvent event)
    {

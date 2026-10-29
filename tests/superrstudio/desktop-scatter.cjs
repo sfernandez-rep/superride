@@ -312,7 +312,7 @@ async function closeDialog(page)
       fs.writeFileSync(path.join(evidence, 'generated-scatter-styled.R'), styledCode);
       for (const part of ['ggplot2::geom_point(colour = "#0072B2", size = 3, alpha = 0.6)',
                           'ggplot2::labs(title = "Fish \\"length\\" vs mass", x = "Length (cm)")',
-                          'ggplot2::theme_classic()', 'SuperRStudio scatter v5'])
+                          'ggplot2::theme_classic()', 'SuperRStudio scatter v6'])
          if (!styledCode.includes(part)) throw new Error('styled code lacks ' + part);
       let styledSrc = null;
       for (let i = 0; i < 60 && (!styledSrc || styledSrc === imageBeforeStyled); i++)
@@ -402,7 +402,7 @@ async function closeDialog(page)
       await waitStatus(page, /Plot created/);
       const histCode = await page.locator('#superrstudio_code').inputValue();
       fs.writeFileSync(path.join(evidence, 'generated-histogram.R'), histCode);
-      for (const part of ['SuperRStudio histogram v5', 'ggplot2::aes(x = .data[["size"]], fill = .data[["site"]])',
+      for (const part of ['SuperRStudio histogram v6', 'ggplot2::aes(x = .data[["size"]], fill = .data[["site"]])',
                           'ggplot2::geom_histogram(bins = 10)', 'ggplot2::scale_fill_viridis_d()'])
          if (!histCode.includes(part)) throw new Error('histogram code lacks ' + part);
       const histText = await page.locator('#superrstudio_model').innerText();
@@ -423,7 +423,7 @@ async function closeDialog(page)
       await waitStatus(page, /Plot created/);
       const boxCode = await page.locator('#superrstudio_code').inputValue();
       fs.writeFileSync(path.join(evidence, 'generated-boxplot.R'), boxCode);
-      for (const part of ['SuperRStudio boxplot v5', 'ggplot2::aes(x = .data[["site"]], y = .data[["size"]])',
+      for (const part of ['SuperRStudio boxplot v6', 'ggplot2::aes(x = .data[["site"]], y = .data[["size"]])',
                           'ggplot2::geom_boxplot(fill = "#56B4E9")',
                           'ggplot2::geom_point(position = ggplot2::position_jitter(width = 0.15, height = 0, seed = 1))'])
          if (!boxCode.includes(part)) throw new Error('boxplot code lacks ' + part);
@@ -609,7 +609,7 @@ async function closeDialog(page)
       await choose(page, '#superrstudio_y_scale', 'log10');
       await choose(page, '#superrstudio_facet_by', 'site');
       const facetCode = await waitCode(page, /ggplot2::facet_wrap\(ggplot2::vars\(\.data\[\["site"\]\]\)\)/);
-      if (!facetCode.includes('ggplot2::scale_y_log10()') || !facetCode.includes('"schema_version":5'))
+      if (!facetCode.includes('ggplot2::scale_y_log10()') || !facetCode.includes('"schema_version":6'))
          throw new Error('axis code: ' + facetCode);
       const facetModel = await page.locator('#superrstudio_model').innerText();
       if (!/^north: n = 4; log10\(size\) = /m.test(facetModel) || !/^south: n = 4; log10\(size\) = /m.test(facetModel) ||
@@ -686,7 +686,7 @@ async function closeDialog(page)
       await page.locator('#superrstudio_x_min').press('Tab');
       const dateCode = await waitCode(page, /ggplot2::coord_cartesian\(xlim = as\.Date\(c\("2023-03-01", NA\)\)\)/);
       if (!dateCode.includes('ggplot2::scale_x_date(date_breaks = "2 months", date_labels = "%b %Y")') ||
-          !dateCode.includes('ggplot2::geom_line()') || !dateCode.includes('"schema_version":5'))
+          !dateCode.includes('ggplot2::geom_line()') || !dateCode.includes('"schema_version":6'))
          throw new Error('date code: ' + dateCode);
       const dateModel = await page.locator('#superrstudio_model').innerText();
       if (!dateModel.includes('fecha [days since 1970-01-01]')) throw new Error('date fit summary: ' + dateModel);
@@ -746,7 +746,7 @@ async function closeDialog(page)
       await choose(page, '#superrstudio_y', 'mass_g');
       await page.locator('#rstudio_superrstudio_export').click();
       await page.getByRole('dialog').waitFor({state: 'detached'});
-      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v5'));
+      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v6'));
       const script = await page.evaluate(() => window.rstudio.documents.activeEditor().getValue());
       if (script !== code) throw new Error('exported script differs from previewed code:\n' + script);
       log('PASS export opens identical code in a new R script');
@@ -776,6 +776,68 @@ async function closeDialog(page)
       await closeDialog(page);
       log('PASS load from script restores the specification; preview reproduces identical code');
       await page.evaluate(() => window.rstudio.documents.closeAllNoSave());
+
+      // The preview canvas: dragged by its corner (explicit), undoable, preset
+      // proportions, exported with the preview's proportions, restored from code.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'growth');
+      await choose(page, '#superrstudio_x', 'age');
+      await choose(page, '#superrstudio_y', 'size');
+      await waitCode(page, /"canvas_width":5,"canvas_height":3.75/);
+      const canvas = page.locator('#superrstudio_interactive');
+      let frame = await canvas.boundingBox();
+      if (Math.abs(frame.width - 482) > 3 || Math.abs(frame.height - 362) > 3) throw new Error('initial canvas ' + JSON.stringify(frame));
+      // the resize grip is the element's lower-right corner
+      await page.mouse.move(frame.x + frame.width - 3, frame.y + frame.height - 3);
+      await page.mouse.down();
+      await page.mouse.move(frame.x + frame.width + 40, frame.y + frame.height - 30, {steps: 8});
+      await page.mouse.move(frame.x + frame.width + 93, frame.y + frame.height - 75, {steps: 8});
+      await page.mouse.up();
+      await waitCode(page, /"canvas_width":6,"canvas_height":3[,}]/);
+      await page.waitForFunction(() => {
+         const node = document.getElementById('superrstudio_interactive');
+         return node.clientWidth === 576 && node.clientHeight === 288;
+      }, null, {timeout: 30000});
+      if (await page.inputValue('#superrstudio_canvas_width') !== '6' || await page.inputValue('#superrstudio_canvas_height') !== '3')
+         throw new Error('canvas fields after the drag');
+      await shot(page, '9-canvas-dragged');
+      await page.locator('#superrstudio_undo').click();
+      await waitCode(page, /"canvas_width":5,"canvas_height":3.75/);
+      log('PASS canvas resized by dragging its corner (6 x 3 in, preview redrawn at 576 x 288 px); undo restores 5 x 3.75');
+      await choose(page, '#superrstudio_canvas_aspect', '16:9');
+      const presetCode = await waitCode(page, /"canvas_width":5,"canvas_height":2.81,"canvas_aspect":"16:9"/);
+      // export with the preview's proportions: 16 cm wide -> 9 cm high
+      const canvasPng = evidence.replaceAll('\\', '/') + '/canvas-16x9.png';
+      fs.rmSync(canvasPng, {force: true});
+      await page.selectOption('#superrstudio_export_mode', 'preview');
+      await page.fill('#superrstudio_export_width', '16');
+      await page.locator('#superrstudio_export_width').press('Tab');
+      if (await page.inputValue('#superrstudio_export_height') !== '8.992' ||
+          await page.locator('#superrstudio_export_height').isEnabled())
+         throw new Error('export height not derived from the canvas: ' + await page.inputValue('#superrstudio_export_height'));
+      await page.selectOption('#superrstudio_export_format', 'png');
+      await page.fill('#superrstudio_export_path', canvasPng);
+      await page.selectOption('#superrstudio_export_units', 'cm');
+      await page.selectOption('#superrstudio_export_dpi', '150');
+      await page.locator('#superrstudio_export_image').click();
+      await waitStatus(page, /^Saved .+canvas-16x9\.png/);
+      await check(page,
+         `srs_b <- readBin(${JSON.stringify(canvasPng)}, 'raw', 24); srs_d <- function(at) sum(as.integer(srs_b[at:(at + 3)]) * 256^(3:0)); ` +
+         `stopifnot(abs(srs_d(17) - 16 / 2.54 * 150) < 1, abs(srs_d(21) - 8.992 / 2.54 * 150) < 1)`,
+         'CANVAS_EXPORT_PROPORTIONS');
+      await closeDialog(page);
+      // the specification in the code restores the canvas
+      await page.evaluate(() => window.rstudio.commands.newSourceDoc());
+      await page.waitForFunction(() => window.rstudio.documents.activeEditor());
+      await page.evaluate(text => window.rstudio.documents.activeEditor().setValue(text, 1), presetCode);
+      dialog = await openDialog(page);
+      await page.locator('#superrstudio_load').click();
+      await waitStatus(page, /Settings loaded from the active script/);
+      if (await page.inputValue('#superrstudio_canvas_aspect') !== '16:9' || await page.inputValue('#superrstudio_canvas_height') !== '2.81')
+         throw new Error('canvas not restored from the code');
+      await closeDialog(page);
+      await page.evaluate(() => window.rstudio.documents.closeAllNoSave());
+      log('PASS 16:9 preset; export by preview proportions (16 x 8.992 cm PNG verified in R); canvas restored from code');
 
       // Design tokens: hint and error text keep at least 4.5:1 contrast against
       // the dialog background in the default light theme and a dark theme.

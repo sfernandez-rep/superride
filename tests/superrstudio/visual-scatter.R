@@ -97,7 +97,8 @@ defaults <- look(list())
 stopifnot(identical(defaults, list(title = '', x_label = '', y_label = '', colour = '',
                                    size = 1.5, alpha = 1, theme = 'grey', line_colour = '',
                                    line_width = 0.5, line_type = 'solid', fit_colour = '',
-                                   fill = '', legend_position = 'right')),
+                                   fill = '', legend_position = 'right', canvas_width = 5, canvas_height = 3.75,
+                                   canvas_aspect = 'free', canvas_lock = FALSE)),
           identical(look(NULL), defaults),
           identical(look(list(size = 3L))$size, 3),
           identical(look(list(colour = '#0072B2'))$colour, '#0072B2'),
@@ -156,7 +157,7 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    built <- ggplot2::ggplot_build(plot)
    stopifnot(identical(built$data[[1]]$x, original$x),
              identical(built$data[[1]]$y, original$y),
-             !exists('INJECTED', globalenv()), result$spec$schema_version == 5L,
+             !exists('INJECTED', globalenv()), result$spec$schema_version == 6L,
              identical(result$spec$x, I(evil)), is.null(result$spec$revision))
    pdf <- tempfile(fileext = '.pdf')
    grDevices::pdf(pdf)
@@ -495,7 +496,7 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    series <- request('code', 'monthly', chosen$revision, 'day', 'count',
                      list(geometry = 'lines_points', fit = 'lm', x_date_breaks = '2 months', x_date_labels = '%b %Y'))
    stopifnot(grepl('ggplot2::scale_x_date(date_breaks = "2 months", date_labels = "%b %Y")', series$code, fixed = TRUE),
-             grepl('ggplot2::geom_line()', series$code, fixed = TRUE), series$spec$schema_version == 5L)
+             grepl('ggplot2::geom_line()', series$code, fixed = TRUE), series$spec$schema_version == 6L)
    b <- quiet(built(series))
    lineX <- b$data[[1L]]$x
    stopifnot(!is.unsorted(lineX[!is.na(lineX)]))   # lines join observations in date order
@@ -636,6 +637,61 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    reject(request('export', 'axdat', chosen$revision, 'u', 'w', exportSettings('tiff', file.path(folder, 'p.tiff'))), 'PNG, SVG or PDF')
    reject(request('export', 'axdat', chosen$revision, 'u', 'w', exportSettings('png', '')), 'Choose a file')
    stopifnot(!file.exists(file.path(folder, 'p.png')), identical(axdat, get('axdat')))
+   # The preview canvas: the preview is drawn at the canvas's physical size;
+   # "preview proportions" exports keep its aspect ratio at a given width,
+   # "exact" exports use the entered width and height.
+   wide <- request('render', 'axdat', chosen$revision, 'u', 'w', list(canvas_width = 6, canvas_height = 3))$interactive
+   stopifnot(wide$width == 576L, wide$height == 288L)
+   square <- request('render', 'axdat', chosen$revision, 'u', 'w',
+                     list(canvas_width = 4, canvas_height = 4, canvas_aspect = '1:1', canvas_lock = TRUE))
+   stopifnot(square$interactive$width == 384L, square$interactive$height == 384L,
+             square$spec$appearance$canvas_aspect == '1:1', isTRUE(unclass(square$spec$appearance$canvas_lock)),
+             square$spec$appearance$canvas_width == 4, square$spec$schema_version == 6L)
+   # large canvases: the bitmap preview stays within 2400 pixels a side
+   big <- toolsEnv$.rs.superrstudioInteractive(ggplot2::ggplot(data.frame(a = 1:6000, b = 1:6000), ggplot2::aes(a, b)) +
+                                               ggplot2::geom_point(), width = 16, height = 8)
+   # the PNG header (first 24 bytes) from the base64 image
+   header <- function(text) {
+      digits <- match(strsplit(substr(text, 1L, 32L), '')[[1L]], c(LETTERS, letters, 0:9, '+', '/')) - 1L
+      bits <- unlist(lapply(digits, function(d) as.integer(intToBits(d))[6:1]))
+      as.raw(vapply(seq(1L, length(bits), 8L), function(i) sum(bits[i:(i + 7L)] * 2^(7:0)), 0))
+   }
+   bigBytes <- header(big$image)
+   stopifnot(big$format == 'png', big$width == 1536L,
+             sum(as.integer(bigBytes[17:20]) * 256^(3:0)) == 2400, sum(as.integer(bigBytes[21:24]) * 256^(3:0)) == 1200)
+   # preview proportions: 16 cm wide at a 6 x 3 inch canvas gives 16 x 8 cm
+   proportional <- file.path(folder, 'proportional.png')
+   exported <- request('export', 'axdat', chosen$revision, 'u', 'w',
+                       exportSettings('png', proportional, list(canvas_width = 6, canvas_height = 3, export_mode = 'preview',
+                                                                export_width = 16, export_height = 99, export_units = 'cm',
+                                                                export_dpi = 150)))
+   bytes <- readBin(proportional, 'raw', file.size(proportional))
+   stopifnot(abs(dimension(17L) - 16 / 2.54 * 150) < 1, abs(dimension(21L) - 8 / 2.54 * 150) < 1,
+             grepl('width = 16, height = 8, units = "cm"', exported$export_code, fixed = TRUE))
+   # the same proportions as SVG (vector page size) and PDF
+   proportionalSvg <- file.path(folder, 'proportional.svg')
+   invisible(request('export', 'axdat', chosen$revision, 'u', 'w',
+                     exportSettings('svg', proportionalSvg, list(canvas_width = 4, canvas_height = 4, canvas_aspect = '1:1',
+                                                                 export_mode = 'preview', export_width = 3,
+                                                                 export_units = 'in'))))
+   stopifnot(grepl('width="216pt" height="216pt"', paste(readLines(proportionalSvg, warn = FALSE), collapse = '\n'),
+                   fixed = TRUE))
+   # exact dimensions ignore the canvas
+   exact <- file.path(folder, 'exact.png')
+   invisible(request('export', 'axdat', chosen$revision, 'u', 'w',
+                     exportSettings('png', exact, list(canvas_width = 6, canvas_height = 3, export_mode = 'exact',
+                                                       export_width = 10, export_height = 10, export_units = 'cm',
+                                                       export_dpi = 150))))
+   bytes <- readBin(exact, 'raw', file.size(exact))
+   stopifnot(abs(dimension(17L) - dimension(21L)) < 1)
+   reject(request('render', 'axdat', chosen$revision, 'u', 'w', list(canvas_width = 0.5)), 'between 1 and 20')
+   reject(request('render', 'axdat', chosen$revision, 'u', 'w', list(canvas_height = 25)), 'between 1 and 20')
+   reject(request('render', 'axdat', chosen$revision, 'u', 'w',
+                  list(canvas_width = 6, canvas_height = 3, canvas_aspect = '4:3')), 'not 4:3')
+   reject(request('render', 'axdat', chosen$revision, 'u', 'w', list(canvas_aspect = '2:1')), 'free, 1:1')
+   reject(request('export', 'axdat', chosen$revision, 'u', 'w',
+                  exportSettings('png', file.path(folder, 'm.png'), list(export_mode = 'fit'))), 'exact dimensions')
+   cat('PASS: preview canvas (drawn at its physical size, presets validated, bitmap cap) and export by preview proportions or exact dimensions\n')
    unlink(folder, recursive = TRUE)
    cat('PASS: export (PNG pixel size at dpi, SVG and PDF page sizes, scripts reproduce identical PNG/SVG, validation)\n')
 

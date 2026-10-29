@@ -77,15 +77,24 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
    migrated in `PaneConfig.validateAndAutoCorrect`) into which the one plot
    editor docks, keeping its state; float/dock buttons; zoom command.
    Record: [dockable-workspace.md](docs/superrstudio/features/dockable-workspace.md).
-6. **Benchmarks** (third session): `tools/superrstudio/bench.ps1` (R level
+6. **One-click light/dark switch** (fourth session): sun/moon button in the
+   global toolbar (experimental only) that sets the global `editor_theme`
+   and applied theme like Appearance > Apply; remembers the last light and
+   dark themes (per desktop profile). Record:
+   [theme-toggle.md](docs/superrstudio/features/theme-toggle.md).
+   **Resizable preview canvas** (fourth session): the preview is drawn at
+   the canvas's physical size (spec schema 6); drag the corner, presets
+   1:1/4:3/3:2/16:9, lock; export by exact dimensions or the preview's
+   proportions. Record: visual-scatter.md, "Resizable preview canvas".
+7. **Benchmarks** (third session): `tools/superrstudio/bench.ps1` (R level
    and desktop: baseline upstream build vs features off/on). Record:
    [benchmarks.md](docs/superrstudio/benchmarks.md).
    TropFishR 1.6.6 and its dependencies are installed only in the isolated
    test library (`.cache\superrstudio\r-library`).
-7. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
+8. **Development mode** (no installer): `tools/superrstudio/dev-build.ps1`,
    `dev-run.ps1`, `dev.ps1`, `dev-clean.ps1`, VS Code tasks via
    `install-vscode.ps1`. Usage: [BUILDING.md](BUILDING.md#superrstudio-development-mode-windows).
-8. Windows baseline (Codex): full native/GWT/Electron build, R-session suites,
+9. Windows baseline (Codex): full native/GWT/Electron build, R-session suites,
    live GUI smoke. [GUI record](docs/superrstudio/baseline/windows-gui-2026-10-28.md),
    [provisioning record](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
 
@@ -101,6 +110,7 @@ tools\superrstudio\test-gui-scatter.ps1          # live desktop acceptance (3 sc
 tools\superrstudio\test-gui-scatter.ps1 -Scenario lfq   # length-frequency window
 tools\superrstudio\test-gui-scatter.ps1 -Scenario es    # Spanish windows
 tools\superrstudio\test-gui-scatter.ps1 -Scenario visual  # Visual tab: old layout, restart, features off
+tools\superrstudio\test-gui-scatter.ps1 -Scenario theme   # light/dark switch: toggle, remembered theme, restart, off
 tools\superrstudio\bench.ps1 -Runs 3                    # benchmarks (R + desktop vs baseline)
 python tools\superrstudio\i18n\lfq_messages.py         # regenerate LFQ + Spanish messages
 ```
@@ -128,6 +138,7 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | `visual-scatter.R` incl. date/time axes and the SVG/PNG choice by vertices | PASS |
 | Live desktop: ggplot2 (incl. sampling dates, dark theme, contrast) / no-ggplot2 / disabled / es / lfq | PASS / PASS / PASS / PASS / PASS (final builds of 2026-10-29) |
 | Visual tab (`-Scenario visual`: migrate / restart / off) and regression ggplot2, no-ggplot2, disabled, es, lfq (fourth session) | PASS (all 8); upstream suite 654/655 |
+| Theme switch (`-Scenario theme`: first / restart / off), canvas (in `ggplot2`), full GUI set no-ggplot2, disabled, es, lfq, visual (fourth session) | PASS |
 | Benchmarks (`bench.ps1`, 3 runs + warm-up): ready baseline 3.32 s / off 3.34 s / on 3.41 s; console 29-30 ms; session 128 / 128 / 132 MB | recorded in docs/superrstudio/benchmarks.md |
 
 Known failures/limitations (unchanged from baseline unless noted):
@@ -155,12 +166,12 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    Spanish windows; date/time axes; design-system/branding foundation;
    benchmark suite and the measured line-preview optimisation.
    Done (fourth session): dockable Visual tab with layout migration.
-   **Next (fourth-session brief):** (B) one-click light/dark toggle in the
-   global toolbar (switch the global `editor_theme` and `theme` state like
-   Appearance > Apply; remember the last light and dark theme; gated by the
-   experimental flag); (C) resizable preview canvas with aspect presets and
-   two export modes, dimensions in the spec; (D) responsive editor layout for
-   narrow panes; (E) benchmarks of the new features.
+   Done (fourth session): light/dark switch; resizable preview canvas with
+   export modes.
+   **Next exact task:** (D) responsive plot-editor layout for narrow panes
+   (stack the preview above the settings when the docked pane is narrower
+   than the two columns; keep the floating window as it is), then (E)
+   benchmarks of the docked editor and canvas sizes with `bench.ps1`.
    Then: remaining in-window preview overhead for 100,000-point scatter
    plots (2.4 s; R side 2.0 s is Cairo rasterisation of points), an
    optimised (non-draft) GWT build for memory comparisons with the

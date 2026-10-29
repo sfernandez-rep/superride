@@ -107,6 +107,15 @@ public class ScatterMessagesEs implements ScatterMessages
    @Override public String exportBrowse() { return "Examinar\u2026"; }
    @Override public String dateBreaks() { return "Intervalo de fechas"; }
    @Override public String visualTab() { return "Visual"; }
+   @Override public String canvasWidth() { return "Ancho del lienzo (pulg.)"; }
+   @Override public String canvasHeight() { return "Alto (pulg.)"; }
+   @Override public String canvasAspect() { return "Proporciones"; }
+   @Override public String aspectFree() { return "Libres"; }
+   @Override public String canvasLock() { return "Bloquear proporciones"; }
+   @Override public String canvasHint() { return "Arrastra la esquina inferior derecha de la vista previa para cambiar el tama\u00f1o del lienzo; el gr\u00e1fico se dibuja a ese tama\u00f1o f\u00edsico. Cambiar el tama\u00f1o de la ventana del IDE nunca lo modifica."; }
+   @Override public String exportMode() { return "Tama\u00f1o"; }
+   @Override public String exportModeExact() { return "Dimensiones exactas"; }
+   @Override public String exportModePreview() { return "Proporciones de la vista previa (alto seg\u00fan el ancho)"; }
    @Override public String themeToDark(String theme) { return SuperRStudioLanguage.format("Cambiar al tema oscuro ({0})", theme); }
    @Override public String themeToLight(String theme) { return SuperRStudioLanguage.format("Cambiar al tema claro ({0})", theme); }
    @Override public String dockHere() { return "Acoplar en el panel Visual"; }
