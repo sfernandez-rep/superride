@@ -56,7 +56,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    defaults <- list(title = '', x_label = '', y_label = '', colour = '',
                     size = 1.5, alpha = 1, theme = 'grey',
                     line_colour = '', line_width = 0.5, line_type = 'solid', fit_colour = '',
-                    fill = '')
+                    fill = '', legend_position = 'right')
    result <- .rs.superrstudioSettings(appearance, defaults, 'Appearance')
    for (field in c('title', 'x_label', 'y_label'))
       if (!.rs.superrstudioIsText(result[[field]]) || nchar(result[[field]]) > 200L)
@@ -73,6 +73,9 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       fail('Unsupported line type.')
    if (!.rs.superrstudioIsText(result$theme) || !result$theme %in% c('grey', 'bw', 'minimal', 'classic', 'light'))
       fail('Unsupported theme.')
+   if (!.rs.superrstudioIsText(result$legend_position) ||
+       !result$legend_position %in% c('right', 'bottom', 'top', 'left', 'none'))
+      fail('Legend position must be right, bottom, top, left or none.')
    for (field in c('size', 'alpha', 'line_width')) result[[field]] <- as.numeric(result[[field]])
    result[names(defaults)]
 })
@@ -141,7 +144,204 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (blank_x)
       layers <- c(layers, quote(ggplot2::theme(axis.text.x = ggplot2::element_blank(),
                                                axis.ticks.x = ggplot2::element_blank())))
+   # after the complete theme, which would otherwise reset it
+   if (appearance$legend_position != 'right')
+      layers <- c(layers, substitute(ggplot2::theme(legend.position = P),
+                                     list(P = appearance$legend_position)))
    layers
+})
+
+#' Render a ggplot to SVG together with a map of its editable elements
+#'
+#' The image is drawn by R's own svg() device from the same gtable that
+#' print() draws. Elements are located through documented structures rather
+#' than the SVG's unlabelled drawing order: the named cells of the gtable
+#' layout (title, axis titles, axes, legend, strips, panels) are measured
+#' with grid::deviceLoc(), and each layer's geometry is its ggplot_build()
+#' data mapped through the ranges of its panel. Panels are matched to the
+#' layout's ROW/COL by the rank of their cell positions, not by grob names.
+#' Coordinates are fractions of the image, origin at the top left. The
+#' session's current graphics device is restored afterwards.
+#'
+#' Plots with many drawn rows are rendered as a double-resolution PNG
+#' instead: an SVG holds one element per point and would grow to megabytes.
+#'
+#' @param plot A ggplot object.
+#' @param width,height Image size in inches (displayed at 96 pixels per inch).
+#' @param svg_rows Largest number of layer rows rendered as SVG.
+#' @return A list with the image (SVG text or base64 PNG), its format and
+#'   pixel size, and the element map.
+.rs.addFunction('superrstudioInteractive', function(plot, width = 5, height = 3.75,
+                                                  svg_rows = 5000L)
+{
+   built <- ggplot2::ggplot_build(plot)
+   vector <- sum(vapply(built$data, NROW, 0)) <= svg_rows
+   file <- tempfile('superrstudio-', fileext = if (vector) '.svg' else '.png')
+   previous <- grDevices::dev.cur()
+   if (vector)
+      grDevices::svg(file, width = width, height = height)
+   else
+      grDevices::png(file, width = width * 192, height = height * 192, res = 192,
+                     type = if (capabilities('cairo')) 'cairo' else getOption('bitmapType'))
+   device <- grDevices::dev.cur()
+   on.exit({
+      if (device %in% grDevices::dev.list()) grDevices::dev.off(device)
+      if (previous > 1L && previous %in% grDevices::dev.list()) grDevices::dev.set(previous)
+      unlink(file)
+   })
+   table <- ggplot2::ggplot_gtable(built)
+   grid::grid.newpage()
+   grid::grid.draw(table)
+   grid::seekViewport(table$name)
+
+   # cell box as c(left, top, right, bottom)
+   box <- function(entry)
+   {
+      grid::pushViewport(grid::viewport(layout.pos.row = entry$t:entry$b,
+                                        layout.pos.col = entry$l:entry$r))
+      on.exit(grid::popViewport())
+      low <- grid::deviceLoc(grid::unit(0, 'npc'), grid::unit(0, 'npc'), valueOnly = TRUE)
+      high <- grid::deviceLoc(grid::unit(1, 'npc'), grid::unit(1, 'npc'), valueOnly = TRUE)
+      c(low$x / width, 1 - high$y / height, high$x / width, 1 - low$y / height)
+   }
+   number <- function(values) round(as.numeric(values), 4L)
+   layout <- table$layout
+   regionRole <- function(name)
+      if (name == 'title') 'title'
+      else if (name == 'xlab-b') 'x_label'
+      else if (name == 'ylab-l') 'y_label'
+      else if (grepl('^axis-b', name)) 'x_axis'
+      else if (grepl('^axis-l', name)) 'y_axis'
+      else if (grepl('^guide-box', name)) 'legend'
+      else if (grepl('^strip', name)) 'strip'
+      else if (grepl('^panel', name)) 'panel'
+      else ''
+   regions <- list()
+   for (i in seq_len(nrow(layout)))
+   {
+      role <- regionRole(layout$name[[i]])
+      if (!nzchar(role) || inherits(table$grobs[[i]], 'zeroGrob')) next
+      bounds <- box(layout[i, ])
+      if (bounds[3L] - bounds[1L] < 1e-3 || bounds[4L] - bounds[2L] < 1e-3) next
+      regions[[length(regions) + 1L]] <- list(role = I(role), box = number(bounds))
+   }
+
+   panels <- layout[grepl('^panel', layout$name), , drop = FALSE]
+   panelRow <- match(panels$t, sort(unique(panels$t)))
+   panelCol <- match(panels$l, sort(unique(panels$l)))
+   panelBoxes <- lapply(seq_len(nrow(built$layout$layout)), function(p)
+   {
+      hit <- which(panelRow == built$layout$layout$ROW[[p]] & panelCol == built$layout$layout$COL[[p]])
+      if (length(hit) == 1L) box(panels[hit, ])
+   })
+   # data (scale) coordinates to image fractions within a panel
+   place <- function(values, range, low, high)
+   {
+      values <- as.numeric(values)
+      values[values == -Inf] <- range[1L]
+      values[values == Inf] <- range[2L]
+      low + (values - range[1L]) / diff(range) * (high - low)
+   }
+   locate <- function(p, x, y)
+   {
+      params <- built$layout$panel_params[[p]]
+      bounds <- panelBoxes[[p]]
+      cbind(place(x, params$x.range, bounds[1L], bounds[3L]),
+            place(y, params$y.range, bounds[4L], bounds[2L]))
+   }
+   thin <- function(rows, limit) if (length(rows) > limit)
+      rows[unique(round(seq(1, length(rows), length.out = limit)))] else rows
+   flat <- function(matrix) number(t(matrix))
+
+   roles <- c(GeomPoint = 'points', GeomLine = 'lines', GeomPath = 'lines', GeomStep = 'lines',
+              GeomSmooth = 'fit', GeomBar = 'bars', GeomCol = 'bars', GeomRect = 'bars',
+              GeomBoxplot = 'boxes', GeomDensity = 'density', GeomArea = 'density')
+   elements <- list()
+   add <- function(role, shape, layer, coords)
+      if (length(coords) && all(is.finite(coords)))
+         elements[[length(elements) + 1L]] <<- list(role = I(role), shape = I(shape),
+                                                    layer = I(layer), coords = coords)
+   for (i in seq_along(plot$layers))
+   {
+      # the most specific known class: GeomSmooth before GeomLine, etc.
+      known <- intersect(class(plot$layers[[i]]$geom), names(roles))
+      if (!length(known)) next
+      role <- roles[[known[[1L]]]]
+      data <- built$data[[i]]
+      for (p in unique(data$PANEL))
+      {
+         p <- as.integer(p)
+         if (p > length(panelBoxes) || is.null(panelBoxes[[p]])) next
+         part <- data[as.integer(data$PANEL) == p, , drop = FALSE]
+         if (role == 'points')
+         {
+            part <- part[is.finite(part$x) & is.finite(part$y), , drop = FALSE]
+            rows <- thin(seq_len(nrow(part)), 4000L)
+            add(role, 'points', i, flat(locate(p, part$x[rows], part$y[rows])))
+         }
+         else if (role %in% c('bars', 'boxes'))
+         {
+            # (left, top, right, bottom); a box spans its whiskers
+            corners <- cbind(locate(p, part$xmin, part$ymax), locate(p, part$xmax, part$ymin))
+            corners <- corners[apply(is.finite(corners), 1L, all), , drop = FALSE]
+            add(role, 'rects', i, flat(corners))
+         }
+         else
+         {
+            for (g in split(part, part$group))
+            {
+               g <- g[is.finite(g$x) & is.finite(g$y), , drop = FALSE]
+               if (nrow(g) < 2L) next
+               rows <- thin(seq_len(nrow(g)), 1000L)
+               if (role == 'density')
+               {
+                  base <- if (is.null(g$ymin)) rep(0, nrow(g)) else g$ymin
+                  outline <- rbind(locate(p, g$x[rows], g$y[rows]),
+                                   locate(p, rev(g$x[rows]), rev(base[rows])))
+                  add(role, 'polygon', i, flat(outline))
+               }
+               else
+               {
+                  add(role, 'path', i, flat(locate(p, g$x[rows], g$y[rows])))
+                  if (role == 'fit' && !is.null(g$ymin) && all(is.finite(c(g$ymin, g$ymax))))
+                     add(role, 'polygon', i, flat(rbind(locate(p, g$x[rows], g$ymin[rows]),
+                                                        locate(p, rev(g$x[rows]), rev(g$ymax[rows])))))
+               }
+            }
+         }
+      }
+   }
+   grDevices::dev.off(device)
+   image <- if (vector) paste(readLines(file, warn = FALSE, encoding = 'UTF-8'), collapse = '\n')
+            else .rs.rBase64Encode(readBin(file, 'raw', file.size(file)))
+   list(image = I(image), format = I(if (vector) 'svg' else 'png'),
+        width = I(round(width * 96)), height = I(round(height * 96)),
+        regions = regions, elements = elements)
+})
+
+#' Evaluate a plot expression on a private copy of the binding: print it to
+#' the Plots pane ("preview") and render the interactive preview ("preview"
+#' and "render"). Warnings are collected once each instead of printed.
+.rs.addFunction('superrstudioRender', function(operation, expression, dataset, data)
+{
+   warnings <- character()
+   interactive <- NULL
+   if (operation %in% c('preview', 'render'))
+   {
+      withCallingHandlers({
+         # Resolve exactly the current object in a private evaluation frame.
+         # The user's objects and search path are not assigned or attached to.
+         env <- new.env(parent = baseenv())
+         assign(dataset, data, envir = env)
+         plot <- eval(expression, envir = env)
+         if (operation == 'preview') print(plot)
+         interactive <- .rs.superrstudioInteractive(plot)
+      }, warning = function(w) {
+         warnings <<- c(warnings, conditionMessage(w))
+         invokeRestart('muffleWarning')
+      })
+   }
+   list(warnings = unique(warnings), interactive = interactive)
 })
 
 #' Histogram layers: explicit bins (or bin width) so the binning is never an
@@ -421,7 +621,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       if (identical(revision, state$revision)) state$snapshot <- NULL
       return(list(released = I(TRUE)))
    }
-   if (!operation %in% c('inspect', 'code', 'preview')) fail('Unsupported operation.')
+   if (!operation %in% c('inspect', 'code', 'preview', 'render')) fail('Unsupported operation.')
    if (!dataset %in% available) fail('Dataset no longer exists or is not a data frame. Refresh the selection.')
    data <- get(dataset, envir = .GlobalEnv, inherits = FALSE)
    if (!tableFrame(data))
@@ -513,25 +713,12 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       .rs.superrstudioFitSummary(data, x, y, options$fit, fitGroups, options$fit_span)
    modelCode <- if (options$fit == 'lm') .rs.superrstudioFitCode(dataset, x, y, fitGroups) else ''
 
-   warnings <- character()
-   if (operation == 'preview')
-   {
-      withCallingHandlers({
-         # Resolve exactly the current object in a private evaluation frame.
-         # The user's objects and search path are not assigned or attached to.
-         env <- new.env(parent = baseenv())
-         assign(dataset, data, envir = env)
-         print(eval(expression, envir = env))
-      }, warning = function(w) {
-         warnings <<- c(warnings, conditionMessage(w))
-         invokeRestart('muffleWarning')
-      })
-   }
+   rendered <- .rs.superrstudioRender(operation, expression, dataset, data)
    # The revision is a session-scoped staleness token, not part of the
    # reproducible specification: the same selection yields the same record.
    list(code = I(paste0(code, '\n')), model_code = I(modelCode),
         fit_summary = if (is.null(fitSummary)) list() else fitSummary,
-        warnings = unname(warnings),
+        warnings = rendered$warnings, interactive = rendered$interactive,
         spec = list(schema_version = I(3L), kind = I('scatter'), dataset = I(dataset),
                     x = I(x), y = I(y), colour_by = I(colourBy), group_by = I(groupBy),
                     layers = lapply(options[.rs.superrstudioKindOptions('scatter')], I),
@@ -593,21 +780,10 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          list(group = I(name), n = I(length(v)), bandwidth = I(stats::bw.nrd0(v) * options$adjust))
       })
    }
-   warnings <- character()
-   if (operation == 'preview')
-   {
-      withCallingHandlers({
-         env <- new.env(parent = baseenv())
-         assign(dataset, data, envir = env)
-         print(eval(expression, envir = env))
-      }, warning = function(w) {
-         warnings <<- c(warnings, conditionMessage(w))
-         invokeRestart('muffleWarning')
-      })
-   }
+   rendered <- .rs.superrstudioRender(operation, expression, dataset, data)
    list(code = I(paste0(code, '\n')), model_code = I(''),
         fit_summary = list(), summary = summary,
-        warnings = unname(warnings),
+        warnings = rendered$warnings, interactive = rendered$interactive,
         spec = list(schema_version = I(3L), kind = I(kind), dataset = I(dataset),
                     x = I(x), y = I(y), fill_by = I(fill_by),
                     layers = lapply(options[.rs.superrstudioKindOptions(kind)], I),

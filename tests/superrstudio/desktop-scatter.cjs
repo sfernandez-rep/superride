@@ -79,6 +79,25 @@ async function selectDataset(page, name)
    await waitStatus(page, /Select columns|no supported numeric/);
 }
 
+async function waitCode(page, pattern)
+{
+   await page.waitForFunction(source => new RegExp(source).test(document.getElementById('superrstudio_code')?.value || ''),
+                              pattern.source, {timeout: 60000});
+   return page.locator('#superrstudio_code').inputValue();
+}
+
+// Element positions as the session computes them for the same code
+// (fractions of the preview image), read back from the console.
+async function plotMap(page, code, expression, marker)
+{
+   await run(page, `srs_map <- .rs.superrstudioInteractive(eval(parse(text = ${JSON.stringify(code)}))); ` +
+                   `cat('${marker}', ${expression}, '\\n')`);
+   const text = await page.locator('#rstudio_workbench_panel_console').innerText();
+   const match = [...text.matchAll(new RegExp(marker + ' ([-0-9. e]+)', 'g'))].pop();
+   if (!match) throw new Error('no element map in the console:\n' + text.slice(-2000));
+   return match[1].trim().split(/\s+/).map(Number);
+}
+
 async function closeDialog(page)
 {
    await page.getByRole('dialog').getByRole('button', {name: 'Close'}).click();
@@ -456,8 +475,105 @@ async function closeDialog(page)
          `stopifnot(length(unique(srs_built$data[[1]]$colour)) == 2L, identical(fish, fish_original))`,
          'COLOUR_MAPPING_REPRODUCES');
 
+      // Interactive editing on the preview itself: right-click a point series,
+      // change its colour and size; undo/redo; axis title; line layer;
+      // keyboard access. Live re-renders never add plots to the Plots pane.
+      dialog = await openDialog(page);
+      await selectDataset(page, 'growth');
+      await page.selectOption('#superrstudio_x', 'age');
+      await page.selectOption('#superrstudio_y', 'size');
+      const preview = page.locator('#superrstudio_interactive img');
+      const previewSrc = () => preview.getAttribute('src');
+      const freshPreview = () => page.waitForFunction(() => {
+         const image = document.querySelector('#superrstudio_interactive img');
+         return image && image.offsetParent !== null && image.src.startsWith('data:image/svg+xml') &&
+                image.style.opacity !== '0.5';
+      }, null, {timeout: 60000});
+      await freshPreview();
+      const baseCode = await waitCode(page, /ggplot2::geom_point\(\)/);
+      const plotsBefore = await plotImage();
+      const map = await plotMap(page, baseCode,
+         "Filter(function(e) e$role == 'points', srs_map$elements)[[1]]$coords[1:2], " +
+         "Filter(function(r) r$role == 'x_label', srs_map$regions)[[1]]$box", 'SRS_POINTS_MAP');
+      let box = await preview.boundingBox();
+      const at = (fx, fy) => [box.x + fx * box.width, box.y + fy * box.height];
+      const popup = page.locator('#superrstudio_element_popup');
+      let srcBefore = await previewSrc();
+      await page.mouse.click(...at(map[0], map[1]), {button: 'right'});
+      await popup.waitFor({state: 'visible'});
+      if (!(await popup.innerText()).startsWith('Points')) throw new Error('popup: ' + await popup.innerText());
+      await shot(page, '5a-point-popup');
+      await page.selectOption('#superrstudio_popup_colour', '#D55E00');
+      await waitCode(page, /ggplot2::geom_point\(colour = "#D55E00"\)/);
+      await page.selectOption('#superrstudio_popup_size', '4');
+      const pointCode = await waitCode(page, /ggplot2::geom_point\(colour = "#D55E00", size = 4\)/);
+      await freshPreview();
+      if (await previewSrc() === srcBefore) throw new Error('preview not re-rendered after the edit');
+      if (await page.inputValue('#superrstudio_colour') !== '#D55E00' || await page.inputValue('#superrstudio_size') !== '4')
+         throw new Error('editor form not synchronized with the popup');
+      await shot(page, '5b-point-edited');
+      await page.locator('#superrstudio_popup_size').press('Escape');
+      await popup.waitFor({state: 'detached'});
+      log('PASS right-click on points: colour and size edited in place; form, code and preview updated');
+
+      await page.locator('#superrstudio_undo').click();
+      await waitCode(page, /ggplot2::geom_point\(colour = "#D55E00"\) \+|ggplot2::geom_point\(colour = "#D55E00"\)\n/);
+      if (!(await page.locator('#superrstudio_redo').isEnabled())) throw new Error('redo disabled after undo');
+      await page.locator('#superrstudio_redo').click();
+      await waitCode(page, /ggplot2::geom_point\(colour = "#D55E00", size = 4\)/);
+      log('PASS undo and redo of interactive edits');
+
+      await page.mouse.click(...at((map[2] + map[4]) / 2, (map[3] + map[5]) / 2), {button: 'right'});
+      await popup.waitFor({state: 'visible'});
+      if (!(await popup.innerText()).startsWith('X axis title')) throw new Error('axis popup: ' + await popup.innerText());
+      await page.fill('#superrstudio_popup_x_label', 'Age (years)');
+      await page.locator('#superrstudio_popup_x_label').press('Enter');
+      await waitCode(page, /ggplot2::labs\(x = "Age \(years\)"\)/);
+      if (await page.inputValue('#superrstudio_xlabel') !== 'Age (years)') throw new Error('x label not synchronized');
+      await page.locator('#superrstudio_popup_x_label').press('Escape');
+      await popup.waitFor({state: 'detached'});
+      log('PASS right-click on the X axis title edits it');
+
+      await page.selectOption('#superrstudio_geometry', 'lines_points');
+      const linesCode = await waitCode(page, /ggplot2::geom_line\(\)/);
+      await freshPreview();
+      const segment = await plotMap(page, linesCode,
+         "Filter(function(e) e$role == 'lines', srs_map$elements)[[1]]$coords[1:4]", 'SRS_LINES_MAP');
+      box = await preview.boundingBox();
+      await page.mouse.click(...at((segment[0] + segment[2]) / 2, (segment[1] + segment[3]) / 2), {button: 'right'});
+      await popup.waitFor({state: 'visible'});
+      if (!(await popup.innerText()).startsWith('Connected lines')) throw new Error('line popup: ' + await popup.innerText());
+      await page.selectOption('#superrstudio_popup_line_type', 'dotted');
+      const lineCode = await waitCode(page, /ggplot2::geom_line\(linetype = "dotted"\)/);
+      await page.locator('#superrstudio_popup_line_type').press('Escape');
+      await popup.waitFor({state: 'detached'});
+      log('PASS right-click on a line layer edits its line type');
+
+      // keyboard: arrow keys select elements, Enter opens the properties
+      await page.locator('#superrstudio_interactive').focus();
+      await page.keyboard.press('ArrowRight');
+      await waitStatus(page, /^Selected: /);
+      await page.keyboard.press('Enter');
+      await popup.waitFor({state: 'visible'});
+      await page.keyboard.press('Escape');
+      await popup.waitFor({state: 'detached'});
+      log('PASS keyboard selection and properties (arrow keys, Enter, Escape)');
+      if (await plotImage() !== plotsBefore) throw new Error('live re-rendering added a plot to the Plots pane');
+      await freshPreview();
+      await shot(page, '5c-interactive-final');
+      await closeDialog(page);
+      fs.writeFileSync(path.join(evidence, 'generated-interactive.R'), lineCode);
+      await check(page,
+         `srs_plot <- eval(parse(text = ${JSON.stringify(lineCode)})); srs_point <- srs_plot$layers[[2]]$aes_params; ` +
+         `stopifnot(identical(srs_point$colour, '#D55E00'), identical(srs_point$size, 4), ` +
+         `identical(srs_plot$layers[[1]]$aes_params$linetype, 'dotted'), identical(srs_plot$labels$x, 'Age (years)'), ` +
+         `identical(growth, growth_original))`,
+         'INTERACTIVE_EDITS_REPRODUCE');
+
       // Escape closes the editor (handled only for its own content).
       dialog = await openDialog(page);
+      // (a control disabled while a request runs cannot hold the focus)
+      await page.waitForFunction(() => !document.getElementById('superrstudio_dataset').disabled);
       await page.locator('#superrstudio_dataset').press('Escape');
       await page.getByRole('dialog').waitFor({state: 'detached'});
       log('PASS Escape closes the editor');

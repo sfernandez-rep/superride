@@ -121,6 +121,39 @@ types, text <= 200 characters, colour name or `#RRGGBB`, size 0.5-10, opacity
 joins their deparsed forms, and the evaluated expression is the same
 left-associated sum.
 
+## Interactive preview and contextual editing (Milestone A)
+
+The editor shows R's own rendering of the plot beside the settings and keeps
+it up to date as settings change (`render` operation: interactive preview
+only; *Preview in Plots* still prints to the Plots pane). Click a plot element
+to select it, right-click it (or press Enter, Shift+F10 or the context-menu
+key on the focused preview; arrow keys move the selection) to open its
+properties: points (colour, size, opacity), connected lines (colour, width,
+type, order), the fitted curve (method, colour, band, level, span), bars,
+boxes and density curves (fill, outline, opacity and their statistics
+settings), the title, axis titles and axes, the legend (position) and the
+panel (theme). Popup controls mirror the editor's own settings, so every
+edit goes through the same validated specification, undo/redo history and
+deterministic code generation; the browser's raster context menu is
+suppressed over the plot.
+
+How elements are identified (no SVG drawing-order indexes, no pixel reading):
+`.rs.superrstudioInteractive` draws the same gtable that `print()` draws on
+R's `svg()` device (a double-resolution PNG when layers hold more than 5,000
+rows), then measures the named gtable layout cells (`title`, `xlab-b`,
+`ylab-l`, `axis-*`, `guide-box-*`, `strip-*`, `panel*`) with
+`grid::deviceLoc()` and maps each layer's `ggplot_build()` data through its
+panel's `x.range`/`y.range` (panels matched to `layout$ROW/COL` by cell
+position rank, so facets work). Layer roles come from the geom class
+(`GeomPoint`, `GeomLine`/`GeomPath`, `GeomSmooth`, `GeomBar`/`GeomRect`,
+`GeomBoxplot`, `GeomDensity`). The session's current graphics device is
+restored. The image is shown through `<img>` (SVG in an image never runs
+scripts). Legend position is a new appearance setting (`legend_position`,
+emitted after the complete theme).
+
+![Point series edited by right-click](visual-interactive-points.png)
+![Line layer and axis title edited in place](visual-interactive-lines.png)
+
 ## Design
 
 | Layer | File | Notes |
@@ -138,6 +171,8 @@ left-associated sum.
 | R contract, R 3.6.3 (no ggplot2) | same with R 3.6.3 | PASS (missing-package path); rendering SKIP |
 | Upstream R-session suite | `tools\superrstudio\test-session.cmd` (with and without `experimental`) | 654 passed of 655 (1 skipped), as baseline |
 | Live desktop, ggplot2 | `tools\superrstudio\test-gui-scatter.ps1` | PASS: histogram (bins, fill column, summary), boxplot (group, overlay, medians equal `quantile(type = 7)`, middles equal `median()`), lines + points with explicit order hint, lm fit with 90 % band (dialog R-squared equals `summary(lm())`, band equals `predict(..., interval = "confidence")`), LOESS summary, discovery, no-numeric frame, numeric columns, Plots pane shows new plot, dataset unchanged, generated code reproduces plot data, appearance edits + undo + reset, styled code reproduces title/axis/colour/theme, colour-by-column (2 viridis colours), export identical, no client exceptions |
+| Live desktop, interactive editing | same (`ggplot2`) | PASS: right-click on a point series (position from the session's element map) opens *Points*; colour and size edits update the form, code and preview; undo/redo; right-click on the X axis title edits it; right-click on a line segment edits its line type; keyboard selection (arrows, Enter, Escape); live re-rendering adds nothing to the Plots pane; the final code reproduces colour, size, line type and axis title in R |
+| R contract, interactive map | `visual-scatter.R` | PASS: SVG and PNG variants, regions present, legend moved below the panel, point positions equal ggplot2's documented 5 % expansion arithmetic, fit paths, all plot kinds, device restored |
 | Live desktop, no ggplot2 | same (`no-ggplot2`, empty library) | PASS: clean message in dialog, console unaffected, no device opened |
 | Live desktop, disabled | same (`disabled`) | PASS: button hidden; ordinary IDE |
 
@@ -160,7 +195,10 @@ left-associated sum.
 - Only global-environment objects; `sf` and other data.frame subclasses are
   excluded. An in-place modification of a plain data frame by C code (for
   example `data.table::set()` on a data.frame) is not detected.
-- The editor is a floating window, not yet a dockable workbench pane;
-  contextual (right-click) editing of plot elements is not implemented yet.
+- The editor is a floating window, not yet a dockable workbench pane.
+- Contextual editing works per layer or element (all points of a layer), not
+  per individual observation; editing a single observation would change data
+  and is deliberately not offered. Hit targets for PNG previews come from the
+  same map, but only the first 4,000 points per panel are hit-tested.
 - Text appearance fields commit on blur/Enter (GWT value-change semantics);
   undo history is per dialog and not persisted.

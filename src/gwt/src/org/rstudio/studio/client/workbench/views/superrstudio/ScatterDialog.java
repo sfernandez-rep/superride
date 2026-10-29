@@ -19,10 +19,12 @@ import com.google.gwt.json.client.JSONObject;
 import com.google.gwt.json.client.JSONParser;
 import com.google.gwt.json.client.JSONString;
 import com.google.gwt.json.client.JSONValue;
+import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.ui.*;
 import org.rstudio.core.client.ElementIds;
 import org.rstudio.core.client.theme.res.ThemeStyles;
 import org.rstudio.core.client.widget.FormLabel;
+import org.rstudio.core.client.widget.MiniPopupPanel;
 import org.rstudio.core.client.widget.OperationWithInput;
 import org.rstudio.core.client.widget.ThemedButton;
 import org.rstudio.studio.client.RStudioGinjector;
@@ -126,6 +128,11 @@ public class ScatterDialog extends DialogBox
       refresh_ = new ThemedButton(messages_.refresh(), e -> refresh());
       close_ = new ThemedButton(messages_.close(), e -> closeDialog());
       undo_ = new ThemedButton(messages_.undo(), e -> undo());
+      redo_ = new ThemedButton(messages_.redo(), e -> redo());
+      editSelected_ = new ThemedButton(messages_.editSelected(), e -> {
+         int[] position = plot_.selectedPagePosition();
+         editElement(plot_.selectedRole(), position[0], position[1]);
+      });
       reset_ = new ThemedButton(messages_.reset(), e -> reset());
       load_ = new ThemedButton(messages_.loadSpec(), e -> loadFromScript());
       addDomHandler(e -> {
@@ -142,12 +149,12 @@ public class ScatterDialog extends DialogBox
       option(kind_, messages_.kindBar(), KIND_BAR);
       option(kind_, messages_.kindDensity(), KIND_DENSITY);
       // repopulated lists need their enabled state recomputed (busy(false))
-      kind_.addChangeHandler(e -> { populateColumns(); busy(false); });
+      kind_.addChangeHandler(e -> { populateColumns(); busy(false); scheduleRender(); });
       datasets_.addChangeHandler(e -> inspect());
-      x_.addChangeHandler(e -> invalidate());
-      y_.addChangeHandler(e -> invalidate());
-      colourBy_.addChangeHandler(e -> layoutChanged());
-      groupBy_.addChangeHandler(e -> invalidate());
+      x_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
+      y_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
+      colourBy_.addChangeHandler(e -> { layoutChanged(); scheduleRender(); });
+      groupBy_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
 
       option(geometry_, messages_.geometryPoints(), "points");
       option(geometry_, messages_.geometryLines(), "lines");
@@ -187,6 +194,11 @@ public class ScatterDialog extends DialogBox
       option(theme_, messages_.themeMinimal(), "minimal");
       option(theme_, messages_.themeClassic(), "classic");
       option(theme_, messages_.themeLight(), "light");
+      option(legendPosition_, messages_.legendRight(), "right");
+      option(legendPosition_, messages_.legendBottom(), "bottom");
+      option(legendPosition_, messages_.legendTop(), "top");
+      option(legendPosition_, messages_.legendLeft(), "left");
+      option(legendPosition_, messages_.legendNone(), "none");
       fitSe_.setText(messages_.fitSe());
       showOutliers_.setText(messages_.showOutliers());
       showPoints_.setText(messages_.showPoints());
@@ -215,6 +227,7 @@ public class ScatterDialog extends DialogBox
       settings_.add(new Setting("line_width", lineWidth_, TYPE_NUMBER, "0.5"));
       settings_.add(new Setting("line_type", lineType_, TYPE_STRING, "solid"));
       settings_.add(new Setting("fit_colour", fitColour_, TYPE_STRING, ""));
+      settings_.add(new Setting("legend_position", legendPosition_, TYPE_STRING, "right"));
       defaults_ = new String[settings_.size()];
       for (int i = 0; i < defaults_.length; i++)
          defaults_[i] = settings_.get(i).defaultValue;
@@ -245,7 +258,7 @@ public class ScatterDialog extends DialogBox
    {
       VerticalPanel panel = new VerticalPanel();
       panel.setSpacing(4);
-      panel.setWidth("720px");
+      panel.setWidth("560px");
       panel.add(new Label(messages_.help()));
       status_.getElement().setId("superrstudio_status");
       status_.getElement().setAttribute("role", "status");
@@ -276,10 +289,10 @@ public class ScatterDialog extends DialogBox
       row(layers, 10, messages_.barPosition(), barPosition_, "superrstudio_bar_position");
       row(layers, 11, messages_.adjust(), adjust_, "superrstudio_adjust");
       orderHint_.getElement().setId("superrstudio_order_hint");
-      orderHint_.setWidth("290px");
+      orderHint_.setWidth("260px");
       orderHint_.getElement().getStyle().setProperty("fontSize", "90%");
 
-      Grid look = section(messages_.appearanceHeading(), 12);
+      Grid look = section(messages_.appearanceHeading(), 13);
       row(look, 0, messages_.plotTitle(), title_, "superrstudio_title");
       row(look, 1, messages_.xLabel(), xLabel_, "superrstudio_xlabel");
       row(look, 2, messages_.yLabel(), yLabel_, "superrstudio_ylabel");
@@ -292,13 +305,16 @@ public class ScatterDialog extends DialogBox
       row(look, 9, messages_.lineType(), lineType_, "superrstudio_line_type");
       row(look, 10, messages_.fitColour(), fitColour_, "superrstudio_fit_colour");
       row(look, 11, messages_.theme(), theme_, "superrstudio_theme");
+      row(look, 12, messages_.legendPosition(), legendPosition_, "superrstudio_legend_position");
 
       undo_.getElement().setId("superrstudio_undo");
+      redo_.getElement().setId("superrstudio_redo");
       reset_.getElement().setId("superrstudio_reset");
       load_.getElement().setId("superrstudio_load");
       HorizontalPanel history = new HorizontalPanel();
       history.setSpacing(2);
       history.add(undo_);
+      history.add(redo_);
       history.add(reset_);
       history.add(load_);
 
@@ -320,7 +336,7 @@ public class ScatterDialog extends DialogBox
 
       code_.setReadOnly(true);
       code_.setVisibleLines(6);
-      code_.setWidth("700px");
+      code_.setWidth("550px");
       code_.getElement().setId("superrstudio_code");
       panel.add(new FormLabel(messages_.codeLabel(), code_));
       panel.add(code_);
@@ -328,7 +344,7 @@ public class ScatterDialog extends DialogBox
       model_.getElement().setAttribute("role", "status");
       model_.getElement().setAttribute("aria-live", "polite");
       model_.getElement().getStyle().setProperty("whiteSpace", "pre-line");
-      model_.setWidth("700px");
+      model_.setWidth("550px");
       panel.add(model_);
 
       HorizontalPanel buttons = new HorizontalPanel();
@@ -346,7 +362,273 @@ public class ScatterDialog extends DialogBox
       panel.add(buttons);
       layoutChanged();
       updateUndo();
-      return panel;
+
+      // the interactive preview beside the settings
+      VerticalPanel preview = new VerticalPanel();
+      preview.setSpacing(4);
+      preview.add(heading(messages_.interactiveHeading()));
+      Label help = new Label(messages_.interactiveHelp());
+      help.setWidth("480px");
+      help.getElement().getStyle().setProperty("fontSize", "90%");
+      preview.add(help);
+      plot_.getElement().setAttribute("aria-label", messages_.interactiveHeading());
+      preview.add(plot_);
+      editSelected_.getElement().setId("superrstudio_edit_selected");
+      editSelected_.setEnabled(false);
+      preview.add(editSelected_);
+      HorizontalPanel main = new HorizontalPanel();
+      // top-aligned: the preview must not move when the settings column grows
+      main.setVerticalAlignment(HasVerticalAlignment.ALIGN_TOP);
+      main.add(panel);
+      main.add(preview);
+      return main;
+   }
+
+   // Interactive preview -----------------------------------------------------
+
+   private String elementName(String role)
+   {
+      switch (role)
+      {
+         case "points": return messages_.elementPoints();
+         case "lines": return messages_.elementLines();
+         case "fit": return messages_.elementFit();
+         case "bars": return messages_.elementBars();
+         case "boxes": return messages_.elementBoxes();
+         case "density": return messages_.elementDensity();
+         case "title": return messages_.elementTitle();
+         case "x_label": return messages_.elementXLabel();
+         case "x_axis": return messages_.elementXAxis();
+         case "y_label": return messages_.elementYLabel();
+         case "y_axis": return messages_.elementYAxis();
+         case "legend": return messages_.elementLegend();
+         case "strip": return messages_.elementStrip();
+         default: return messages_.elementPanel();
+      }
+   }
+
+   // The specification settings that a plot element exposes.
+   private static String[] elementSettings(String role)
+   {
+      switch (role)
+      {
+         case "points": return new String[] {"colour", "size", "alpha"};
+         case "lines": return new String[] {"line_colour", "line_width", "line_type", "line_order"};
+         case "fit": return new String[] {"fit", "fit_colour", "fit_se", "fit_level", "fit_span"};
+         case "bars": return new String[] {"fill", "line_colour", "alpha", "bins", "bin_width", "bar_position"};
+         case "boxes": return new String[] {"fill", "line_colour", "alpha", "show_outliers", "show_points"};
+         case "density": return new String[] {"fill", "line_colour", "alpha", "adjust"};
+         case "title": return new String[] {"title"};
+         case "x_label":
+         case "x_axis": return new String[] {"x_label"};
+         case "y_label":
+         case "y_axis": return new String[] {"y_label"};
+         case "legend": return new String[] {"legend_position"};
+         default: return new String[] {"theme"};
+      }
+   }
+
+   private Setting setting(String key)
+   {
+      for (Setting setting : settings_)
+         if (setting.key.equals(key))
+            return setting;
+      return null;
+   }
+
+   private boolean rowVisible(Widget control)
+   {
+      Object[] location = rows_.get(control);
+      return location == null ||
+         ((Grid) location[0]).getRowFormatter().isVisible((Integer) location[1]);
+   }
+
+   // A property popup for one element. Its controls mirror the editor's own
+   // settings: a change goes through the same undoable settings table and
+   // re-renders the preview, so the plot, the form and the code stay in step.
+   private void editElement(String role, int pageX, int pageY)
+   {
+      if (role == null || role.isEmpty())
+         return;
+      if (popup_ != null)
+         popup_.hide();
+      MiniPopupPanel popup = new MiniPopupPanel(true, false);
+      popup_ = popup;
+      popup.getElement().setId("superrstudio_element_popup");
+      Roles.getDialogRole().set(popup.getElement());
+      VerticalPanel content = new VerticalPanel();
+      content.setSpacing(4);
+      Label title = heading(elementName(role));
+      content.add(title);
+      Grid grid = new Grid(0, 2);
+      grid.setCellSpacing(2);
+      List<Runnable> refreshers = new ArrayList<>();
+      Widget first = null;
+      boolean disabled = false;
+      for (String key : elementSettings(role))
+      {
+         Setting setting = setting(key);
+         if (setting == null || !rowVisible(setting.widget))
+            continue;
+         Widget mirror = mirror(setting, refreshers);
+         mirror.getElement().setId("superrstudio_popup_" + key);
+         int row = grid.insertRow(grid.getRowCount());
+         String text = setting.widget instanceof CheckBox ? "" : labels_.get(setting.widget);
+         if (text != null && !text.isEmpty())
+         {
+            FormLabel label = new FormLabel(text, mirror);
+            grid.setWidget(row, 0, label);
+         }
+         grid.setWidget(row, 1, mirror);
+         disabled |= !((FocusWidget) setting.widget).isEnabled();
+         if (first == null)
+            first = mirror;
+      }
+      content.add(grid);
+      if (disabled)
+      {
+         Label note = new Label(messages_.someDisabled());
+         note.setWidth("260px");
+         note.getElement().getStyle().setProperty("fontSize", "90%");
+         content.add(note);
+      }
+      popupRefreshers_ = refreshers;
+      content.addDomHandler(e -> {
+         if (e.getNativeKeyCode() == KeyCodes.KEY_ESCAPE)
+         {
+            e.preventDefault();
+            e.stopPropagation();
+            popup.hide();
+            plot_.getElement().focus();
+         }
+      }, KeyDownEvent.getType());
+      popup.setWidget(content);
+      popup.addCloseHandler(e -> {
+         if (popup_ == popup)
+         {
+            popup_ = null;
+            popupRefreshers_ = new ArrayList<>();
+         }
+      });
+      popup.getElement().getStyle().setZIndex(zIndexAbove(getElement()));
+      popup.setPopupPosition(pageX + 2, pageY + 2);
+      popup.show();
+      if (first instanceof FocusWidget)
+         ((FocusWidget) first).setFocus(true);
+   }
+
+   private Widget mirror(Setting setting, List<Runnable> refreshers)
+   {
+      Widget original = setting.widget;
+      if (original instanceof CheckBox)
+      {
+         CheckBox source = (CheckBox) original;
+         CheckBox copy = new CheckBox(source.getText());
+         refreshers.add(() -> {
+            copy.setValue(source.getValue());
+            copy.setEnabled(source.isEnabled());
+         });
+         copy.addValueChangeHandler(e -> edit(setting, String.valueOf(copy.getValue())));
+         refreshers.get(refreshers.size() - 1).run();
+         return copy;
+      }
+      if (original instanceof TextBox)
+      {
+         TextBox source = (TextBox) original;
+         TextBox copy = new TextBox();
+         copy.setWidth("180px");
+         refreshers.add(() -> {
+            copy.setValue(source.getValue());
+            copy.setEnabled(source.isEnabled());
+         });
+         copy.addValueChangeHandler(e -> edit(setting, copy.getValue()));
+         refreshers.get(refreshers.size() - 1).run();
+         return copy;
+      }
+      ListBox source = (ListBox) original;
+      ListBox copy = new ListBox();
+      copy.setWidth("180px");
+      for (int i = 0; i < source.getItemCount(); i++)
+         copy.addItem(source.getItemText(i), source.getValue(i));
+      refreshers.add(() -> {
+         copy.setSelectedIndex(source.getSelectedIndex());
+         copy.setEnabled(source.isEnabled());
+      });
+      copy.addChangeHandler(e -> edit(setting, copy.getSelectedValue()));
+      refreshers.get(refreshers.size() - 1).run();
+      return copy;
+   }
+
+   private void edit(Setting setting, String value)
+   {
+      setting.set(value);
+      settingsChanged();
+      refreshPopup();
+   }
+
+   private void refreshPopup()
+   {
+      for (Runnable refresher : popupRefreshers_)
+         refresher.run();
+   }
+
+   private static native int zIndexAbove(com.google.gwt.dom.client.Element element) /*-{
+      var z = parseInt($wnd.getComputedStyle(element).zIndex, 10);
+      return isNaN(z) ? 1000 : z + 1;
+   }-*/;
+
+   private void scheduleRender()
+   {
+      plot_.setStale();
+      renderTimer_.schedule(250);
+   }
+
+   // Re-renders the interactive preview only (no Plots pane entry).
+   private void render()
+   {
+      if (revision_.isEmpty() || !columnsChosen() || !isAttached())
+         return;
+      if (inFlight_)
+      {
+         renderTimer_.schedule(250);
+         return;
+      }
+      final int renderId = ++renderId_;
+      String kind = kind();
+      String y = KIND_SCATTER.equals(kind) || KIND_BOXPLOT.equals(kind) ? value(y_) : "";
+      server_.superrstudioData("render", value(datasets_), revision_, value(x_), y, settingsJson(),
+         new ServerRequestCallback<ScatterResult>() {
+            @Override public void onResponseReceived(ScatterResult result)
+            {
+               if (!isAttached() || renderId != renderId_) return;
+               showResult(result);
+               // live updates leave other messages alone, but replace their
+               // own earlier error and report warnings
+               if (renderError_ || !result.warnings().isEmpty())
+                  status_.setText(messages_.rendered() + (result.warnings().isEmpty() ? "" : "\n" + result.warnings()));
+               renderError_ = false;
+            }
+            @Override public void onError(ServerError error)
+            {
+               if (!isAttached() || renderId != renderId_) return;
+               renderError_ = true;
+               JSONValue info = error.getClientInfo();
+               status_.setText(info != null && info.isString() != null
+                  ? info.isString().stringValue()
+                  : error.getUserMessage());
+            }
+         });
+   }
+
+   private void showResult(ScatterResult result)
+   {
+      String code = result.provenance() + result.code() +
+         (result.modelCode().isEmpty() ? "" : "\n" + result.modelCode() + "\n");
+      code_.setText(code);
+      showModel(result);
+      if (result.interactive() != null)
+         plot_.setPlot(result.interactive());
+      refreshPopup();
    }
 
    private static void button(HorizontalPanel panel, ThemedButton button, String id)
@@ -376,13 +658,14 @@ public class ScatterDialog extends DialogBox
    private FormLabel row(Grid grid, int row, String text, Widget control, String id)
    {
       control.getElement().setId(id);
-      control.setWidth("180px");
+      control.setWidth("150px");
       FormLabel label = null;
       if (!text.isEmpty())
       {
          label = new FormLabel(text, control);
-         label.setWidth("150px");
+         label.setWidth("120px");
          grid.setWidget(row, 0, label);
+         labels_.put(control, text);
       }
       grid.setWidget(row, 1, control);
       rows_.put(control, new Object[] {grid, row});
@@ -467,6 +750,7 @@ public class ScatterDialog extends DialogBox
          addAll(colourBy_, discreteColumns_);
       }
       select(x_, x); select(y_, y); select(colourBy_, colourBy);
+      labels_.put(lineColour_, KIND_SCATTER.equals(kind) ? messages_.lineColour() : messages_.outlineColour());
       xRowLabel_.setText(KIND_SCATTER.equals(kind) ? messages_.xColumn()
          : KIND_BOXPLOT.equals(kind) ? messages_.groupOptional()
          : KIND_BAR.equals(kind) ? messages_.category() : messages_.variable());
@@ -565,6 +849,7 @@ public class ScatterDialog extends DialogBox
    {
       code_.setText("");
       model_.setText("");
+      plot_.setStale();
    }
 
    // Loading a specification ------------------------------------------------
@@ -703,16 +988,33 @@ public class ScatterDialog extends DialogBox
       if (Arrays.equals(next, current_))
          return;
       history_.add(current_);
+      future_.clear();
       current_ = next;
       layoutChanged();
       updateUndo();
+      scheduleRender();
    }
 
    private void undo()
    {
       if (history_.isEmpty())
          return;
+      future_.add(current_);
       current_ = history_.remove(history_.size() - 1);
+      restore();
+   }
+
+   private void redo()
+   {
+      if (future_.isEmpty())
+         return;
+      history_.add(current_);
+      current_ = future_.remove(future_.size() - 1);
+      restore();
+   }
+
+   private void restore()
+   {
       apply(current_);
       // a restored fixed colour cannot coexist with an active colour column;
       // layoutChanged() may adjust it, which must not be recorded as an edit
@@ -721,6 +1023,8 @@ public class ScatterDialog extends DialogBox
       restoring_ = false;
       current_ = read();
       updateUndo();
+      refreshPopup();
+      scheduleRender();
    }
 
    private void reset()
@@ -732,6 +1036,7 @@ public class ScatterDialog extends DialogBox
    private void updateUndo()
    {
       undo_.setEnabled(!history_.isEmpty());
+      redo_.setEnabled(!future_.isEmpty());
       reset_.setEnabled(!Arrays.equals(current_, defaults_));
    }
 
@@ -857,6 +1162,7 @@ public class ScatterDialog extends DialogBox
       numericColumns_ = discreteColumns_ = colourColumns_ = null;
       x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear();
       invalidate();
+      plot_.clear();
    }
    private void inspect()
    {
@@ -877,6 +1183,7 @@ public class ScatterDialog extends DialogBox
             pendingSpec_ = null;
             applySpec(spec);
          }
+         scheduleRender();
       });
    }
    private void generate(boolean export)
@@ -885,10 +1192,8 @@ public class ScatterDialog extends DialogBox
       String kind = kind();
       String y = KIND_SCATTER.equals(kind) || KIND_BOXPLOT.equals(kind) ? value(y_) : "";
       request(export ? "code" : "preview", value(datasets_), revision_, value(x_), y, result -> {
-         String code = result.provenance() + result.code() +
-            (result.modelCode().isEmpty() ? "" : "\n" + result.modelCode() + "\n");
-         code_.setText(code);
-         showModel(result);
+         showResult(result);
+         String code = code_.getText();
          status_.setText(messages_.plotted() + (result.warnings().isEmpty() ? "" : "\n" + result.warnings()));
          if (export)
          {
@@ -913,18 +1218,21 @@ public class ScatterDialog extends DialogBox
                         String y, OperationWithInput<ScatterResult> done)
    {
       busy(true);
+      inFlight_ = true;
       final int requestId = ++requestId_;
       server_.superrstudioData(operation, dataset, revision, x, y, settingsJson(),
          new ServerRequestCallback<ScatterResult>() {
             @Override public void onResponseReceived(ScatterResult result)
             {
                if (!isAttached() || requestId != requestId_) return;
+               inFlight_ = false;
                busy(false);
                done.execute(result);
             }
             @Override public void onError(ServerError error)
             {
                if (!isAttached() || requestId != requestId_) return;
+               inFlight_ = false;
                busy(false);
                JSONValue info = error.getClientInfo();
                status_.setText(info != null && info.isString() != null
@@ -937,6 +1245,11 @@ public class ScatterDialog extends DialogBox
    @Override protected void onUnload()
    {
       ++requestId_;
+      ++renderId_;
+      inFlight_ = false;
+      renderTimer_.cancel();
+      if (popup_ != null)
+         popup_.hide();
       if (!revision_.isEmpty())
          server_.superrstudioData("release", "", revision_, "", "", null,
             new ServerRequestCallback<ScatterResult>() {
@@ -973,7 +1286,36 @@ public class ScatterDialog extends DialogBox
    private final TextArea code_ = new TextArea();
    private final Label status_ = new Label(), model_ = new Label(), orderHint_ = new Label();
    private FormLabel xRowLabel_, yRowLabel_, colourByLabel_, lineColourLabel_;
-   private final ThemedButton preview_, export_, refresh_, close_, undo_, reset_, load_;
+   private final ThemedButton preview_, export_, refresh_, close_, undo_, redo_, reset_, load_,
+                              editSelected_;
+   private final ListBox legendPosition_ = new ListBox();
+   private final InteractivePreview plot_ = new InteractivePreview(new InteractivePreview.Listener()
+   {
+      @Override public void onSelect(String role)
+      {
+         editSelected_.setEnabled(!role.isEmpty());
+         if (!role.isEmpty())
+            status_.setText(messages_.selected(elementName(role)));
+      }
+
+      @Override public void onEdit(String role, int pageX, int pageY)
+      {
+         editElement(role, pageX, pageY);
+      }
+   });
+   private final Timer renderTimer_ = new Timer()
+   {
+      @Override public void run()
+      {
+         render();
+      }
+   };
+   private MiniPopupPanel popup_;
+   private List<Runnable> popupRefreshers_ = new ArrayList<>();
+   private final Map<Widget, String> labels_ = new HashMap<>();
+   private final List<String[]> future_ = new ArrayList<>();
+   private boolean inFlight_ = false, renderError_ = false;
+   private int renderId_ = 0;
    private JSONObject pendingSpec_;
    private final Map<Widget, Object[]> rows_ = new HashMap<>();
    private final List<Setting> settings_ = new ArrayList<>();

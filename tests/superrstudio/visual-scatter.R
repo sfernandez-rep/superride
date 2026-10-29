@@ -9,11 +9,16 @@ toolsEnv <- new.env(parent = globalenv())
    assign(paste0('.rs.', name), FN, envir = toolsEnv)
 }
 sys.source(file.path(root, 'src/cpp/session/modules/SessionSuperRStudio.R'), envir = toolsEnv)
+# the session's base64 encoder (Tools.R), used for PNG previews
+for (expr in parse(file.path(root, 'src/cpp/r/R/Tools.R')))
+   if (is.call(expr) && identical(expr[[1L]], as.name('.rs.addFunction')) &&
+       expr[[2L]] %in% c('rBase64EncodeMain', 'rBase64EncodeRest', 'rBase64Encode'))
+      eval(expr)
 data <- data.frame(x = c(1, 2, NA, 4), y = c(3, 5, 7, 9), group = letters[1:4])
 original <- data
 request <- function(op, name = 'data', rev = '', x = 'x', y = 'y', appearance = list())
    toolsEnv$.rs.superrstudioData(op, name, as.character(rev), x, y,
-      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes', 'tb', 'dt', 'myframe'), ls(globalenv())), appearance)
+      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes', 'tb', 'dt', 'myframe', 'inter'), ls(globalenv())), appearance)
 reject <- function(expr, pattern) {
    error <- tryCatch({force(expr); NULL}, error = identity)
    if (!inherits(error, 'error') || !grepl(pattern, conditionMessage(error)))
@@ -92,7 +97,7 @@ defaults <- look(list())
 stopifnot(identical(defaults, list(title = '', x_label = '', y_label = '', colour = '',
                                    size = 1.5, alpha = 1, theme = 'grey', line_colour = '',
                                    line_width = 0.5, line_type = 'solid', fit_colour = '',
-                                   fill = '')),
+                                   fill = '', legend_position = 'right')),
           identical(look(NULL), defaults),
           identical(look(list(size = 3L))$size, 3),
           identical(look(list(colour = '#0072B2'))$colour, '#0072B2'),
@@ -377,6 +382,53 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    stopifnot(length(perGroup$summary) == 2L, grepl('fill = .data[["g"]]', perGroup$code, fixed = TRUE))
    reject(request('code', 'ref', chosen$revision, 'g', '', list(kind = 'density')), 'density plot')
    cat('PASS: density (bandwidth vs bw.nrd0, curve vs stats::density, groups, validation)\n')
+
+   # Interactive preview: an SVG plus an element map located through the
+   # gtable layout and ggplot_build() data. Checked against ggplot2's
+   # documented 5% continuous expansion, independently of the mapping code.
+   inter <- data.frame(a = c(0, 10, 4), b = c(0, 20, 5), k = c('p', 'q', 'p'))
+   chosen <- request('inspect', 'inter')
+   grDevices::pdf(NULL)
+   device <- grDevices::dev.cur()
+   rendered <- request('render', 'inter', chosen$revision, 'a', 'b',
+                       list(fit = 'lm', title = 'Map', colour_by = 'k', legend_position = 'bottom'))
+   stopifnot(grDevices::dev.cur() == device)
+   grDevices::dev.off()
+   map <- rendered$interactive
+   stopifnot(map$format == 'svg', grepl('<svg', map$image, fixed = TRUE), map$width == 480, map$height == 360)
+   roles <- vapply(map$regions, function(r) as.character(r$role), '')
+   stopifnot(all(c('title', 'panel', 'x_axis', 'y_axis', 'x_label', 'y_label', 'legend') %in% roles))
+   region <- function(role) map$regions[[match(role, roles)]]$box
+   panel <- region('panel')
+   # the legend was moved below the panel; the title sits above it
+   stopifnot(region('legend')[2L] > panel[4L], region('title')[4L] <= panel[2L] + 1e-3)
+   points <- Filter(function(e) e$role == 'points', map$elements)
+   stopifnot(length(points) == 1L, length(points[[1L]]$coords) == 6L)
+   xy <- matrix(points[[1L]]$coords, ncol = 2L, byrow = TRUE)
+   expected <- function(value, low, high, box)
+      box[1L] + (value - low + 0.05 * (high - low)) / (1.1 * (high - low)) * (box[2L] - box[1L])
+   stopifnot(isTRUE(all.equal(xy[, 1L], expected(inter$a, 0, 10, panel[c(1L, 3L)]), tolerance = 1e-3)),
+             isTRUE(all.equal(xy[, 2L], expected(inter$b, 0, 20, panel[c(4L, 2L)]), tolerance = 1e-3)))
+   stopifnot(any(vapply(map$elements, function(e) e$role == 'fit' && e$shape == 'path', NA)))
+   reject(request('render', 'inter', chosen$revision, 'a', 'b', list(legend_position = 'middle')), 'Legend position')
+   legendCode <- request('code', 'inter', chosen$revision, 'a', 'b', list(colour_by = 'k', legend_position = 'top'))$code
+   stopifnot(grepl('ggplot2::theme(legend.position = "top")', legendCode, fixed = TRUE),
+             identical(eval(parse(text = legendCode), envir = globalenv())$theme$legend.position, 'top'))
+   stopifnot(is.null(request('code', 'inter', chosen$revision, 'a', 'b')$interactive))
+   for (kind in list(list(kind = 'histogram', x = 'a', role = 'bars'), list(kind = 'boxplot', x = 'k', role = 'boxes'),
+                     list(kind = 'bar', x = 'k', role = 'bars'), list(kind = 'density', x = 'a', role = 'density'))) {
+      y <- if (kind$kind == 'boxplot') 'b' else ''
+      shown <- request('render', 'inter', chosen$revision, kind$x, y, list(kind = kind$kind))$interactive
+      stopifnot(any(vapply(shown$elements, function(e) e$role == kind$role, NA)))
+   }
+   # many rows: a double-resolution PNG (valid signature) with the same element map
+   bitmap <- suppressWarnings(toolsEnv$.rs.superrstudioInteractive(eval(parse(text = rendered$code), envir = globalenv()),
+                                                 svg_rows = 2L))
+   png <- toolsEnv$.rs.rBase64Encode(as.raw(c(0x89, 0x50, 0x4E, 0x47)))
+   stopifnot(bitmap$format == 'png', startsWith(bitmap$image, substr(png, 1L, 5L)),
+             isTRUE(all.equal(bitmap$regions, map$regions, tolerance = 0.02)),
+             isTRUE(all.equal(bitmap$elements, map$elements, tolerance = 0.02)))
+   cat('PASS: interactive preview (SVG and PNG, element map vs expansion arithmetic, legend position, device restored, all kinds)\n')
 
    cat('PASS: ggplot2 generated-code equivalence, unusual names/injection, preview/warnings, source preservation, appearance, colour mapping\n')
 } else {
