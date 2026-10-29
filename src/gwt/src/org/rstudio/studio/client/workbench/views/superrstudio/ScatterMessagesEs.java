@@ -105,6 +105,9 @@ public class ScatterMessagesEs implements ScatterMessages
    @Override public String exportDpi() { return "Resoluci\u00f3n (PNG)"; }
    @Override public String exportPath() { return "Archivo"; }
    @Override public String exportBrowse() { return "Examinar\u2026"; }
+   @Override public String dateBreaks() { return "Intervalo de fechas"; }
+   @Override public String dateLabels() { return "Formato de fechas"; }
+   @Override public String timezone() { return "Zona horaria (vac\u00edo: la de la columna)"; }
    @Override public String exportImage() { return "Exportar imagen"; }
    @Override public String exportCaption() { return "Exportar imagen del gr\u00e1fico"; }
    @Override public String exportPng() { return "PNG (mapa de bits)"; }

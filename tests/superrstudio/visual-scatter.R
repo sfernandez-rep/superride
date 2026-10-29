@@ -18,7 +18,7 @@ data <- data.frame(x = c(1, 2, NA, 4), y = c(3, 5, 7, 9), group = letters[1:4])
 original <- data
 request <- function(op, name = 'data', rev = '', x = 'x', y = 'y', appearance = list())
    toolsEnv$.rs.superrstudioData(op, name, as.character(rev), x, y,
-      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes', 'tb', 'dt', 'myframe', 'inter', 'axdat'), ls(globalenv())), appearance)
+      intersect(c('data', 'odd name', 'bad', 'huge', 'series', 'ref', 'boxes', 'tb', 'dt', 'myframe', 'inter', 'axdat', 'monthly', 'hourly'), ls(globalenv())), appearance)
 reject <- function(expr, pattern) {
    error <- tryCatch({force(expr); NULL}, error = identity)
    if (!inherits(error, 'error') || !grepl(pattern, conditionMessage(error)))
@@ -156,7 +156,7 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    built <- ggplot2::ggplot_build(plot)
    stopifnot(identical(built$data[[1]]$x, original$x),
              identical(built$data[[1]]$y, original$y),
-             !exists('INJECTED', globalenv()), result$spec$schema_version == 4L,
+             !exists('INJECTED', globalenv()), result$spec$schema_version == 5L,
              identical(result$spec$x, I(evil)), is.null(result$spec$revision))
    pdf <- tempfile(fileext = '.pdf')
    grDevices::pdf(pdf)
@@ -482,6 +482,103 @@ if (requireNamespace('ggplot2', quietly = TRUE)) {
    reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(x_min = 'a')), 'numbers')
    reject(request('code', 'axdat', chosen$revision, 'u', 'w', list(facet_ncol = 1.5)), 'whole number')
    cat('PASS: axes and facets (log10 fits vs lm on log values, filter vs zoom, panel ranges, per-panel fits, formats, gridlines, log boxplot/density, validation)\n')
+
+   # Date and date-time X (time series): ggplot2's date scales, ISO text
+   # limits, chronological lines, fits on days / seconds since 1970-01-01.
+   monthly <- data.frame(day = as.Date('2020-01-15') + c(0, 31, 60, 91, 121, 152, 182, 213, NA),
+                         count = c(3, 5, 4, 8, 9, 12, 11, 15, 7), site = rep(c('a', 'b', 'c'), 3))
+   monthly <- monthly[c(3, 1, 2, 5, 4, 6, 8, 7, 9), ]   # rows out of date order
+   monthly_original <- monthly
+   chosen <- request('inspect', 'monthly')
+   stopifnot(identical(chosen$time_columns, 'day'), length(chosen$datetime_columns) == 0L,
+             !'day' %in% chosen$columns)
+   series <- request('code', 'monthly', chosen$revision, 'day', 'count',
+                     list(geometry = 'lines_points', fit = 'lm', x_date_breaks = '2 months', x_date_labels = '%b %Y'))
+   stopifnot(grepl('ggplot2::scale_x_date(date_breaks = "2 months", date_labels = "%b %Y")', series$code, fixed = TRUE),
+             grepl('ggplot2::geom_line()', series$code, fixed = TRUE), series$spec$schema_version == 5L)
+   b <- quiet(built(series))
+   lineX <- b$data[[1L]]$x
+   stopifnot(!is.unsorted(lineX[!is.na(lineX)]))   # lines join observations in date order
+   dated <- monthly[!is.na(monthly$day), ]
+   reference <- stats::lm(count ~ as.numeric(day), data = dated)
+   entry <- series$fit_summary[[1L]]
+   stopifnot(entry$n == 8L, isTRUE(all.equal(as.numeric(entry$slope), unname(stats::coef(reference)[2L]))),
+             grepl('day [days since 1970-01-01]', entry$equation, fixed = TRUE),
+             any(grepl('1 observation(s) have no date', series$notes, fixed = TRUE)))
+   smooth <- b$data[[3L]]
+   stopifnot(isTRUE(all.equal(smooth$y, unname(stats::predict(reference, data.frame(day = smooth$x))))))
+   model <- eval(parse(text = series$model_code), envir = globalenv())
+   stopifnot(isTRUE(all.equal(stats::coef(model)[2L, 1L], unname(stats::coef(reference)[2L]))),
+             grepl('days since 1970-01-01', series$model_code, fixed = TRUE))
+   # labels are ggplot2's own: the date format applied to the breaks (in R's locale)
+   xs <- b$layout$panel_params[[1L]]$x
+   breaks <- xs$breaks[!is.na(xs$breaks)]
+   stopifnot(length(breaks) > 1L, all(diff(breaks) >= 59),
+             identical(as.character(xs$get_labels()[!is.na(xs$breaks)]), format(as.Date(breaks), '%b %Y')))
+   # zoom keeps every observation; filter removes them before the fit
+   zoomed <- request('code', 'monthly', chosen$revision, 'day', 'count',
+                     list(fit = 'lm', x_min = '2020-03-01', x_max = '2020-07-01'))
+   limits <- as.numeric(as.Date(c('2020-03-01', '2020-07-01')))
+   stopifnot(grepl('ggplot2::coord_cartesian(xlim = as.Date(c("2020-03-01", "2020-07-01")))', zoomed$code, fixed = TRUE),
+             zoomed$fit_summary[[1L]]$n == 8L,
+             isTRUE(all.equal(quiet(built(zoomed))$layout$panel_params[[1L]]$x.range,
+                              limits + c(-1, 1) * 0.05 * diff(limits))))
+   filtered <- request('code', 'monthly', chosen$revision, 'day', 'count',
+                       list(fit = 'lm', x_min = '2020-03-01', limits_mode = 'filter'))
+   inside <- dated[dated$day >= as.Date('2020-03-01'), ]
+   insideFit <- stats::lm(count ~ as.numeric(day), data = inside)
+   stopifnot(grepl('ggplot2::scale_x_date(limits = as.Date(c("2020-03-01", NA)))', filtered$code, fixed = TRUE),
+             filtered$fit_summary[[1L]]$n == nrow(inside),
+             isTRUE(all.equal(as.numeric(filtered$fit_summary[[1L]]$slope), unname(stats::coef(insideFit)[2L]))),
+             any(grepl('remove 2 observation', filtered$notes)))
+   model <- eval(parse(text = filtered$model_code), envir = globalenv())
+   stopifnot(isTRUE(all.equal(stats::coef(model)[2L, 1L], unname(stats::coef(insideFit)[2L]))))
+   map <- request('render', 'monthly', chosen$revision, 'day', 'count', list(geometry = 'lines_points'))$interactive
+   stopifnot(all(c('points', 'lines') %in% vapply(map$elements, function(e) as.character(e$role), '')))
+   # date-times: display time zone, breaks and labels; limits read in that zone
+   hourly <- data.frame(time = as.POSIXct('2021-06-01 06:00', tz = 'UTC') + 3600 * c(0, 1, 2, 3, 4, 5),
+                        level = c(1, 2, 2, 3, 5, 4))
+   chosen <- request('inspect', 'hourly')
+   stopifnot(identical(chosen$datetime_columns, 'time'), identical(chosen$time_columns, 'time'))
+   timed <- request('code', 'hourly', chosen$revision, 'time', 'level',
+                    list(fit = 'lm', x_date_breaks = '2 hours', x_date_labels = '%H:%M',
+                         x_timezone = 'America/Montevideo', x_min = '2021-06-01 04:00'))
+   stopifnot(grepl('ggplot2::scale_x_datetime(date_breaks = "2 hours", date_labels = "%H:%M", timezone = "America/Montevideo")',
+                   timed$code, fixed = TRUE),
+             grepl('ggplot2::coord_cartesian(xlim = as.POSIXct(c("2021-06-01 04:00", NA), tz = "America/Montevideo"))',
+                   timed$code, fixed = TRUE))
+   tb <- quiet(built(timed))
+   xs <- tb$layout$panel_params[[1L]]$x
+   shown <- !is.na(xs$breaks)
+   low <- as.numeric(as.POSIXct('2021-06-01 07:00', tz = 'UTC'))   # 04:00 in Montevideo (UTC-3)
+   high <- max(as.numeric(hourly$time))
+   stopifnot(identical(as.character(xs$get_labels()[shown]),
+                       format(as.POSIXct(xs$breaks[shown], origin = '1970-01-01', tz = 'UTC'), '%H:%M',
+                              tz = 'America/Montevideo')),
+             isTRUE(all.equal(tb$layout$panel_params[[1L]]$x.range, c(low, high) + c(-1, 1) * 0.05 * (high - low))),
+             isTRUE(all.equal(as.numeric(timed$fit_summary[[1L]]$slope),
+                              unname(stats::coef(stats::lm(level ~ as.numeric(time), data = hourly))[2L]))),
+             grepl('[seconds since 1970-01-01 UTC]', timed$fit_summary[[1L]]$equation, fixed = TRUE))
+   # combinations that do not apply to dates are refused
+   axisReject <- function(settings, pattern, name = 'monthly', x = 'day', y = 'count')
+      reject(request('code', name, request('inspect', name)$revision, x, y, settings), pattern)
+   axisReject(list(x_scale = 'log10'), 'log scale does not apply')
+   axisReject(list(x_format = 'comma'), 'Number formats')
+   axisReject(list(x_min = '01/03/2020'), 'YYYY-MM-DD')
+   axisReject(list(x_min = '2020-02-30'), 'YYYY-MM-DD')
+   axisReject(list(x_min = '2020-06-01', x_max = '2020-03-01'), 'before its maximum')
+   axisReject(list(x_date_breaks = '2 fortnights'), 'Date breaks')
+   axisReject(list(x_date_breaks = '6 hours'), 'Date breaks')
+   axisReject(list(x_date_labels = '%H:%M'), 'Unsupported date label')
+   axisReject(list(x_timezone = 'UTC'), 'date-time columns only')
+   axisReject(list(kind = 'histogram'), 'apply to scatter and line plots', y = '')
+   axisReject(list(), 'ordinary numeric', x = 'count', y = 'day')
+   axisReject(list(x_timezone = 'Mars/Base'), 'Unknown time zone', 'hourly', 'time', 'level')
+   axisReject(list(x_min = '2021-06-01 25:00'), 'YYYY-MM-DD HH:MM', 'hourly', 'time', 'level')
+   axisReject(list(x_date_breaks = '1 month'), 'apply to a date', 'axdat', 'u', 'w')
+   stopifnot(identical(monthly, monthly_original))
+   chosen <- request('inspect', 'axdat')   # the selection the next sections use
+   cat('PASS: date and date-time X (scale_x_date/datetime, breaks, labels, time zone, zoom vs filter, chronological lines, fits per day/second, model code, validation)\n')
 
    # Export: the files themselves are checked (signatures, pixel/page sizes),
    # and the returned export script reproduces them.

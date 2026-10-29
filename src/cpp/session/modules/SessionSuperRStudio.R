@@ -647,8 +647,15 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #' limits remove observations first; the code states both explicitly.
 .rs.addFunction('superrstudioFitCode', function(dataset, x, y, groups = character(), axes = NULL)
 {
-   frame <- substitute(data.frame(x = DATA[[X]], y = DATA[[Y]]),
-                       list(DATA = as.name(dataset), X = x, Y = y))
+   time <- if (is.null(axes) || is.null(attr(axes, 'time'))) '' else attr(axes, 'time')
+   # dates enter the model as days (date-times as seconds) since 1970-01-01,
+   # the numbers ggplot2 fits on
+   xValue <- if (nzchar(time)) substitute(as.numeric(DATA[[X]]), list(DATA = as.name(dataset), X = x))
+      else substitute(DATA[[X]], list(DATA = as.name(dataset), X = x))
+   frame <- substitute(data.frame(x = XV, y = DATA[[Y]]),
+                       list(DATA = as.name(dataset), XV = xValue, Y = y))
+   timeNote <- if (time == 'date') '# x: days since 1970-01-01 (the slope is per day).'
+      else if (time == 'datetime') '# x: seconds since 1970-01-01 00:00 UTC (the slope is per second).'
    conditions <- list()
    formula <- quote(y ~ x)
    for (axis in c('x', 'y'))
@@ -659,6 +666,13 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       {
          low <- axes[[paste0(axis, '_min')]]
          high <- axes[[paste0(axis, '_max')]]
+         if (axis == 'x' && nzchar(time))
+         {
+            zone <- if (nzchar(axes$x_timezone)) axes$x_timezone else attr(axes, 'tz')
+            limit <- function(value) call('as.numeric', .rs.superrstudioTimeCall(value, time, zone))
+            if (!identical(low, '')) low <- limit(low)
+            if (!identical(high, '')) high <- limit(high)
+         }
          if (!identical(low, '')) conditions <- c(conditions, call('>=', variable, low))
          if (!identical(high, '')) conditions <- c(conditions, call('<=', variable, high))
       }
@@ -688,7 +702,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          }), list(FRAME = frame, FORMULA = formula))
       return(paste(c('# Linear model(s) behind the fitted line: exploratory; check linearity,',
                      '# independence, constant variance and residual normality before inference.',
-                     '# Fitted on the plotted scale and observations, as ggplot2 does.',
+                     '# Fitted on the plotted scale and observations, as ggplot2 does.', timeNote,
                      deparse(call, width.cutoff = 90L, backtick = TRUE)), collapse = '\n'))
    }
    call <- if (!length(groups))
@@ -701,7 +715,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
                  list(FRAME = frame, KEYS = keys))
    }
    paste(c('# Linear model(s) behind the fitted line: exploratory; check linearity,',
-           '# independence, constant variance and residual normality before inference.',
+           '# independence, constant variance and residual normality before inference.', timeNote,
            deparse(call, width.cutoff = 90L, backtick = TRUE)), collapse = '\n')
 })
 
@@ -710,17 +724,24 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
 #' Limits either zoom (coord_cartesian: every observation still enters the
 #' statistics) or filter (scale limits: observations outside are removed
 #' before statistics, as ggplot2 does). Log scales need positive limits.
-.rs.addFunction('superrstudioAxisOptions', function(axes = list(), kind = 'scatter')
+.rs.addFunction('superrstudioAxisOptions', function(axes = list(), kind = 'scatter', time = '', tz = '')
 {
    fail <- function(message) stop(message, call. = FALSE)
    defaults <- list(x_scale = 'linear', y_scale = 'linear', x_min = '', x_max = '',
                     y_min = '', y_max = '', limits_mode = 'zoom', x_format = 'default',
                     y_format = 'default', grid_major = TRUE, grid_minor = TRUE,
-                    facet_scales = 'fixed', facet_ncol = 0)
+                    facet_scales = 'fixed', facet_ncol = 0,
+                    x_date_breaks = '', x_date_labels = '', x_timezone = '')
    result <- .rs.superrstudioSettings(axes, defaults, 'Axis')
    flag <- function(value) is.logical(value) && length(value) == 1L && !is.na(value)
    choice <- function(value, allowed) .rs.superrstudioIsText(value) && value %in% allowed
-   for (axis in c('x', 'y'))
+   for (key in c('x_date_breaks', 'x_date_labels', 'x_timezone'))
+      if (!.rs.superrstudioIsText(result[[key]])) fail('Date axis settings must be text.')
+   if (nzchar(time))
+      result <- .rs.superrstudioTimeAxisOptions(result, time, tz)
+   else if (nzchar(result$x_date_breaks) || nzchar(result$x_date_labels) || nzchar(result$x_timezone))
+      fail('Date breaks, date labels and time zones apply to a date or date-time X column.')
+   for (axis in if (nzchar(time)) 'y' else c('x', 'y'))
    {
       label <- toupper(axis)
       if (!choice(result[[paste0(axis, '_scale')]], c('linear', 'log10')))
@@ -749,6 +770,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (!.rs.superrstudioIsNumber(result$facet_ncol, 0, 12) || result$facet_ncol != round(result$facet_ncol))
       fail('Facet columns must be a whole number from 0 (automatic) to 12.')
    result$facet_ncol <- as.numeric(result$facet_ncol)
+   if (nzchar(time) && kind != 'scatter') fail('Date and date-time X columns apply to scatter and line plots.')
 
    # what applies to each kind: continuous X for scatter, histogram and
    # density; raw (not computed) Y for scatter and boxplot
@@ -762,7 +784,69 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (!rawY && result$limits_mode == 'filter' &&
        (!identical(result$y_min, '') || !identical(result$y_max, '')))
       fail('Y limits on counts or densities can only zoom: filtering would remove bars or curves.')
-   result[names(defaults)]
+   result <- result[names(defaults)]
+   # the X column's type travels with the settings (not part of the spec)
+   attr(result, 'time') <- time
+   attr(result, 'tz') <- tz
+   result
+})
+
+#' Validate X axis settings for a Date ("date") or POSIXct ("datetime") column
+#'
+#' Limits are ISO text ("2020-03-01"; date-times may add " 14:30"), read in
+#' the axis time zone: the chosen display zone, else the column's own.
+.rs.addFunction('superrstudioTimeAxisOptions', function(result, time, tz)
+{
+   fail <- function(message) stop(message, call. = FALSE)
+   if (result$x_scale != 'linear') fail('A log scale does not apply to dates and times.')
+   if (result$x_format != 'default') fail('Number formats do not apply to dates; choose date labels instead.')
+   units <- if (time == 'date') 'day|week|month|year' else 'sec|min|hour|day|week|month|year'
+   if (nzchar(result$x_date_breaks) &&
+       !grepl(sprintf('^[1-9][0-9]{0,2} (%s)s?$', units), result$x_date_breaks))
+      fail(if (time == 'date') 'Date breaks are written like "1 month", "2 weeks" or "1 year".'
+           else 'Date-time breaks are written like "6 hours", "1 day" or "1 month".')
+   labels <- c('%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%Y-%m', '%b %Y', '%B %Y', '%Y', '%d %b',
+               if (time == 'datetime') c('%H:%M', '%d %b %H:%M', '%Y-%m-%d %H:%M'))
+   if (nzchar(result$x_date_labels) && !result$x_date_labels %in% labels)
+      fail('Unsupported date label format.')
+   if (nzchar(result$x_timezone))
+   {
+      if (time == 'date') fail('A time zone applies to date-time columns only.')
+      if (!result$x_timezone %in% OlsonNames()) fail('Unknown time zone; use a name such as "UTC" or "America/Montevideo".')
+   }
+   zone <- if (nzchar(result$x_timezone)) result$x_timezone else tz
+   for (end in c('x_min', 'x_max'))
+   {
+      value <- result[[end]]
+      if (identical(value, '')) next
+      if (!.rs.superrstudioIsText(value) ||
+          is.na(.rs.superrstudioTimeValue(value, time, zone)))
+         fail(if (time == 'date') 'Date axis limits must be dates written as YYYY-MM-DD, or left empty.'
+              else 'Date-time axis limits must be written as YYYY-MM-DD or YYYY-MM-DD HH:MM, or left empty.')
+   }
+   if (!identical(result$x_min, '') && !identical(result$x_max, '') &&
+       .rs.superrstudioTimeValue(result$x_min, time, zone) >= .rs.superrstudioTimeValue(result$x_max, time, zone))
+      fail('X axis minimum must be before its maximum.')
+   result
+})
+
+#' An ISO date or date-time text as Date / POSIXct (NA when invalid)
+.rs.addFunction('superrstudioTimeValue', function(text, time, tz)
+{
+   if (time == 'date')
+      return(if (grepl('^[0-9]{4}-[0-9]{2}-[0-9]{2}$', text)) as.Date(text, format = '%Y-%m-%d') else as.Date(NA))
+   format <- if (grepl('^[0-9]{4}-[0-9]{2}-[0-9]{2}$', text)) '%Y-%m-%d'
+      else if (grepl('^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$', text)) '%Y-%m-%d %H:%M'
+      else if (grepl('^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$', text)) '%Y-%m-%d %H:%M:%S'
+   if (is.null(format)) return(as.POSIXct(NA))
+   as.POSIXct(text, format = format, tz = tz)
+})
+
+#' The call that converts axis limits for the code (as.Date / as.POSIXct)
+.rs.addFunction('superrstudioTimeCall', function(values, time, tz)
+{
+   if (time == 'date') return(call('as.Date', values))
+   as.call(c(quote(as.POSIXct), list(values), list(tz = tz)))
 })
 
 #' Scale, coordinate, facet and gridline layers for the axis settings
@@ -772,11 +856,28 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    value <- function(v) if (identical(v, '')) NA else v
    filter <- axes$limits_mode == 'filter'
    zoom <- list()
+   time <- attr(axes, 'time')
+   if (is.null(time)) time <- ''
    for (axis in c('x', 'y'))
    {
       low <- value(axes[[paste0(axis, '_min')]])
       high <- value(axes[[paste0(axis, '_max')]])
       limited <- !is.na(low) || !is.na(high)
+      if (axis == 'x' && nzchar(time))
+      {
+         zone <- if (nzchar(axes$x_timezone)) axes$x_timezone else attr(axes, 'tz')
+         args <- list()
+         if (nzchar(axes$x_date_breaks)) args$date_breaks <- axes$x_date_breaks
+         if (nzchar(axes$x_date_labels)) args$date_labels <- axes$x_date_labels
+         if (time == 'datetime' && nzchar(axes$x_timezone)) args$timezone <- axes$x_timezone
+         limits <- if (limited) .rs.superrstudioTimeCall(call('c', low, high), time, zone)
+         if (limited && filter) args$limits <- limits
+         if (limited && !filter) zoom$xlim <- limits
+         if (length(args))
+            layers <- c(layers, as.call(c(call('::', as.name('ggplot2'),
+               as.name(if (time == 'date') 'scale_x_date' else 'scale_x_datetime')), args)))
+         next
+      }
       args <- list()
       if (limited && filter) args$limits <- call('c', low, high)
       if (limited && !filter) zoom[[paste0(axis, 'lim')]] <- call('c', low, high)
@@ -832,6 +933,11 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    notes <- character()
    rawX <- nzchar(x) && kind %in% c('scatter', 'histogram', 'density')
    rawY <- nzchar(y) && kind %in% c('scatter', 'boxplot')
+   time <- attr(axes, 'time')
+   if (is.null(time)) time <- ''
+   if (rawX && nzchar(time) && any(is.na(frame[[x]])))
+      notes <- c(notes, sprintf('%d observation(s) have no %s and are not drawn.', sum(is.na(frame[[x]])),
+                                if (time == 'date') 'date' else 'date-time'))
    if (axes$limits_mode == 'filter')
    {
       keep <- rep(TRUE, nrow(frame))
@@ -840,6 +946,12 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
          v <- frame[[column]]
          low <- axes[[paste0(axis, '_min')]]
          high <- axes[[paste0(axis, '_max')]]
+         if (axis == 'x' && nzchar(time))
+         {
+            zone <- if (nzchar(axes$x_timezone)) axes$x_timezone else attr(axes, 'tz')
+            if (!identical(low, '')) low <- .rs.superrstudioTimeValue(low, time, zone)
+            if (!identical(high, '')) high <- .rs.superrstudioTimeValue(high, time, zone)
+         }
          (identical(low, '') | is.na(v) | v >= low) & (identical(high, '') | is.na(v) | v <= high)
       }
       if (rawX) keep <- keep & inside(x, 'x')
@@ -886,6 +998,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       (is.factor(value) || ((is.character(value) || is.logical(value)) && !is.object(value)))
    # columns that can be mapped to colour: plain numbers or categories
    colourColumn <- function(value) numericColumn(value) || discreteColumn(value)
+   # dates and date-times (a continuous X for time series)
+   timeColumn <- function(value) is.null(dim(value)) && (inherits(value, 'Date') || inherits(value, 'POSIXct'))
    fail <- function(message) stop(message, call. = FALSE)
    if (operation == 'list')
    {
@@ -912,6 +1026,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    columns <- names(data)[vapply(data, numericColumn, logical(1))]
    colourColumns <- names(data)[vapply(data, colourColumn, logical(1))]
    discreteColumns <- names(data)[vapply(data, discreteColumn, logical(1))]
+   timeColumns <- names(data)[vapply(data, timeColumn, logical(1))]
+   datetimeColumns <- timeColumns[vapply(timeColumns, function(name) inherits(data[[name]], 'POSIXct'), NA)]
    if (operation == 'inspect')
    {
       state$counter <- state$counter + 1L
@@ -920,7 +1036,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       state$snapshot <- current
       return(list(revision = I(state$revision), columns = unname(columns),
                   colour_columns = unname(colourColumns),
-                  discrete_columns = unname(discreteColumns), rows = I(nrow(data))))
+                  discrete_columns = unname(discreteColumns), time_columns = unname(timeColumns),
+                  datetime_columns = unname(datetimeColumns), rows = I(nrow(data))))
    }
    if (!identical(revision, state$revision) || !identical(dataset, state$dataset) ||
        !identical(current, state$snapshot))
@@ -934,7 +1051,8 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    optionKeys <- c('kind', 'geometry', 'line_order', 'fit', 'fit_se', 'fit_level', 'fit_span',
                    'bins', 'bin_width', 'show_outliers', 'show_points', 'bar_position', 'adjust')
    axisKeys <- c('x_scale', 'y_scale', 'x_min', 'x_max', 'y_min', 'y_max', 'limits_mode',
-                 'x_format', 'y_format', 'grid_major', 'grid_minor', 'facet_scales', 'facet_ncol')
+                 'x_format', 'y_format', 'grid_major', 'grid_minor', 'facet_scales', 'facet_ncol',
+                 'x_date_breaks', 'x_date_labels', 'x_timezone')
    mapping <- appearance[intersect(names(appearance), mappingKeys)]
    options <- .rs.superrstudioScatterOptions(appearance[intersect(names(appearance), optionKeys)])
    exportKeys <- c('export_path', 'export_format', 'export_width', 'export_height',
@@ -961,10 +1079,12 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    if (nzchar(facetBy) && identical(facetBy, facetRows))
       fail('Facet rows and columns must use different columns.')
    kind <- options$kind
-   axes <- .rs.superrstudioAxisOptions(axes, kind)
+   time <- if (!x %in% timeColumns) '' else if (x %in% datetimeColumns) 'datetime' else 'date'
+   zone <- if (time == 'datetime' && !is.null(attr(data[[x]], 'tzone'))) attr(data[[x]], 'tzone')[[1L]] else ''
+   axes <- .rs.superrstudioAxisOptions(axes, kind, time, zone)
    facets <- c(facetBy, facetRows)
-   if (kind == 'scatter' && (!x %in% columns || !y %in% columns))
-      fail('Select two ordinary numeric columns.')
+   if (kind == 'scatter' && (!x %in% c(columns, timeColumns) || !y %in% columns))
+      fail('Select two ordinary numeric columns (X may also be a date or date-time).')
    if (kind == 'histogram' && (!x %in% columns || nzchar(y)))
       fail('A histogram needs one ordinary numeric column (X) and no Y column.')
    if (kind == 'boxplot' && (!y %in% columns || !(x == '' || x %in% discreteColumns)))
@@ -1010,7 +1130,10 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
    fitGroups <- unique(c(fitGroups, facets[nzchar(facets)]))
    stat <- .rs.superrstudioStatData(data, 'scatter', x, y, fitGroups, axes)
    name <- function(column, axis) if (axes[[paste0(axis, '_scale')]] == 'log10')
-      paste0('log10(', column, ')') else column
+      paste0('log10(', column, ')')
+      else if (axis == 'x' && time == 'date') paste0(column, ' [days since 1970-01-01]')
+      else if (axis == 'x' && time == 'datetime') paste0(column, ' [seconds since 1970-01-01 UTC]')
+      else column
    fitSummary <- if (options$fit != 'none')
       .rs.superrstudioFitSummary(stat$data, x, y, options$fit, fitGroups, options$fit_span,
                                  name(x, 'x'), name(y, 'y'))
@@ -1025,7 +1148,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
         notes = if (options$fit != 'none') stat$notes
                 else grep('statistics are computed', stat$notes, value = TRUE, invert = TRUE, fixed = TRUE),
         warnings = rendered$warnings, interactive = rendered$interactive,
-        spec = list(schema_version = I(4L), kind = I('scatter'), dataset = I(dataset),
+        spec = list(schema_version = I(5L), kind = I('scatter'), dataset = I(dataset),
                     x = I(x), y = I(y), colour_by = I(colourBy), group_by = I(groupBy),
                     facet_by = I(facetBy), facet_rows = I(facetRows),
                     layers = lapply(options[.rs.superrstudioKindOptions('scatter')], I),
@@ -1105,7 +1228,7 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
         export_code = I(.rs.superrstudioExportCode(code, export)), saved = rendered$saved,
         fit_summary = list(), summary = summary, notes = stat$notes,
         warnings = rendered$warnings, interactive = rendered$interactive,
-        spec = list(schema_version = I(4L), kind = I(kind), dataset = I(dataset),
+        spec = list(schema_version = I(5L), kind = I(kind), dataset = I(dataset),
                     x = I(x), y = I(y), fill_by = I(fill_by),
                     facet_by = I(facet_by), facet_rows = I(facet_rows),
                     layers = lapply(options[.rs.superrstudioKindOptions(kind)], I),

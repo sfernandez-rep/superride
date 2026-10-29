@@ -183,6 +183,44 @@ facet strip, panel columns and scales; on the panel, theme and gridlines.
 
 ![Log scale, facets with per-panel fits](visual-axes-facets.png)
 
+## Date and date-time axes (phase 4, Milestone C)
+
+**What it offers**
+- **Date columns as X.** A scatter or line plot accepts `Date` and `POSIXct` columns as X, for example monthly or seasonal sampling dates.
+- **Chronological lines.** *Connect observations in X order* (`geom_line()`) joins observations by date, even when the rows are stored out of order.
+- **Spec schema 5.** Specification schema 5 adds three settings to `axes`. Specifications of versions 1 to 5 can be loaded.
+
+**The three new settings**
+- **Date breaks** become `date_breaks`, for example `"1 month"` or `"2 weeks"`. Hours are accepted for date-times only.
+- **Date labels** become `date_labels`, chosen from a fixed list such as `%Y-%m-%d` or `%b %Y`.
+- **Time zone** (date-times only) becomes `scale_x_datetime(timezone = )`. It accepts only names from `OlsonNames()`.
+
+**Axis limits**
+- Limits are ISO text: `YYYY-MM-DD`, or `YYYY-MM-DD HH:MM` for date-times.
+- The generated code converts them explicitly: `as.Date(c("2023-03-01", NA))`, or `as.POSIXct(c(...), tz = "...")`.
+- Date-time limits are read in the display time zone if one is chosen, otherwise in the column's own time zone.
+- As for numbers, *zoom* (`coord_cartesian(xlim = ...)`) keeps every observation in the statistics. *Filter* (scale `limits`) removes the observations outside before the fit, and a note reports how many.
+
+**Fits**
+- Fits use the numbers ggplot2 fits on: days since 1970-01-01 for dates, and seconds since 1970-01-01 00:00 UTC for date-times.
+- The equation states this (`n = -1065 + 0.05516 * fecha [days since 1970-01-01]`, a slope per day).
+- The model code uses `as.numeric(...)` with a comment. Observations without a date are reported as not drawn.
+
+**What is refused**
+- Settings that do not apply to dates: log scales, number formats, unknown time zones, malformed or impossible dates (`2020-02-30`), a minimum after the maximum, hour breaks for dates, and time labels for dates.
+- Date settings for a numeric X, and date X columns for plot types other than scatter or line.
+
+**Labels follow R's locale**
+- Month names in labels such as `%b` come from R's own `LC_TIME` locale. On a Spanish system R writes "Ago. 2023"; this is R's behaviour, not a translation by SuperRStudio.
+- The tests compare labels with `format()` of the breaks, so they hold in any locale.
+
+**In the window**
+- Choosing a date X hides the scale and number-format controls and shows date breaks and labels. The time-zone field appears for date-times only.
+- Limit fields show the expected format. Switching between numeric and date X columns resets the X-axis settings that would no longer make sense.
+- Right-click on the X axis offers the same date settings.
+
+![Sampling dates as X](visual-dates.png)
+
 ## Image export (Milestone D)
 
 *Export image* under the preview writes the current plot with
@@ -236,9 +274,10 @@ the export script (`plot <- ggplot2::ggplot(...)` followed by the exact
 
 ## Known limitations
 
-- Spanish strings exist but are not compiled: the GWT module only builds
-  `en,fr` (`RStudio.gwt.xml`). Adding `es` needs a locale permutation and the
-  `ui_language` preference value; tracked for M7.
+- Spanish is selected at run time for SuperRStudio windows (see
+  [spanish.md](spanish.md)); RStudio's own interface stays English.
+- Date/time X applies to scatter/line plots; histograms of dates and
+  date-time Y axes are not offered.
 - Only global-environment objects; `sf` and other data.frame subclasses are
   excluded. An in-place modification of a plain data frame by C code (for
   example `data.table::set()` on a data.frame) is not detected.

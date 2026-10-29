@@ -103,6 +103,9 @@ public interface ScatterMessages extends Messages
    @DefaultMessage("Resolution (PNG)") String exportDpi();
    @DefaultMessage("File") String exportPath();
    @DefaultMessage("Browse…") String exportBrowse();
+   @DefaultMessage("Date breaks") String dateBreaks();
+   @DefaultMessage("Date labels") String dateLabels();
+   @DefaultMessage("Time zone (blank: the column''s)") String timezone();
    @DefaultMessage("Export image") String exportImage();
    @DefaultMessage("Export plot image") String exportCaption();
    @DefaultMessage("PNG (bitmap)") String exportPng();

@@ -164,6 +164,8 @@ async function closeDialog(page)
       `dupes <- data.frame(a = 1:2, b = 3:4); names(dupes) <- c('a', 'a'); not_a_frame <- 1:3; ` +
       `growth <- data.frame(age = c(1, 2, 3, 4, 5, 6, 7, 8), size = c(10.2, 19.8, 30.5, 39.6, 50.4, 59.1, 70.6, 79.8), ` +
       `site = rep(c('north', 'south'), 4)); growth_original <- growth; ` +
+      `muestreo <- data.frame(fecha = as.Date('2023-01-15') + 30 * c(5, 0, 2, 1, 4, 3, 7, 6), ` +
+      `n = c(12, 4, 7, 5, 11, 9, 15, 14)); muestreo_original <- muestreo; ` +
       `if (requireNamespace('tibble', quietly = TRUE)) fish_tbl <- tibble::as_tibble(fish); ` +
       `if (requireNamespace('data.table', quietly = TRUE)) fish_dt <- data.table::as.data.table(fish); ` +
       `invisible(grDevices::graphics.off()); ` +
@@ -310,7 +312,7 @@ async function closeDialog(page)
       fs.writeFileSync(path.join(evidence, 'generated-scatter-styled.R'), styledCode);
       for (const part of ['ggplot2::geom_point(colour = "#0072B2", size = 3, alpha = 0.6)',
                           'ggplot2::labs(title = "Fish \\"length\\" vs mass", x = "Length (cm)")',
-                          'ggplot2::theme_classic()', 'SuperRStudio scatter v4'])
+                          'ggplot2::theme_classic()', 'SuperRStudio scatter v5'])
          if (!styledCode.includes(part)) throw new Error('styled code lacks ' + part);
       let styledSrc = null;
       for (let i = 0; i < 60 && (!styledSrc || styledSrc === imageBeforeStyled); i++)
@@ -400,7 +402,7 @@ async function closeDialog(page)
       await waitStatus(page, /Plot created/);
       const histCode = await page.locator('#superrstudio_code').inputValue();
       fs.writeFileSync(path.join(evidence, 'generated-histogram.R'), histCode);
-      for (const part of ['SuperRStudio histogram v4', 'ggplot2::aes(x = .data[["size"]], fill = .data[["site"]])',
+      for (const part of ['SuperRStudio histogram v5', 'ggplot2::aes(x = .data[["size"]], fill = .data[["site"]])',
                           'ggplot2::geom_histogram(bins = 10)', 'ggplot2::scale_fill_viridis_d()'])
          if (!histCode.includes(part)) throw new Error('histogram code lacks ' + part);
       const histText = await page.locator('#superrstudio_model').innerText();
@@ -421,7 +423,7 @@ async function closeDialog(page)
       await waitStatus(page, /Plot created/);
       const boxCode = await page.locator('#superrstudio_code').inputValue();
       fs.writeFileSync(path.join(evidence, 'generated-boxplot.R'), boxCode);
-      for (const part of ['SuperRStudio boxplot v4', 'ggplot2::aes(x = .data[["site"]], y = .data[["size"]])',
+      for (const part of ['SuperRStudio boxplot v5', 'ggplot2::aes(x = .data[["site"]], y = .data[["size"]])',
                           'ggplot2::geom_boxplot(fill = "#56B4E9")',
                           'ggplot2::geom_point(position = ggplot2::position_jitter(width = 0.15, height = 0, seed = 1))'])
          if (!boxCode.includes(part)) throw new Error('boxplot code lacks ' + part);
@@ -607,7 +609,7 @@ async function closeDialog(page)
       await choose(page, '#superrstudio_y_scale', 'log10');
       await choose(page, '#superrstudio_facet_by', 'site');
       const facetCode = await waitCode(page, /ggplot2::facet_wrap\(ggplot2::vars\(\.data\[\["site"\]\]\)\)/);
-      if (!facetCode.includes('ggplot2::scale_y_log10()') || !facetCode.includes('"schema_version":4'))
+      if (!facetCode.includes('ggplot2::scale_y_log10()') || !facetCode.includes('"schema_version":5'))
          throw new Error('axis code: ' + facetCode);
       const facetModel = await page.locator('#superrstudio_model').innerText();
       if (!/^north: n = 4; log10\(size\) = /m.test(facetModel) || !/^south: n = 4; log10\(size\) = /m.test(facetModel) ||
@@ -663,6 +665,55 @@ async function closeDialog(page)
       await shot(page, '6b-export');
       log('PASS export PNG and PDF from the editor; export script shown');
       await closeDialog(page);
+
+      // Sampling dates as X: a time series with date breaks, labels and limits
+      dialog = await openDialog(page);
+      await selectDataset(page, 'muestreo');
+      if (!(await page.$$eval('#superrstudio_x option', o => o.map(x => x.value))).includes('fecha'))
+         throw new Error('date column not offered as X');
+      await choose(page, '#superrstudio_x', 'fecha');
+      await choose(page, '#superrstudio_y', 'n');
+      await choose(page, '#superrstudio_geometry', 'lines_points');
+      await choose(page, '#superrstudio_fit', 'lm');
+      await page.locator('#superrstudio_tab_axes').click();
+      if (await page.locator('#superrstudio_x_scale').isVisible() || await page.locator('#superrstudio_x_format').isVisible() ||
+          !(await page.locator('#superrstudio_x_date_breaks').isVisible()) || await page.locator('#superrstudio_x_timezone').isVisible())
+         throw new Error('X axis controls do not follow the date column');
+      if (await page.getAttribute('#superrstudio_x_min', 'placeholder') !== 'YYYY-MM-DD') throw new Error('date placeholder');
+      await choose(page, '#superrstudio_x_date_breaks', '2 months');
+      await choose(page, '#superrstudio_x_date_labels', '%b %Y');
+      await type(page, '#superrstudio_x_min', '2023-03-01');
+      await page.locator('#superrstudio_x_min').press('Tab');
+      const dateCode = await waitCode(page, /ggplot2::coord_cartesian\(xlim = as\.Date\(c\("2023-03-01", NA\)\)\)/);
+      if (!dateCode.includes('ggplot2::scale_x_date(date_breaks = "2 months", date_labels = "%b %Y")') ||
+          !dateCode.includes('ggplot2::geom_line()') || !dateCode.includes('"schema_version":5'))
+         throw new Error('date code: ' + dateCode);
+      const dateModel = await page.locator('#superrstudio_model').innerText();
+      if (!dateModel.includes('fecha [days since 1970-01-01]')) throw new Error('date fit summary: ' + dateModel);
+      await check(page,
+         `srs_dp <- eval(parse(text = ${JSON.stringify(dateCode)})[[1]]); srs_db <- ggplot2::ggplot_build(srs_dp); ` +
+         `srs_lx <- srs_db$data[[1]]$x; stopifnot(inherits(srs_dp$scales$get_scales('x'), 'ScaleContinuousDate'), ` +
+         `!is.unsorted(srs_lx), srs_db$layout$panel_params[[1]]$x.range[1] < as.numeric(as.Date('2023-03-01')), ` +
+         `srs_db$layout$panel_params[[1]]$x.range[1] > as.numeric(as.Date('2023-02-20')), ` +
+         `identical(muestreo, muestreo_original))`,
+         'DATE_AXIS_CODE_REPRODUCES');
+      // right-click on the X axis offers the date settings, not log scales
+      await freshPreview();
+      const dateAxis = await plotMap(page, dateCode.split('\n# Linear model')[0],
+         "Filter(function(r) r$role == 'x_axis', srs_map$regions)[[1]]$box", 'SRS_DATE_MAP');
+      box = await preview.boundingBox();
+      await page.mouse.click(...at((dateAxis[0] + dateAxis[2]) / 2, (dateAxis[1] + dateAxis[3]) / 2), {button: 'right'});
+      await popup.waitFor({state: 'visible'});
+      if (!(await popup.innerText()).startsWith('X axis') || await page.locator('#superrstudio_popup_x_scale').count() > 0)
+         throw new Error('date axis popup: ' + await popup.innerText());
+      await page.selectOption('#superrstudio_popup_x_date_breaks', '3 months');
+      await waitCode(page, /date_breaks = "3 months"/);
+      await page.locator('#superrstudio_popup_x_date_breaks').press('Escape');
+      await popup.waitFor({state: 'detached'});
+      await freshPreview();
+      await shot(page, '7-dates');
+      log('PASS sampling dates as X: date breaks, labels and limits; chronological line; fit per day; X axis popup edits date breaks');
+      await closeDialog(page);
       fs.writeFileSync(path.join(evidence, 'generated-axes-facets.R'), axisCode);
       await check(page,
          `srs_built <- ggplot2::ggplot_build(eval(parse(text = ${JSON.stringify(axisCode.split('\n# Linear model')[0])}))); ` +
@@ -695,7 +746,7 @@ async function closeDialog(page)
       await choose(page, '#superrstudio_y', 'mass_g');
       await page.locator('#rstudio_superrstudio_export').click();
       await page.getByRole('dialog').waitFor({state: 'detached'});
-      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v4'));
+      await page.waitForFunction(() => window.rstudio.documents.activeEditor()?.getValue().includes('SuperRStudio scatter v5'));
       const script = await page.evaluate(() => window.rstudio.documents.activeEditor().getValue());
       if (script !== code) throw new Error('exported script differs from previewed code:\n' + script);
       log('PASS export opens identical code in a new R script');

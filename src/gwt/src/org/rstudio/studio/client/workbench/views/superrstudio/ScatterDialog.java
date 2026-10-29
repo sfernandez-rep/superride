@@ -154,7 +154,7 @@ public class ScatterDialog extends DialogBox
       // repopulated lists need their enabled state recomputed (busy(false))
       kind_.addChangeHandler(e -> { populateColumns(); busy(false); scheduleRender(); });
       datasets_.addChangeHandler(e -> inspect());
-      x_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
+      x_.addChangeHandler(e -> { xTypeChanged(); invalidate(); scheduleRender(); });
       y_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
       colourBy_.addChangeHandler(e -> { layoutChanged(); scheduleRender(); });
       groupBy_.addChangeHandler(e -> { invalidate(); scheduleRender(); });
@@ -216,6 +216,14 @@ public class ScatterDialog extends DialogBox
          option(format, messages_.formatScientific(), "scientific");
          option(format, messages_.formatPercent(), "percent");
       }
+      option(xDateBreaks_, messages_.formatDefault(), "");
+      for (String breaks : new String[] {"1 day", "1 week", "2 weeks", "1 month", "2 months", "3 months",
+                                         "6 months", "1 year", "1 hour", "6 hours", "12 hours"})
+         option(xDateBreaks_, breaks, breaks);
+      option(xDateLabels_, messages_.formatDefault(), "");
+      for (String labels : new String[] {"%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y-%m", "%b %Y", "%B %Y", "%Y",
+                                         "%d %b", "%H:%M", "%d %b %H:%M", "%Y-%m-%d %H:%M"})
+         option(xDateLabels_, labels, labels);
       option(limitsMode_, messages_.limitsZoom(), "zoom");
       option(limitsMode_, messages_.limitsFilter(), "filter");
       option(facetNcol_, messages_.facetAuto(), "0");
@@ -260,6 +268,9 @@ public class ScatterDialog extends DialogBox
       settings_.add(new Setting("x_min", xMin_, TYPE_NUMBER, ""));
       settings_.add(new Setting("x_max", xMax_, TYPE_NUMBER, ""));
       settings_.add(new Setting("x_format", xFormat_, TYPE_STRING, "default"));
+      settings_.add(new Setting("x_date_breaks", xDateBreaks_, TYPE_STRING, ""));
+      settings_.add(new Setting("x_date_labels", xDateLabels_, TYPE_STRING, ""));
+      settings_.add(new Setting("x_timezone", xTimezone_, TYPE_STRING, ""));
       settings_.add(new Setting("y_scale", yScale_, TYPE_STRING, "linear"));
       settings_.add(new Setting("y_min", yMin_, TYPE_NUMBER, ""));
       settings_.add(new Setting("y_max", yMax_, TYPE_NUMBER, ""));
@@ -359,11 +370,14 @@ public class ScatterDialog extends DialogBox
       history.add(reset_);
       history.add(load_);
 
-      Grid xAxis = section(messages_.xAxisHeading(), 4);
+      Grid xAxis = section(messages_.xAxisHeading(), 7);
       row(xAxis, 0, messages_.scale(), xScale_, "superrstudio_x_scale");
       row(xAxis, 1, messages_.axisMin(), xMin_, "superrstudio_x_min");
       row(xAxis, 2, messages_.axisMax(), xMax_, "superrstudio_x_max");
       row(xAxis, 3, messages_.tickLabels(), xFormat_, "superrstudio_x_format");
+      row(xAxis, 4, messages_.dateBreaks(), xDateBreaks_, "superrstudio_x_date_breaks");
+      row(xAxis, 5, messages_.dateLabels(), xDateLabels_, "superrstudio_x_date_labels");
+      row(xAxis, 6, messages_.timezone(), xTimezone_, "superrstudio_x_timezone");
       Grid yAxis = section(messages_.yAxisHeading(), 4);
       row(yAxis, 0, messages_.scale(), yScale_, "superrstudio_y_scale");
       row(yAxis, 1, messages_.axisMin(), yMin_, "superrstudio_y_min");
@@ -634,7 +648,8 @@ public class ScatterDialog extends DialogBox
          case "density": return new String[] {"fill", "line_colour", "alpha", "adjust"};
          case "title": return new String[] {"title"};
          case "x_label": return new String[] {"x_label"};
-         case "x_axis": return new String[] {"x_scale", "x_min", "x_max", "x_format", "limits_mode", "x_label"};
+         case "x_axis": return new String[] {"x_scale", "x_min", "x_max", "x_format", "x_date_breaks",
+                                             "x_date_labels", "x_timezone", "limits_mode", "x_label"};
          case "y_label": return new String[] {"y_label"};
          case "y_axis": return new String[] {"y_scale", "y_min", "y_max", "y_format", "limits_mode", "y_label"};
          case "legend": return new String[] {"legend_position"};
@@ -951,7 +966,8 @@ public class ScatterDialog extends DialogBox
       select(facetRows_, facetRows);
       if (KIND_SCATTER.equals(kind))
       {
-         addAll(x_, numericColumns_); addAll(y_, numericColumns_);
+         // dates and date-times make a time-series X
+         addAll(x_, numericColumns_); addAll(x_, timeColumns_); addAll(y_, numericColumns_);
          addAll(colourBy_, colourColumns_); addAll(groupBy_, discreteColumns_);
          if (y_.getItemCount() > 1) y_.setSelectedIndex(1);
       }
@@ -978,6 +994,42 @@ public class ScatterDialog extends DialogBox
          : KIND_BAR.equals(kind) ? messages_.category() : messages_.variable());
       yRowLabel_.setText(KIND_BOXPLOT.equals(kind) ? messages_.response() : messages_.yColumn());
       colourByLabel_.setText(KIND_SCATTER.equals(kind) ? messages_.colourBy() : messages_.fillBy());
+      xType_ = xType();
+   }
+
+   // The selected X column's kind: "" (numeric), "date" or "datetime".
+   private String xType()
+   {
+      if (!KIND_SCATTER.equals(kind()))
+         return "";
+      String x = value(x_);
+      return contains(datetimeColumns_, x) ? "datetime" : contains(timeColumns_, x) ? "date" : "";
+   }
+
+   private static boolean contains(JsArrayString values, String value)
+   {
+      for (int i = 0; values != null && i < values.length(); i++)
+         if (values.get(i).equals(value))
+            return true;
+      return false;
+   }
+
+   // Switching between a numeric and a date X: limits, scales and labels of
+   // one kind mean nothing for the other, so they return to their defaults.
+   private void xTypeChanged()
+   {
+      String type = xType();
+      if (type.equals(xType_))
+         return;
+      xType_ = type;
+      xMin_.setValue("");
+      xMax_.setValue("");
+      select(xScale_, "linear");
+      select(xFormat_, "default");
+      select(xDateBreaks_, "");
+      select(xDateLabels_, "");
+      xTimezone_.setValue("");
+      layoutChanged();
    }
 
    private static void addAll(ListBox list, JsArrayString values)
@@ -1039,8 +1091,18 @@ public class ScatterDialog extends DialogBox
          select(limitsMode_, "zoom");
          dirty = true;
       }
-      for (Widget axis : new Widget[] {xScale_, xMin_, xMax_, xFormat_})
+      String time = xType();
+      xType_ = time;
+      for (Widget axis : new Widget[] {xMin_, xMax_})
          showRow(axis, continuousX);
+      for (Widget axis : new Widget[] {xScale_, xFormat_})
+         showRow(axis, continuousX && time.isEmpty());
+      showRow(xDateBreaks_, !time.isEmpty());
+      showRow(xDateLabels_, !time.isEmpty());
+      showRow(xTimezone_, "datetime".equals(time));
+      String placeholder = "date".equals(time) ? "YYYY-MM-DD" : "datetime".equals(time) ? "YYYY-MM-DD HH:MM" : "";
+      for (TextBox limit : new TextBox[] {xMin_, xMax_})
+         limit.getElement().setAttribute("placeholder", placeholder);
       showRow(yScale_, rawY);
       limitsMode_.setEnabled(continuousX || rawY);
       facetNcol_.setEnabled(has(facetBy_) && !has(facetRows_));
@@ -1116,7 +1178,7 @@ public class ScatterDialog extends DialogBox
          return;
       }
       double version = number(spec, "schema_version", 0);
-      if (version < 1 || version > 4)
+      if (version < 1 || version > 5)
       {
          status_.setText(messages_.loadUnsupported(String.valueOf(version)));
          return;
@@ -1440,7 +1502,7 @@ public class ScatterDialog extends DialogBox
    }
    private void clearColumns()
    {
-      numericColumns_ = discreteColumns_ = colourColumns_ = null;
+      numericColumns_ = discreteColumns_ = colourColumns_ = timeColumns_ = datetimeColumns_ = null;
       x_.clear(); y_.clear(); colourBy_.clear(); groupBy_.clear(); facetBy_.clear(); facetRows_.clear();
       invalidate();
       plot_.clear();
@@ -1455,6 +1517,8 @@ public class ScatterDialog extends DialogBox
          numericColumns_ = result.columns();
          discreteColumns_ = result.discreteColumns();
          colourColumns_ = result.colourColumns();
+         timeColumns_ = result.timeColumns();
+         datetimeColumns_ = result.datetimeColumns();
          populateColumns();
          status_.setText(numericColumns_.length() > 0 ? messages_.ready() : messages_.noColumns());
          busy(false);
@@ -1614,7 +1678,10 @@ public class ScatterDialog extends DialogBox
    private final List<Setting> settings_ = new ArrayList<>();
    private final List<String[]> history_ = new ArrayList<>();
    private final String[] defaults_;
-   private JsArrayString numericColumns_, discreteColumns_, colourColumns_;
+   private JsArrayString numericColumns_, discreteColumns_, colourColumns_, timeColumns_, datetimeColumns_;
+   private String xType_ = "";
+   private final ListBox xDateBreaks_ = new ListBox(), xDateLabels_ = new ListBox();
+   private final TextBox xTimezone_ = new TextBox();
    private String[] current_;
    private boolean restoring_ = false;
    private String revision_ = "";

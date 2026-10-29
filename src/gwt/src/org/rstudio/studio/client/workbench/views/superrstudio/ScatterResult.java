@@ -12,6 +12,8 @@ public class ScatterResult extends JavaScriptObject
    public final native JsArrayString columns() /*-{ return this.columns || []; }-*/;
    public final native JsArrayString colourColumns() /*-{ return this.colour_columns || []; }-*/;
    public final native JsArrayString discreteColumns() /*-{ return this.discrete_columns || []; }-*/;
+   public final native JsArrayString timeColumns() /*-{ return this.time_columns || []; }-*/;
+   public final native JsArrayString datetimeColumns() /*-{ return this.datetime_columns || []; }-*/;
    public final native String revision() /*-{ return this.revision || ''; }-*/;
    public final native String code() /*-{ return this.code || ''; }-*/;
    public final native String modelCode() /*-{ return this.model_code || ''; }-*/;
