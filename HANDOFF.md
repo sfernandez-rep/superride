@@ -1,7 +1,8 @@
 # SuperR handoff
 
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
-request #1 into `main`, RStudio 2026.10.1 prepared), America/Montevideo, by
+request #1 into `main`, RStudio 2026.10.1 prepared, data table window on
+`feature/data-entry`), America/Montevideo, by
 Claude Code (continuing Codex's work). The product is now **SuperR**; the GitHub
 repository is **sfernandez-rep/superride** (renamed from `superrstudio` on
 2026-10-29, history and settings kept, old URL redirects); the local
@@ -23,7 +24,10 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
   [pull request #1](https://github.com/sfernandez-rep/superride/pull/1)
   (open; **the owner merges it**, with a merge commit, never squash/rebase).
   `main` = `develop` = `6aabecdb67` until then. Upstream update candidate:
-  `upstream-sync/rstudio-2026.10.1` (pushed, not merged).
+  `upstream-sync/rstudio-2026.10.1` (pushed, not merged). New feature branch
+  `feature/data-entry` (data table window), based on `feature/visual-scatter`
+  because `develop` does not have the SuperR work until #1 is merged: open
+  its pull request into `develop` after #1 and the `develop` fast-forward.
   `git log -1 --oneline` is the authoritative HEAD. Milestone commits:
   `f2aabfc219` (Codex checkpoint), `5bc6a55ce2` (scatter feature verified),
   `9773e68319` (development workflow).
@@ -47,8 +51,11 @@ base is deliberately moved. Record: [docs/superrstudio/upstream/](docs/superrstu
 | Update script | `tools/superrstudio/upstream-sync.py`: `assess` (official tag only, verified with `ls-remote`, fetches only that tag) and `prepare` (worktree or `--in-place`, `merge --no-commit`, pin moved, checks, review record, prepared message with `Upstream-*` trailers); never commits/pushes. Tested: refusals (same/older version, branch name, unknown tag), clean merge, conflict (throwaway base: exit 2), documented rollback |
 | Acceptance gates A1–A12, toolchain, rollback, history | upstream/acceptance.md, toolchain.md, rollback.md, history.md |
 | CI | `SuperR checks` was failing on GitHub (renv test, 8.3 short temp path): fixed in `tests/superrstudio/deps.R`. Foundation workflow: `--pristine` dropped (fails by design now), integration check added, `--accepted` on pull requests into `main`, runs on every pull request into `main`/`develop` |
-| RStudio 2026.10.1+239 | Prepared on `upstream-sync/rstudio-2026.10.1`, merge commit `dd544cf511` (from `bc2d214d03`): 6 upstream commits, 13 files, no file changed on both sides, no conflicts; checks pass; A1–A3 recorded in `docs/superrstudio/upstream/reviews/rstudio-2026.10.1.md` on that branch. **A4–A12 not run** |
-| Inherited upstream `os-*` workflows | Still enabled: disabling them was refused by this session's permission settings. Owner action (command in upstream/README.md); until then upstream's E2E workflow runs on pull requests touching `src/**` and fails |
+| RStudio 2026.10.1+239 | Prepared on `upstream-sync/rstudio-2026.10.1`, merge commit `dd544cf511` (from `bc2d214d03`): 6 upstream commits, 13 files, no file changed on both sides, no conflicts; checks pass; A1–A3 recorded in `docs/superrstudio/upstream/reviews/rstudio-2026.10.1.md` on that branch. A4 started: the native build of the merge passed (180 s); the GWT step stopped because the run redirected stderr (`*>&1` / `2>&1` turns enter-windows.cmd's harmless "vswhere.exe" line into a terminating error in Windows PowerShell 5.1; run `dev-build.ps1` without redirection). **A4–A12 still to run** |
+| Data table window (owner request: practical data entry and loading, like FiSAT II's input sheet) | Done on `feature/data-entry`: Environment pane *Data table* — type or paste spreadsheet cells (decimal comma, day-first dates, types), open or paste a path of a CSV/text (separator, decimal mark, header, encoding detected; Latin-1, BOM) or Excel file (readxl on request), or copy a session data frame; the data frame is created by visible console code, checked, and opens in the plot editor or the length-frequency window preselected. Record: [data-entry.md](docs/superrstudio/features/data-entry.md) |
+| Integration and SuperR 0.1.1-preview.1 (owner: "integrate everything and build the 0.1.1 installer"; owner chose the `-preview.1` label and to keep the RStudio 2026.10.0 base) | PR #1 merged into `main` (`322df28714`, merge commit), `develop` fast-forwarded; PR #2 (data table) merged into `develop` (`bcf9fd82b9`); `release/0.1.1-preview.1` (`8fcf060057`: version, release notes, packaged-test safeguards) merged into `main`. Installer `dist\superr\SuperR-0.1.1-preview.1-Windows-x64.exe` (466.9 MB, SHA-256 `51bd3c52a39a70ff49f9758fdbb6e711b8a0702e3ce61c82af98391836253d6d`, from clean `8fcf060057`; not in Git, not published). Packaged tests 65/66 (missing-package phase not runnable here, see RELEASE-CHECKLIST.md). The 0.1.0 RC is unchanged in `dist\superr\`. The owner uninstalled 0.1.0 (all users) for the test and installs 0.1.1 |
+| `test-packaged.ps1` safety | It used to install/uninstall next to an existing SuperR and left the user's `%APPDATA%\SuperR` in the evidence folder. Now it refuses while SuperR is installed (HKCU or HKLM) and moves the user's folders back in a `finally` (verified: the owner's `ui_language: es` and theme were restored) |
+| Inherited upstream `os-*` workflows | Still enabled; the owner asked to stop the failure e-mails, and disabling them was refused again by the permission settings. Owner action (GitHub → Actions, or the command in upstream/README.md): disabling them was refused by this session's permission settings. Owner action (command in upstream/README.md); until then upstream's E2E workflow runs on pull requests touching `src/**` and fails |
 
 ## Fifth session: SuperR preview (2026-10-29)
 
@@ -194,6 +201,10 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | Fifth session: `check-identity.ps1`; desktop ESLint on the changed files | PASS (`tsc` could not run in place: the build copy has no node_modules after packaging) |
 | Sixth session: `deps.R` with a normal and an 8.3 short-name `TMPDIR` | PASS (failed before the fix, as on GitHub) |
 | Sixth session: `check-baseline.py --accepted`, `check-integration.py`, `check-identity.ps1` on `feature/visual-scatter` and on the 2026.10.1 merge | PASS |
+| Sixth session, `feature/data-entry`: `data-entry.R` with R 4.6.1 (+ readxl 1.6.0 in the isolated library) and R 3.6.3; `visual-scatter.R`, `lfq-tropfishr.R`; live desktop `-Scenario sheet` | PASS / PASS (Excel reading skipped: no readxl) ; PASS ; PASS (10 checks) |
+| Sixth session, `feature/data-entry`: live desktop regression `ggplot2`, `disabled`, `lfq` (plot editor, LFQ window and Environment toolbar changed) | PASS / PASS / PASS |
+| Sixth session: GUI `deps` scenario | **Not runnable on this host** for the same reason as `deps.R` below (its precondition "ggplot2 not installed" fails); the `DependencyDialog` change (readxl name and reason) needs a clean R to be GUI-tested |
+| Sixth session: `deps.R` on this host | **Cannot run here any more**: the owner accepted SuperR's ggplot2/TropFishR installation into `C:\R\R-4.6.1\library` (writable, so it is `.libPaths()[1]`), and `.Library` is always on the path, so "ggplot2 missing" cannot be simulated. The test now stops with that explanation; CI runs it on a clean R |
 
 Known failures/limitations (unchanged from baseline unless noted):
 `LoggingTest.CanJsonLogError` expects an English Windows message (host is

@@ -81,7 +81,8 @@ Error initialize()
    {
       for (const char* file : {"SessionSuperRStudio.R", "SessionSuperRStudioLfq.R",
                                "SessionSuperRStudioLfqLibrary.R", "SessionSuperRStudioLfqMortality.R",
-                               "SessionSuperRStudioLfqYield.R", "SessionSuperRStudioDeps.R"})
+                               "SessionSuperRStudioLfqYield.R", "SessionSuperRStudioDeps.R",
+                               "SessionSuperRStudioSheet.R"})
       {
          Error error = module_context::sourceModuleRFile(file);
          if (error)

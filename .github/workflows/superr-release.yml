@@ -48,13 +48,15 @@ jobs:
         shell: powershell
         run: tools/superrstudio/check-identity.ps1
 
-      - name: R contract tests (plot editor, length-frequency, optional packages)
+      - name: R contract tests (plot editor, length-frequency, data table, optional packages)
         shell: powershell
         run: |
           $env:R_LIBS_USER = "$env:GITHUB_WORKSPACE\.cache\superrstudio\r-library"
           & C:\R\R-4.6.1\bin\x64\Rscript.exe tests/superrstudio/visual-scatter.R
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & C:\R\R-4.6.1\bin\x64\Rscript.exe tests/superrstudio/lfq-tropfishr.R
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & C:\R\R-4.6.1\bin\x64\Rscript.exe tests/superrstudio/data-entry.R
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & C:\R\R-4.6.1\bin\x64\Rscript.exe tests/superrstudio/deps.R
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

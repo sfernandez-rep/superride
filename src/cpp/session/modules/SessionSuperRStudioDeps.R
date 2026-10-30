@@ -20,7 +20,9 @@
 
 .rs.addFunction('superrstudioDependencyFeatures', function()
    list(plot = list(packages = list(list(name = 'ggplot2', min = '3.4.0'))),
-        lfq = list(packages = list(list(name = 'TropFishR', min = '1.6.0')))))
+        lfq = list(packages = list(list(name = 'TropFishR', min = '1.6.0'))),
+        # the data table window reads Excel files with readxl (text files need nothing)
+        sheet = list(packages = list(list(name = 'readxl', min = '1.4.0')))))
 
 # state lives in the tools environment, where the functions above look
 assign('.rs.superrstudioDepsState', new.env(parent = emptyenv()), envir = .rs.toolsEnv())

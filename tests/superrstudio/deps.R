@@ -22,6 +22,12 @@ toolsEnv <- new.env(parent = globalenv())
 }
 for (file in c('SessionSuperRStudio.R', 'SessionSuperRStudioLfq.R', 'SessionSuperRStudioDeps.R'))
    sys.source(file.path(root, 'src/cpp/session/modules', file), envir = toolsEnv)
+# .Library is always on the library path: an R whose own library already has
+# ggplot2 (for example after accepting SuperR's installation where that
+# library is writable) cannot show the missing-package cases
+if (nzchar(system.file(package = 'ggplot2', lib.loc = .Library)))
+   stop('Cannot run here: ggplot2 is installed in R\'s own library (', .Library,
+        '). Run deps.R with an R without it (CI uses a clean R).', call. = FALSE)
 repo <- file.path(root, '.cache/superrstudio/local-repo')
 if (!file.exists(file.path(repo, 'full')))
    system2(file.path(R.home('bin'), 'Rscript'), c(shQuote(file.path(root, 'tests/superrstudio/make-local-repo.R')), shQuote(repo)))

@@ -74,6 +74,17 @@ public class ScatterDialog extends DialogBox
       instance_.checkPackages(true);
    }
 
+   // Opens the editor with a data frame selected (from the data table window).
+   // An open or docked editor lists the session's data again and selects it.
+   public static void openWith(SuperRStudioServerOperations server, EventBus events, Commands commands,
+                               String dataset)
+   {
+      preselect_ = dataset;
+      if (instance_ != null && (instance_.docked_ || instance_.isShowing()))
+         instance_.refresh();
+      open(server, events, commands);
+   }
+
    // Moves the editor into a workbench pane (the Visual tab), creating it if
    // no editor is open. The same editor moves, so its data, settings, undo
    // history and preview are kept; the placeholder returns when it floats.
@@ -1732,6 +1743,11 @@ public class ScatterDialog extends DialogBox
          for (int i = 0; i < names.length(); i++)
             datasets_.addItem(i < kinds.length() && !"data.frame".equals(kinds.get(i))
                ? names.get(i) + " (" + kinds.get(i) + ")" : names.get(i), names.get(i));
+         if (preselect_ != null)
+         {
+            select(datasets_, preselect_);
+            preselect_ = null;
+         }
          if (datasets_.getItemCount() > 0) inspect();
          else status_.setText(messages_.noData());
       });
@@ -1934,6 +1950,8 @@ public class ScatterDialog extends DialogBox
    private String revision_ = "";
    private int requestId_ = 0;
    private static ScatterDialog instance_;
+   // data frame to select at the next listing (openWith)
+   private static String preselect_;
    private Widget body_, placeholder_;
    private SimplePanel host_;
    private boolean docked_ = false, moving_ = false;

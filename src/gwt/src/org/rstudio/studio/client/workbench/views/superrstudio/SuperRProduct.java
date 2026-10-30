@@ -12,7 +12,7 @@ import com.google.gwt.resources.client.ImageResource;
 public class SuperRProduct
 {
    public static final String NAME = "SuperR";
-   public static final String VERSION = "0.1.0";
+   public static final String VERSION = "0.1.1";
    public static final String PRERELEASE = "preview.1";
    public static final String DISPLAY_VERSION = VERSION + "-" + PRERELEASE;
    public static final String HOMEPAGE = "https://github.com/sfernandez-rep/superride";

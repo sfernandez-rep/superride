@@ -24,8 +24,10 @@
    library path of the launched application only (R_LIBS_USER for that
    process), so ggplot2 and TropFishR are available without installing
    anything into the user's libraries. If %APPDATA%\SuperR or
-   %LOCALAPPDATA%\SuperR exist from an earlier run they are moved into the
-   evidence folder first, so the first launch is a fresh one.
+   %LOCALAPPDATA%\SuperR exist they are moved into the evidence folder first,
+   so the first launch is a fresh one, and moved back at the end (the
+   test's own folders go to the evidence). The test refuses to run while
+   SuperR is installed for this user or for all users.
 
    Requires the Playwright client in .cache\superrstudio\ui-client.
 
@@ -55,6 +57,19 @@ $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
 $env:SUPER_RSTUDIO_CDP_PORT = "$Port"
 if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) { throw "Port $Port is in use." }
 if (Get-Process -Name $product.executableName -ErrorAction SilentlyContinue) { throw "$($product.executableName).exe is already running." }
+# The test installs and uninstalls SuperR for the current user; next to an
+# existing SuperR (per user or for all users) it would replace it or leave it
+# inconsistent, so it refuses to run.
+$existing = @(foreach ($hive in 'HKCU:', 'HKLM:')
+{
+   Get-ItemProperty "$hive\Software\Microsoft\Windows\CurrentVersion\Uninstall\$($product.productName)" -ErrorAction SilentlyContinue
+})
+if ($existing.Count)
+{
+   throw ("$($product.productName) $($existing[0].DisplayVersion) is installed in $($existing[0].InstallLocation). " +
+          "Uninstall it first (its settings in %APPDATA%\$($product.userFolder) are kept, and restored after the test) " +
+          "or run the test in another Windows account.")
+}
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $evidence = Join-Path $SrsCache "packaged-tests\$stamp"
@@ -146,10 +161,26 @@ function Compare-Snapshot($Before, $After, [string]$When)
 # 1. snapshot; move away SuperR user data from an earlier run
 $before = Get-Snapshot
 $before | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $evidence 'snapshot-before.json') -Encoding utf8
-foreach ($dir in "$env:APPDATA\$($product.userFolder)", "$env:LOCALAPPDATA\$($product.userFolder)")
+$userDirs = "$env:APPDATA\$($product.userFolder)", "$env:LOCALAPPDATA\$($product.userFolder)"
+foreach ($dir in $userDirs)
 {
    if (Test-Path $dir) { Move-Item $dir (Join-Path $evidence ("previous-" + ($dir -replace '[:\\]', '_'))) }
 }
+# the user's own SuperR settings come back at the end, also when a step
+# fails; the folders the test created go to the evidence
+function Restore-UserData
+{
+   if ($KeepInstalled) { return }
+   foreach ($dir in $userDirs)
+   {
+      $name = $dir -replace '[:\\]', '_'
+      if (Test-Path $dir) { Move-Item $dir (Join-Path $evidence "test-$name") }
+      $previous = Join-Path $evidence "previous-$name"
+      if (Test-Path $previous) { Move-Item $previous $dir }
+   }
+}
+# (steps 2-4 run inside try/finally; their indentation is kept for history)
+try {
 
 # 2. install for the current user
 $installDir = Join-Path $env:LOCALAPPDATA "Programs\$($product.installDirectory)"
@@ -279,6 +310,8 @@ if (-not $KeepInstalled)
    $after | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $evidence 'snapshot-after.json') -Encoding utf8
    Compare-Snapshot $before $after 'after uninstall'
 }
+}
+finally { Restore-UserData }
 
 $results | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $evidence 'results.json') -Encoding utf8
 $failed = @($results | Where-Object result -ne 'PASS')

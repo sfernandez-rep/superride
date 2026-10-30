@@ -32,6 +32,11 @@ public class SuperRStudioLanguage
       return spanish() ? new DependencyMessagesEs() : GWT.create(DependencyMessages.class);
    }
 
+   public static SheetMessages sheet()
+   {
+      return spanish() ? new SheetMessagesEs() : GWT.create(SheetMessages.class);
+   }
+
    // Replaces {0}, {1}, ... like the plain MessageFormat placeholders used by
    // the interfaces (no number or date formats are used in them).
    public static String format(String pattern, String... args)

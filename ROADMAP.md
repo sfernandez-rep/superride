@@ -56,4 +56,12 @@ All acceptance checks require recorded execution, not just compilation.
     Next: owner merges #1; complete the RStudio 2026.10.1 update (gates
     A4–A12) on `upstream-sync/rstudio-2026.10.1`.
 
-No dataset editor, general statistical module or Linux build is implemented yet.
+15. Done 2026-10-30 (sixth session, on `feature/data-entry`): data table window
+    to type or paste values, load CSV/text/Excel files (detected separator,
+    decimal comma, encoding; Excel through readxl on request) or edit a copy
+    of a session data frame, creating the data frame through visible console
+    code and opening it in the plot editor or the length-frequency window
+    ([record](docs/superrstudio/features/data-entry.md)).
+
+No full dataset editor (editing data frames in place), general statistical
+module or Linux build is implemented yet.

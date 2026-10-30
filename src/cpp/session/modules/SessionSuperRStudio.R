@@ -30,6 +30,9 @@ assign('.rs.superrstudioState', new.env(parent = emptyenv()), envir = .rs.toolsE
       # optional packages (SessionSuperRStudioDeps.R): dataset names the feature
       else if (startsWith(operation, 'deps_'))
          .rs.superrstudioDepsRpc(operation, dataset, appearance)
+      # the data table window (SessionSuperRStudioSheet.R)
+      else if (startsWith(operation, 'sheet_'))
+         .rs.superrstudioSheet(operation, dataset, appearance, available)
       else
          .rs.superrstudioData(operation, dataset, revision, x, y, available, appearance),
       error = function(e) list(error = I(conditionMessage(e))))

@@ -39,10 +39,12 @@ jobs:
         with:
           r-version: '4.6.1'
       - name: Install test packages (CRAN binaries)
-        run: Rscript -e "install.packages(c('ggplot2', 'tibble', 'data.table', 'TropFishR'), repos = 'https://cloud.r-project.org')"
+        run: Rscript -e "install.packages(c('ggplot2', 'tibble', 'data.table', 'TropFishR', 'readxl'), repos = 'https://cloud.r-project.org')"
       - name: Plot editor contract tests
         run: Rscript tests/superrstudio/visual-scatter.R
       - name: Length-frequency contract tests
         run: Rscript tests/superrstudio/lfq-tropfishr.R
+      - name: Data table contract tests (typed tables, text and Excel files)
+        run: Rscript tests/superrstudio/data-entry.R
       - name: Optional-package installation contract tests (local repository built from CRAN)
         run: Rscript tests/superrstudio/deps.R
