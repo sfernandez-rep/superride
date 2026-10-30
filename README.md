@@ -12,6 +12,8 @@ SuperR
 reproducible visual scientific work in biology, ecology, marine science and
 fisheries. It keeps the RStudio workbench and the active R session, and adds:
 
+- a data table to type or paste values from a spreadsheet, or load CSV, text
+  and Excel files, into a data frame through reproducible R code;
 - a visual ggplot2 plot editor (docked in a *Visual* tab or floating) that
   writes clean, reproducible R code;
 - length-frequency analysis with TropFishR: ELEFAN growth, catch curves,
