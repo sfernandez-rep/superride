@@ -1,10 +1,26 @@
-# SuperR 0.1.0-preview.1 (experimental preview, Windows x64)
+# SuperR 0.1.1-preview.1 (experimental preview, Windows x64)
 
 **Experimental software. Not for production analyses.** SuperR is an
 independent fork of RStudio Desktop that adds visual tools for scientific
 work (biology, ecology, marine science, fisheries). It is not developed,
 endorsed or supported by Posit Software, PBC. RStudio is a trademark of
 Posit Software, PBC.
+
+## New in 0.1.1-preview.1
+
+- **Data table** (Environment pane): type values or paste cells from Excel
+  or LibreOffice, or open a CSV, text or Excel file. The separator, decimal
+  comma and encoding are detected. Or copy a data frame of the session to
+  correct it. SuperR creates the data frame with R code that runs in the
+  console, and the plot editor and the length-frequency window open with it
+  already selected. Excel files need readxl, offered for installation only
+  with consent.
+- Same RStudio base as 0.1.0-preview.1 (2026.10.0, build 233).
+
+To update from 0.1.0-preview.1, uninstall it first (*Settings → Apps →
+SuperR → Uninstall*), then install this version. Uninstalling keeps your
+SuperR settings, projects and R libraries. Installing over the earlier
+version has not been tested.
 
 ## What is in this preview
 
@@ -26,9 +42,9 @@ Posit Software, PBC.
 
 ## Install
 
-1. Download `SuperR-0.1.0-preview.1-Windows-x64.exe` and its `.sha256` file.
+1. Download `SuperR-0.1.1-preview.1-Windows-x64.exe` and its `.sha256` file.
 2. Optional: verify the download in PowerShell with
-   `(Get-FileHash .\SuperR-0.1.0-preview.1-Windows-x64.exe).Hash` and compare
+   `(Get-FileHash .\SuperR-0.1.1-preview.1-Windows-x64.exe).Hash` and compare
    it with the `.sha256` file.
 3. Run the installer. It installs either for the current user only (no
    administrator rights) or, with administrator rights, for all users.
