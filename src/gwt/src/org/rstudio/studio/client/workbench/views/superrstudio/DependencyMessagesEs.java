@@ -8,10 +8,12 @@ public class DependencyMessagesEs implements DependencyMessages
    @Override public String title() { return "Paquetes de R para SuperR"; }
    @Override public String featurePlot() { return "El editor de gr\u00e1ficos"; }
    @Override public String featureLfq() { return "El an\u00e1lisis de frecuencias de tallas"; }
+   @Override public String featureSheet() { return "La lectura de archivos Excel"; }
    @Override public String intro(String p0) { return SuperRStudioLanguage.format("{0} necesita paquetes de R que no est\u00e1n disponibles en esta sesi\u00f3n de R:", p0); }
    @Override public String packageMissing(String p0, String p1) { return SuperRStudioLanguage.format("{0} {1} o m\u00e1s reciente: no instalado", p0, p1); }
    @Override public String packageOld(String p0, String p1, String p2) { return SuperRStudioLanguage.format("{0} {1} o m\u00e1s reciente: est\u00e1 instalada la versi\u00f3n {2}", p0, p1, p2); }
    @Override public String whyGgplot2() { return "ggplot2 dibuja la vista previa y lo usa el c\u00f3digo de gr\u00e1ficos generado."; }
+   @Override public String whyReadxl() { return "readxl lee archivos .xlsx y .xls; los archivos CSV y de texto no necesitan ning\u00fan paquete."; }
    @Override public String whyTropfishr() { return "TropFishR realiza los an\u00e1lisis (datos de frecuencias de tallas, crecimiento ELEFAN, mortalidad, rendimiento por recluta)."; }
    @Override public String checking() { return "Consultando el repositorio de paquetes\u2026"; }
    @Override public String version(String p0) { return SuperRStudioLanguage.format("Versi\u00f3n a instalar: {0}.", p0); }

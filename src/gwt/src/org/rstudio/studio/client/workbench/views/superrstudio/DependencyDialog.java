@@ -58,7 +58,8 @@ public class DependencyDialog extends DialogBox
 
    public static String featureName(String feature)
    {
-      return "lfq".equals(feature) ? messages_.featureLfq() : messages_.featurePlot();
+      return "lfq".equals(feature) ? messages_.featureLfq()
+           : "sheet".equals(feature) ? messages_.featureSheet() : messages_.featurePlot();
    }
 
    private DependencyDialog(SuperRStudioServerOperations server, String feature, Runnable onInstalled,
@@ -124,7 +125,8 @@ public class DependencyDialog extends DialogBox
                ? messages_.packageOld(p.str("name"), p.str("min"), p.str("installed"))
                : messages_.packageMissing(p.str("name"), p.str("min")));
             String why = "TropFishR".equals(p.str("name")) ? messages_.whyTropfishr()
-                       : "ggplot2".equals(p.str("name")) ? messages_.whyGgplot2() : "";
+                       : "ggplot2".equals(p.str("name")) ? messages_.whyGgplot2()
+                       : "readxl".equals(p.str("name")) ? messages_.whyReadxl() : "";
             if (!why.isEmpty())
                text.append("\n  ").append(why);
             String version = plan.obj("versions").str(p.str("name"));

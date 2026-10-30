@@ -7,10 +7,12 @@ public interface DependencyMessages extends Messages
    @DefaultMessage("R packages for SuperR") String title();
    @DefaultMessage("The plot editor") String featurePlot();
    @DefaultMessage("Length-frequency analysis") String featureLfq();
+   @DefaultMessage("Reading Excel files") String featureSheet();
    @DefaultMessage("{0} needs R packages that are not available in this R session:") String intro(String p0);
    @DefaultMessage("{0} {1} or newer: not installed") String packageMissing(String p0, String p1);
    @DefaultMessage("{0} {1} or newer: version {2} is installed") String packageOld(String p0, String p1, String p2);
    @DefaultMessage("ggplot2 draws the preview and is used by the generated plotting code.") String whyGgplot2();
+   @DefaultMessage("readxl reads .xlsx and .xls files; CSV and text files need no package.") String whyReadxl();
    @DefaultMessage("TropFishR performs the analyses (length-frequency data, ELEFAN growth, mortality, yield per recruit).") String whyTropfishr();
    @DefaultMessage("Checking the package repository…") String checking();
    @DefaultMessage("Version to install: {0}.") String version(String p0);

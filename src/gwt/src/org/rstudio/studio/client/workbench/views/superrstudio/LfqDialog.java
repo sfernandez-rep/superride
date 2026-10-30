@@ -57,6 +57,20 @@ public class LfqDialog extends DialogBox
       instance_.start();
    }
 
+   // Opens the window with a data frame selected (from the data table window);
+   // an open window lists the session's data again and selects it.
+   public static void openWith(SuperRStudioServerOperations server, EventBus events, String dataset)
+   {
+      preselect_ = dataset;
+      if (instance_ != null && instance_.isShowing())
+      {
+         instance_.show();
+         instance_.start();
+         return;
+      }
+      open(server, events);
+   }
+
    private LfqDialog(SuperRStudioServerOperations server, EventBus events)
    {
       super(false, false);
@@ -698,6 +712,11 @@ public class LfqDialog extends DialogBox
             datasets_.clear();
             for (int i = 0; i < names.length(); i++)
                datasets_.addItem(names.get(i));
+            if (preselect_ != null)
+            {
+               select(datasets_, preselect_);
+               preselect_ = null;
+            }
             if (names.length() > 0)
                columns(null);
             refreshRuns();
@@ -1547,6 +1566,8 @@ public class LfqDialog extends DialogBox
    private String job_ = "", version_ = "";
    private boolean busy_ = false, installed_ = false, createdOk_ = false, polling_ = false;
    private static LfqDialog instance_;
+   // data frame to select at the next listing (openWith)
+   private static String preselect_;
    private static final LfqMessages messages_ = SuperRStudioLanguage.lfq();
    private static final DependencyMessages deps_ = SuperRStudioLanguage.deps();
    // settings typed as text; every other text box holds a number

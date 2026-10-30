@@ -71,6 +71,8 @@ import org.rstudio.studio.client.workbench.views.superrstudio.LfqMessages;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterDialog;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages;
 import org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult;
+import org.rstudio.studio.client.workbench.views.superrstudio.SheetDialog;
+import org.rstudio.studio.client.workbench.views.superrstudio.SheetMessages;
 import org.rstudio.studio.client.workbench.views.superrstudio.SuperRStudioLanguage;
 
 import com.google.gwt.core.client.GWT;
@@ -159,6 +161,7 @@ public class EnvironmentPane extends WorkbenchPane
       toolbar.addLeftWidget(commands_.saveWorkspace().createToolbarButton());
       toolbar.addLeftSeparator();
       toolbar.addLeftWidget(createImportMenu());
+      toolbar.addLeftWidget(createSheetButton());
       toolbar.addLeftWidget(createScatterButton());
       toolbar.addLeftWidget(createLfqButton());
       toolbar.addLeftSeparator();
@@ -585,6 +588,36 @@ public class EnvironmentPane extends WorkbenchPane
          public void onError(ServerError error)
          {
             // older or disabled backend: keep the ordinary IDE
+         }
+      });
+
+      return button;
+   }
+
+   // SuperR: the data table window (type, paste or load data), opt-in like
+   // the plot editor.
+   private Widget createSheetButton()
+   {
+      SheetMessages messages = SuperRStudioLanguage.sheet();
+      ToolbarButton button = new ToolbarButton(
+            messages.toolbarLabel(),
+            messages.toolbarTitle(),
+            (ImageResource) null,
+            event -> SheetDialog.open(server_, events_, commands_));
+      ElementIds.assignElementId(button, "superrstudio_sheet");
+      button.setVisible(false);
+
+      server_.superrstudioData("status", "", "", "", "", null, new ServerRequestCallback<ScatterResult>()
+      {
+         @Override
+         public void onResponseReceived(ScatterResult result)
+         {
+            button.setVisible(result.enabled());
+         }
+
+         @Override
+         public void onError(ServerError error)
+         {
          }
       });
 
