@@ -15,6 +15,19 @@
         "docs/superrstudio/baseline/windows-gui-2026-10-28.md"
       ],
       "status": "accepted"
+    },
+    {
+      "version": "2026.10.1+239",
+      "tag": "v2026.10.1+239",
+      "commit": "0b06695c24e10f6de6b9166c35ae24804c21f95f",
+      "upstream_release_date": "2026-10-23",
+      "method": "merge",
+      "incorporated": null,
+      "superr_commit": null,
+      "sync_branch": "upstream-sync/rstudio-2026.10.1",
+      "review": "docs/superrstudio/upstream/reviews/rstudio-2026.10.1.md",
+      "acceptance": [],
+      "status": "under-review"
     }
   ]
 }

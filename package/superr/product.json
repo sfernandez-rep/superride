@@ -15,8 +15,8 @@
   "homepage": "https://github.com/sfernandez-rep/superride",
   "upstream": {
     "name": "RStudio",
-    "version": "2026.10.0+233",
-    "commit": "e961c6137d92315437caf5af53959f7110b517f9"
+    "version": "2026.10.1+239",
+    "commit": "0b06695c24e10f6de6b9166c35ae24804c21f95f"
   },
   "notice": "SuperR is an independent fork of RStudio. It is not developed, endorsed or supported by Posit Software, PBC. RStudio is a trademark of Posit Software, PBC."
 }
