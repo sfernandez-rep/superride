@@ -234,7 +234,8 @@ def report(data, merge=None):
 
     if merge:
         out += ['', '## Merge', '',
-                f"Branch `{merge['branch']}` in `{merge['where']}`; merge not committed.", '']
+                f"Prepared on branch `{merge['branch']}` with `git merge --no-ff --no-commit "
+                f"{data['tag']}`.", '']
         if merge['conflicts']:
             out += ['Conflicts to resolve (keep upstream\'s change and re-apply the SuperR change; see sync-process.md):', '']
             for path in merge['conflicts']:
@@ -330,16 +331,16 @@ def prepare(data, worktree, in_place):
         'check-integration.py': (-1, 'after resolving the conflicts')}
     path = Path(where) / review
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(report(data, {'branch': branch, 'where': where, 'conflicts': conflicts,
-                                  'checks': checks}), encoding='utf-8', newline='\n')
+    path.write_text(report(data, {'branch': branch, 'conflicts': conflicts, 'checks': checks}),
+                    encoding='utf-8', newline='\n')
     git('add', PIN, PRODUCT, HISTORY, review, cwd=where)
 
     message = Path(where) / git('rev-parse', '--git-path', 'MERGE_MSG', cwd=where)
     message.write_text(
         f"Merge upstream RStudio {data['version']} into SuperR\n\n"
-        f"Prepared on {branch} by tools/superrstudio/upstream-sync.py. Not accepted\n"
-        f"until the review record's acceptance gates are complete and the pull\n"
-        f"request is approved.\n\n"
+        f"Prepared by tools/superrstudio/upstream-sync.py on\n"
+        f"{branch}. Not accepted until the review record's\n"
+        f"acceptance gates are complete and the pull request is approved.\n\n"
         f"Upstream-Tag: {data['tag']}\n"
         f"Upstream-Commit: {data['commit']}\n"
         f"Previous-Upstream: {data['pin']['tag']} {data['pin']['commit']}\n"
