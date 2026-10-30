@@ -131,7 +131,9 @@ gh pr create --repo sfernandez-rep/superride --base develop --head upstream-sync
 ```
 
 Always pass `--repo sfernandez-rep/superride`. Without it, `gh` targets the
-parent repository, `rstudio/rstudio`.
+parent repository, `rstudio/rstudio`. You can push the branch earlier to
+back it up and run CI (`SuperR checks` runs on `upstream-sync/**` pushes).
+Open the pull request only when the acceptance table is complete.
 
 Before approving, the record's acceptance table must be complete. Then set
 the history entry to `accepted`, with `incorporated` (date), `superr_commit`

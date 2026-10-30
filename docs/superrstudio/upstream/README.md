@@ -94,14 +94,23 @@ release evidence (for example the release candidate built from
   is a GitHub fork of `rstudio/rstudio`, so GitHub offers to merge upstream's
   current `main` (not a release) straight into SuperR's `main`, which
   bypasses every gate here.
-- **Inherited upstream workflows are disabled.** The `.github/workflows/os-*.yml`
-  files are upstream's CI. They need Posit's runners, secrets, S3 and
-  daily-build infrastructure, and failed on the fork every day. They stay in
-  the tree, so upstream merges don't conflict, but are disabled in the
-  repository's Actions settings (2026-10-30). Re-enable one with
-  `gh workflow enable <file> --repo sfernandez-rep/superride`. After an
-  upstream update, disable any new `os-*` workflow:
-  `gh workflow list --all --repo sfernandez-rep/superride`.
+- **Inherited upstream workflows should be disabled (owner action, not done
+  yet).** The `.github/workflows/os-*.yml` files are upstream's CI. They
+  need Posit's runners, secrets, S3 and daily-build infrastructure. On the
+  fork, the scheduled ones fail every day, and `os-test-e2e-rstudio-pr.yml`
+  starts multi-platform source builds on every pull request that touches
+  `src/**`. Keep the files in the tree, so upstream merges don't conflict,
+  and disable them in the repository's Actions settings, or with:
+
+  ```powershell
+  gh api repos/sfernandez-rep/superride/actions/workflows --paginate `
+    --jq '.workflows[] | select(.path | startswith(".github/workflows/os-")) | .path' |
+    ForEach-Object { gh workflow disable (Split-Path $_ -Leaf) --repo sfernandez-rep/superride }
+  ```
+
+  Re-enable one with `gh workflow enable <file> --repo sfernandez-rep/superride`.
+  After each upstream update, check for new `os-*` workflows
+  (`gh workflow list --all --repo sfernandez-rep/superride`).
 - SuperR's own workflows: `superr-checks.yml` (identity and R contract tests),
   `superrstudio-foundation.yml` (provenance, integration points, R fixture),
   `superr-release.yml` (installer, manual).
