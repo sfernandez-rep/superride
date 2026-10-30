@@ -75,6 +75,8 @@ public static class SuperRWindow
 {
    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+   // the visible frame, without the invisible resize borders GetWindowRect includes
+   [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hWnd, int attribute, out RECT rect, int size);
 }
 "@
 function Test-Port([int]$Number)
@@ -219,12 +221,16 @@ foreach ($phase in $phases)
    # the window title and a capture of the SuperR window only (title bar and
    # icon); never the whole screen, which would record unrelated applications
    $window = Get-AppWindow
-   Record "$($phase.name): window title carries the SuperR name" ($window -and $window.MainWindowTitle -match 'SuperR' -and
-      $window.MainWindowTitle -notmatch 'RStudio') $(if ($window) { $window.MainWindowTitle })
+   Record "$($phase.name): window title carries the SuperR name" ($window -and $window.MainWindowTitle -cmatch 'SuperR' -and
+      $window.MainWindowTitle -cnotmatch 'RStudio') $(if ($window) { $window.MainWindowTitle })
    if ($window)
    {
       $rect = New-Object SuperRWindow+RECT
-      [void][SuperRWindow]::GetWindowRect($window.MainWindowHandle, [ref]$rect)
+      # DWMWA_EXTENDED_FRAME_BOUNDS = 9; fall back to the window rectangle
+      if ([SuperRWindow]::DwmGetWindowAttribute($window.MainWindowHandle, 9, [ref]$rect, 16) -ne 0)
+      {
+         [void][SuperRWindow]::GetWindowRect($window.MainWindowHandle, [ref]$rect)
+      }
       $w = $rect.Right - $rect.Left; $h = $rect.Bottom - $rect.Top
       if ($w -gt 0 -and $h -gt 0)
       {

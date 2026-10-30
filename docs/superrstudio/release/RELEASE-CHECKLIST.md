@@ -7,14 +7,14 @@ build, and the reason is recorded here.
 Status at the last update: **not published.**
 
 - **Condition 1 is not met:** the name is not cleared.
-- **Condition 3 needs the release-candidate build:** the packaged tests must
-  pass on the installer built from the release commit.
+- Condition 3 is met for the release candidate built from `541d0ad275`
+  (66 checks, 0 failed).
 
 | # | Condition | Status | Evidence |
 | --- | --- | --- | --- |
 | 1 | Trademark and naming review clear | **Not met** | [Preliminary review](../legal/superr-naming-review.md). No conflict was found by web search, but there has been no register search (USPTO/EUIPO/WIPO, classes 9 and 42), and the repository name still contains "rstudio". Owner action required |
 | 2 | Licence and source obligations | Met for the package contents | The package contains `COPYING` (AGPL-3.0) and `NOTICE` (third-party), and the About dialog has the licence, the trademark notice and the source link. The release assets add `SOURCE.txt` (commit, source archive) and `MODIFIED-FILES.txt` (AGPL §5(a): files changed against upstream `e961c6137d`) |
-| 3 | Installer and packaged tests pass | See *Test record* | `tools/superrstudio/test-packaged.ps1` on the release-candidate installer |
+| 3 | Installer and packaged tests pass | Met (2026-10-29) | `tools/superrstudio/test-packaged.ps1` on `SuperR-0.1.0-preview.1-Windows-x64.exe` built from `541d0ad275` (SHA-256 `7695094cf7d5…a5c530e`): 66 checks, 0 failed, Windows 11 x64 |
 | 4 | Side-by-side behaviour verified | Partly | Own folder, shortcut, uninstall entry, `SuperR.*` ProgIDs, no default-program change, RStudio settings folders untouched, uninstall leaves RStudio keys alone. **No official RStudio is installed on the test machine**, so running both at the same time is unverified |
 | 5 | No private data or secrets | Met (scan below) | Staged package scanned: no user-profile paths and no credentials. Token-like strings are detection regexes inside the Copilot language server. Build paths under `D:\Git\SuperRStudio` remain in native binaries' debug directories, as in any MSVC build |
 | 6 | Windows claims match evidence | Met | Windows 11 x64 only. Windows 10 is stated as untested |
@@ -23,7 +23,10 @@ Status at the last update: **not published.**
 
 ## Test record
 
-See the HANDOFF test table for the latest packaged-test run. The 20
+Last run: 2026-10-29, Windows 11 Pro for Workstations x64, R 4.6.1 (registered),
+66 checks, 0 failed. Evidence (screenshots of the SuperR window only, results.json,
+before/after snapshots) stays in `.cache/superrstudio/packaged-tests/` and is not
+committed. The 20
 scenarios of the brief map to these checks:
 
 | # | Scenario | Check |

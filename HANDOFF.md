@@ -37,7 +37,7 @@ the owner's added requirement of on-demand R package installation.
 | Central product identity `package/superr/product.json` (SuperR 0.1.0-preview.1) | Done; `tools/superrstudio/check-identity.ps1` checks the GWT, desktop and R copies | BRANDING.md |
 | User-visible rename (window title, About dialog with notice and source link, menus, messages, generated comments) | Done; internal identifiers and file formats unchanged | BRANDING.md |
 | Preliminary naming/trademark review | Done: **name not cleared** (no register search; repository name contains "rstudio") | docs/superrstudio/legal/superr-naming-review.md |
-| Windows x64 installer `SuperR-0.1.0-preview.1-Windows-x64.exe` (CPack/NSIS, optimised, update check compiled out, unsigned) | Built (smoke build 466.8 MB); release-candidate rebuild pending | docs/superrstudio/packaging-windows.md |
+| Windows x64 installer `SuperR-0.1.0-preview.1-Windows-x64.exe` (CPack/NSIS, optimised, update check compiled out, unsigned) | Release candidate built from clean commit `541d0ad275`: 466.8 MB, SHA-256 `7695094cf7d5fade2e012525ea58bb13640c0180687e41be983fa86aea5c530e`, in `dist\superr\` (not in Git) | docs/superrstudio/packaging-windows.md |
 | Side by side with RStudio (own folder/identity/ProgIDs, no default-program change, own settings in %APPDATA%/%LOCALAPPDATA%\SuperR) | Verified by `test-packaged.ps1` (no official RStudio installed here) | packaging-windows.md |
 | Project compatibility (synthetic fixture, copy-and-compare script) | Fixture + `tools/superrstudio/test-project-copy.ps1` | docs/superrstudio/project-compatibility.md |
 | Release automation | `.github/workflows/superr-release.yml` (manual, self-hosted runner, artifact; draft pre-release only after approval), `superr-checks.yml` (push checks) | docs/superrstudio/release/ |
@@ -163,6 +163,11 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | Visual tab (`-Scenario visual`: migrate / restart / off) and regression ggplot2, no-ggplot2, disabled, es, lfq (fourth session) | PASS (all 8); upstream suite 654/655 |
 | Theme switch (`-Scenario theme`: first / restart / off), canvas (in `ggplot2`), full GUI set no-ggplot2, disabled, es, lfq, visual (fourth session) | PASS |
 | Benchmarks (`bench.ps1`, 3 runs + warm-up): ready baseline 3.32 s / off 3.34 s / on 3.41 s; console 29-30 ms; session 128 / 128 / 132 MB | recorded in docs/superrstudio/benchmarks.md |
+| Fifth session: packaged release candidate (`test-packaged.ps1`: install, 4 launches nopkg/first/restart/off, uninstall, snapshots) | **66 checks, 0 failed** (Windows 11 x64; installed app starts in under 1 s after the first launch) |
+| Fifth session: `deps.R`, `lfq-tropfishr.R` (incl. Beverton–Holt Z, yield per recruit), `visual-scatter.R` | PASS |
+| Fifth session: live desktop ggplot2, no-ggplot2, disabled, lfq (incl. yield tab), es, visual ×3, theme ×3, deps | all PASS (ggplot2 once timed out after *Refresh data* and passed on rerun: intermittent) |
+| Fifth session: upstream R-session suite, features on | 654 passed / 655 (1 skipped), unchanged |
+| Fifth session: `check-identity.ps1`; desktop ESLint on the changed files | PASS (`tsc` could not run in place: the build copy has no node_modules after packaging) |
 
 Known failures/limitations (unchanged from baseline unless noted):
 `LoggingTest.CanJsonLogError` expects an English Windows message (host is
@@ -196,19 +201,21 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    cost recorded in docs/superrstudio/benchmarks.md).
    Done: optimised-client benchmark (`dev-build.ps1 -Component gwt -Optimized`):
    start-up and Electron memory equal to the unmodified baseline.
-   **Next exact task:** dockable length-frequency window (same dock/undock
-   approach as the plot editor, in the Visual tab or its own tab); then the
-   remaining TropFishR features (Beverton-Holt Z, yield per recruit) with
-   reference data; domain review by fisheries scientists.
+   Done (fifth session): SuperR identity, installer, packaged tests, release
+   workflows, Beverton-Holt Z / yield per recruit, optional packages on request.
+   **Next exact tasks:** (1) owner: name clearance and repository-name decision
+   (blocks the public pre-release, see docs/superrstudio/release/RELEASE-CHECKLIST.md);
+   (2) register a self-hosted runner (labels self-hosted, Windows, X64,
+   superr-build) and run superr-release.yml; (3) Windows 10 test machine;
+   (4) dockable length-frequency window; (5) Thompson-Bell / VPA; domain review.
    Note: the working client may be the optimised build; the next normal
    `dev-build.ps1` recompiles the draft client (the draft stamp was removed).
    Then: remaining in-window preview overhead for 100,000-point scatter
    plots (2.4 s; R side 2.0 s is Cairo rasterisation of points), an
    optimised (non-draft) GWT build for memory comparisons with the
    baseline, Beverton-Holt Z / YPR for the LFQ module, domain review.
-   Branding: the owner keeps "SuperRStudio" as a provisional development
-   name and defers the public decision; keep branding modular, publish no
-   branded releases ([BRANDING.md](docs/superrstudio/BRANDING.md)).
+   Branding: the product is SuperR (fifth-session brief); public release
+   only when the checklist's eight conditions hold ([BRANDING.md](docs/superrstudio/BRANDING.md)).
 5. M4 groundwork: saving/loading specifications and contextual editing on a
    structured specification (not on the raster image).
 6. Before release: dependency audit, localized logging test, `es` locale build.

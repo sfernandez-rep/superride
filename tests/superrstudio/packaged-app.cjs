@@ -172,7 +172,8 @@ async function common(page)
       await page.waitForFunction(() => document.querySelector('#superrstudio_visual_host #superrstudio_dataset'));
       pass('float and dock again keep the editor state');
       // the generated code runs as written
-      await run(page, 'srs_plot <- eval(parse(text = ' + JSON.stringify(code) + '))[[1]]');
+      // the first expression of the generated code is the plot
+      await run(page, 'srs_plot <- eval(parse(text = ' + JSON.stringify(code) + ')[[1]])');
       const cls = await value(page, "paste(class(srs_plot), collapse = ',')", 'SRC');
       expect(cls.includes('ggplot'), 'generated code result: ' + cls);
       pass('generated ggplot2 code evaluates to a ggplot object');

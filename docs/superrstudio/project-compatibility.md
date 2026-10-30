@@ -21,7 +21,9 @@ as in RStudio:
 - `save.image()` and the *Save workspace* question write `.RData`;
 - renv may restore packages into the project library.
 
-RStudio's per-project state in `.Rproj.user/` is also written. SuperR's own
+RStudio's per-project state in `.Rproj.user/` is also written. When a project
+opens on Windows, the IDE rewrites its `.Rproj` file with Windows line endings
+(CRLF), as RStudio does; the settings in it do not change. SuperR's own
 windows read data from the session, and only write files when you export or
 save something there.
 
