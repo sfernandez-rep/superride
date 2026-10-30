@@ -1,8 +1,8 @@
 # SuperR handoff
 
-Updated 2026-10-29 (fifth session: SuperR rename, Windows package, optional
-packages, Beverton–Holt Z / yield per recruit), America/Montevideo, by Claude
-Code (continuing Codex's work). The product is now **SuperR**; the GitHub
+Updated 2026-10-30 (sixth session: upstream synchronization process, pull
+request #1 into `main`, RStudio 2026.10.1 prepared), America/Montevideo, by
+Claude Code (continuing Codex's work). The product is now **SuperR**; the GitHub
 repository is **sfernandez-rep/superride** (renamed from `superrstudio` on
 2026-10-29, history and settings kept, old URL redirects); the local
 directory `D:\Git\SuperRStudio` and internal identifiers keep the
@@ -19,7 +19,11 @@ ecosystem while adding reproducible visual data/ggplot2/statistical workflows.
 Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follows.
 
 - Official fork: https://github.com/sfernandez-rep/superride (renamed from `superrstudio` on 2026-10-29; do not recreate it).
-- Active branch: `feature/visual-scatter` (not merged to `main`/`develop`).
+- Active branch: `feature/visual-scatter`, proposed for `main` in
+  [pull request #1](https://github.com/sfernandez-rep/superride/pull/1)
+  (open; **the owner merges it**, with a merge commit, never squash/rebase).
+  `main` = `develop` = `6aabecdb67` until then. Upstream update candidate:
+  `upstream-sync/rstudio-2026.10.1` (pushed, not merged).
   `git log -1 --oneline` is the authoritative HEAD. Milestone commits:
   `f2aabfc219` (Codex checkpoint), `5bc6a55ce2` (scatter feature verified),
   `9773e68319` (development workflow).
@@ -27,6 +31,24 @@ Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follow
 - Main checkout `D:\Git\SuperRStudio`; pristine detached baseline worktree
   `D:\Git\SuperRStudio-baseline` (keep pristine); shared dependencies
   `D:\Git\rstudio-tools`.
+
+## Sixth session: independent product and upstream updates (2026-10-30)
+
+Brief: maintain SuperR as an independent product (own `main`, `develop`,
+releases, tests and roadmap) that takes upstream RStudio fixes only when its
+base is deliberately moved. Record: [docs/superrstudio/upstream/](docs/superrstudio/upstream/README.md).
+
+| Item | State |
+| --- | --- |
+| Branching model (`main` stable, `develop` integration, `feature/*`, temporary `upstream-sync/rstudio-<version>`, `superr-v*` release tags), merge-commit-only rule, "never Sync fork" | Documented: upstream/README.md, AGENTS.md, CONTRIBUTING.md, UPSTREAM.md |
+| Integration of `feature/visual-scatter` into `main` | [PR #1](https://github.com/sfernandez-rep/superride/pull/1) open, mergeable (fast-forward-able). Audit: no change under `src/`, `package/`, `assets/` since the release-candidate commit `4d6c72279c`; binaries = branding + doc screenshots (~9 MB); no secrets, user paths or once-committed-then-deleted files; R sources ASCII. **Not merged: owner's approval** |
+| Upstream pin and history in Git | `superrstudio/upstream.json` (status `accepted`), `superrstudio/upstream-history.json` (new), checked by `check-baseline.py` (history, `MERGE_HEAD`, `--accepted`) |
+| SuperR's changes to upstream files | `superrstudio/integration-points.json`: all 46 modified upstream files with markers; `tools/superrstudio/check-integration.py` (also MD5 of `Commands.cmd.xml`, pin = `product.json` = `version/`). Negative-tested (removed marker, unlisted change, version mismatch) |
+| Update script | `tools/superrstudio/upstream-sync.py`: `assess` (official tag only, verified with `ls-remote`, fetches only that tag) and `prepare` (worktree or `--in-place`, `merge --no-commit`, pin moved, checks, review record, prepared message with `Upstream-*` trailers); never commits/pushes. Tested: refusals (same/older version, branch name, unknown tag), clean merge, conflict (throwaway base: exit 2), documented rollback |
+| Acceptance gates A1–A12, toolchain, rollback, history | upstream/acceptance.md, toolchain.md, rollback.md, history.md |
+| CI | `SuperR checks` was failing on GitHub (renv test, 8.3 short temp path): fixed in `tests/superrstudio/deps.R`. Foundation workflow: `--pristine` dropped (fails by design now), integration check added, `--accepted` on pull requests into `main`, runs on every pull request into `main`/`develop` |
+| RStudio 2026.10.1+239 | Prepared on `upstream-sync/rstudio-2026.10.1`, merge commit `dd544cf511` (from `bc2d214d03`): 6 upstream commits, 13 files, no file changed on both sides, no conflicts; checks pass; A1–A3 recorded in `docs/superrstudio/upstream/reviews/rstudio-2026.10.1.md` on that branch. **A4–A12 not run** |
+| Inherited upstream `os-*` workflows | Still enabled: disabling them was refused by this session's permission settings. Owner action (command in upstream/README.md); until then upstream's E2E workflow runs on pull requests touching `src/**` and fails |
 
 ## Fifth session: SuperR preview (2026-10-29)
 
@@ -170,6 +192,8 @@ library `.cache\superrstudio\r-library`; R 4.6.1 runtime, R 3.6.3 build input.
 | Fifth session: live desktop ggplot2, no-ggplot2, disabled, lfq (incl. yield tab), es, visual ×3, theme ×3, deps | all PASS (ggplot2 once timed out after *Refresh data* and passed on rerun: intermittent) |
 | Fifth session: upstream R-session suite, features on | 654 passed / 655 (1 skipped), unchanged |
 | Fifth session: `check-identity.ps1`; desktop ESLint on the changed files | PASS (`tsc` could not run in place: the build copy has no node_modules after packaging) |
+| Sixth session: `deps.R` with a normal and an 8.3 short-name `TMPDIR` | PASS (failed before the fix, as on GitHub) |
+| Sixth session: `check-baseline.py --accepted`, `check-integration.py`, `check-identity.ps1` on `feature/visual-scatter` and on the 2026.10.1 merge | PASS |
 
 Known failures/limitations (unchanged from baseline unless noted):
 `LoggingTest.CanJsonLogError` expects an English Windows message (host is
@@ -205,7 +229,21 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    start-up and Electron memory equal to the unmodified baseline.
    Done (fifth session): SuperR identity, installer, packaged tests, release
    workflows, Beverton-Holt Z / yield per recruit, optional packages on request.
-   **Next exact tasks:** (1) owner: register search / legal advice for "SuperR"
+   **Next exact tasks:** (0) owner: review and merge
+   [PR #1](https://github.com/sfernandez-rep/superride/pull/1) with a merge
+   commit, then `git push origin origin/main:develop`; disable the inherited
+   `os-*` workflows (command in docs/superrstudio/upstream/README.md);
+   optionally protect `main`/`develop` and allow merge commits only.
+   Agent, after the merge: finish the 2026.10.1 update on
+   `upstream-sync/rstudio-2026.10.1` (merge `develop` into it if needed): gates A4–A12 of
+   docs/superrstudio/upstream/acceptance.md. Use the main checkout
+   (`git switch upstream-sync/rstudio-2026.10.1`; incremental build, caches in
+   place); for A8 first raise the product version (e.g. `preview.2`) so
+   `dist\superr\` keeps the verified preview.1 installer; move the baseline
+   worktree to `v2026.10.1+239` for A6/A9; record results in the review
+   record, set the history entry and pin to `accepted`, then open the pull
+   request into `develop` (`gh pr create --repo sfernandez-rep/superride`).
+   (1) owner: register search / legal advice for "SuperR"
    (the only open publication condition, see docs/superrstudio/release/RELEASE-CHECKLIST.md;
    repository already renamed to superride);
    (2) register a self-hosted runner (labels self-hosted, Windows, X64,

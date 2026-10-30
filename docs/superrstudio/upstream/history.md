@@ -19,4 +19,4 @@ SuperR, with the reason.
 
 | RStudio release | Assessed | Result | Next step |
 | --- | --- | --- | --- |
-| 2026.10.1+239 (`0b06695c24`, committed 2026-10-23) | 2026-10-30 | 6 upstream commits, 13 files: a session start-up fix for `.Rproj.user` on filesystems that refuse ACL writes (#19118), macOS OpenSSL build fixes, documentation. No file changed on both sides; no Windows toolchain change | Candidate; see [HANDOFF.md](../../../HANDOFF.md) |
+| 2026.10.1+239 (`0b06695c24`, committed 2026-10-23) | 2026-10-30 | 6 upstream commits, 13 files: a session start-up fix for `.Rproj.user` on filesystems that refuse ACL writes (#19118), macOS OpenSSL build fixes, documentation. No file changed on both sides; no Windows toolchain change | Under review: prepared on `upstream-sync/rstudio-2026.10.1`, merge commit `dd544cf511`, no conflicts, gates A1–A3 pass; A4–A12 pending ([HANDOFF.md](../../../HANDOFF.md)) |

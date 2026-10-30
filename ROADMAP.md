@@ -48,5 +48,12 @@ All acceptance checks require recorded execution, not just compilation.
     owner register search or legal advice for the name (repository renamed to superride); signing
     certificate; Windows 10 test machine; dockable length-frequency window;
     Thompson–Bell / VPA; domain review.
+14. Done 2026-10-30 (sixth session): SuperR maintained as an independent
+    product with its own `main`/`develop` and a documented, scripted,
+    gated process for upstream RStudio updates
+    ([docs/superrstudio/upstream/](docs/superrstudio/upstream/README.md));
+    integration of the preview work into `main` proposed in pull request #1.
+    Next: owner merges #1; complete the RStudio 2026.10.1 update (gates
+    A4–A12) on `upstream-sync/rstudio-2026.10.1`.
 
 No dataset editor, general statistical module or Linux build is implemented yet.
