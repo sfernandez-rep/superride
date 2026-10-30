@@ -125,8 +125,11 @@ cat('PASS: unwritable target library refused with a message\n')
 renvLib <- newLib()
 utils::install.packages('renv', lib = renvLib, repos = url('full'), type = .Platform$pkgType, quiet = TRUE)
 .libPaths(c(renvLib, .Library))
-project <- normalizePath(tempfile('superr-renv-'), winslash = '/', mustWork = FALSE)
+# normalised after creation: a temporary directory under an 8.3 short path
+# (GitHub's Windows runners) only resolves to its long form once it exists
+project <- tempfile('superr-renv-')
 dir.create(project)
+project <- normalizePath(project, winslash = '/', mustWork = TRUE)
 invisible(utils::capture.output(renv::init(project = project, bare = TRUE, restart = FALSE, load = FALSE)))
 invisible(utils::capture.output(renv::load(project, quiet = TRUE)))
 invisible(utils::capture.output(renv::snapshot(project = project, prompt = FALSE)))
@@ -137,7 +140,7 @@ projectLib <- normalizePath(renv::paths$library(project = project), winslash = '
 options(repos = c(LOCAL = url('full')))
 plan <- ok(deps('deps_plan'))
 expect(identical(unclass(plan$renv), project) && identical(unclass(plan$library), projectLib),
-       paste('renv project library not the target:', plan$library, projectLib))
+       paste('renv project library not the target:', plan$renv, project, plan$library, projectLib))
 done <- wait(ok(deps('deps_install'))$job)
 expect(identical(unclass(done$status), 'done') && dir.exists(file.path(projectLib, 'ggplot2')), 'renv install')
 expect(identical(unclass(done$renv), project) && identical(tools::md5sum(lock), lockHash), 'renv.lock changed')
