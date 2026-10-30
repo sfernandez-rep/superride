@@ -25,8 +25,11 @@ the name is **not cleared** for a public release yet).
   - saved-file formats (`# SuperRStudio <kind> v6` plot specifications,
     `superrstudio-lfq-analyses`);
   - the `SUPER_RSTUDIO_EXPERIMENTAL` switch.
-- **The repository and local directory keep their names** (`superrstudio`)
-  until the owner decides otherwise.
+- **Repository:** renamed to `sfernandez-rep/superride` on 2026-10-29 (owner
+  decision; GitHub keeps history, branches, tags and settings, and redirects
+  the old `superrstudio` URL). The local directory `D:\Git\SuperRStudio` and
+  internal identifiers keep their names; renaming the directory has no
+  technical benefit and would break local tool configuration.
 
 ## Logo and generated assets
 

@@ -135,7 +135,10 @@ No esperes a los últimos momentos para documentar lo realizado.
 
 El repositorio oficial del proyecto es:
 
-https://github.com/sfernandez-rep/superrstudio
+https://github.com/sfernandez-rep/superride
+
+(Renombrado desde `superrstudio` el 2026-10-29 por decisión del propietario; la
+URL anterior redirige. El producto público se llama SuperR.)
 
 Trabajá sobre el fork existente.
 

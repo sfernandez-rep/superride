@@ -12,7 +12,7 @@ Status at the last update: **not published.**
 
 | # | Condition | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Trademark and naming review clear | **Not met** | [Preliminary review](../legal/superr-naming-review.md). No conflict was found by web search, but there has been no register search (USPTO/EUIPO/WIPO, classes 9 and 42), and the repository name still contains "rstudio". Owner action required |
+| 1 | Trademark and naming review clear | **Not met** | [Preliminary review](../legal/superr-naming-review.md). No conflict was found by web search, but there has been no register search (USPTO/EUIPO/WIPO, classes 9 and 42). The repository was renamed to `superride` on 2026-10-29. Owner action required: register search or legal advice |
 | 2 | Licence and source obligations | Met for the package contents | The package contains `COPYING` (AGPL-3.0) and `NOTICE` (third-party), and the About dialog has the licence, the trademark notice and the source link. The release assets add `SOURCE.txt` (commit, source archive) and `MODIFIED-FILES.txt` (AGPL §5(a): files changed against upstream `e961c6137d`) |
 | 3 | Installer and packaged tests pass | Met (2026-10-29) | `tools/superrstudio/test-packaged.ps1` on `SuperR-0.1.0-preview.1-Windows-x64.exe` built from `541d0ad275` (SHA-256 `7695094cf7d5…a5c530e`): 66 checks, 0 failed, Windows 11 x64 |
 | 4 | Side-by-side behaviour verified | Partly | Own folder, shortcut, uninstall entry, `SuperR.*` ProgIDs, no default-program change, RStudio settings folders untouched, uninstall leaves RStudio keys alone. **No official RStudio is installed on the test machine**, so running both at the same time is unverified |
@@ -59,8 +59,8 @@ The installer is unsigned (no code-signing certificate). See
 
 ## To publish (owner)
 
-1. Resolve condition 1. Record the register search or legal advice, and
-   decide on the repository name.
+1. Resolve condition 1: record the register search or legal advice (the
+   repository is already renamed to `superride`).
 2. Run *SuperR Windows preview build* (`superr-release.yml`) on the
    self-hosted runner with `create_draft_prerelease`. Approve the
    `superr-release` environment.

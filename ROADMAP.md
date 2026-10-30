@@ -45,7 +45,7 @@ All acceptance checks require recorded execution, not just compilation.
     surfaces), branding assets from the logo master, Windows x64 installer
     beside RStudio, packaged-app tests, release workflows, Beverton–Holt Z and
     yield per recruit, on-demand installation of optional R packages. Next:
-    owner decision on name clearance and repository name; signing
+    owner register search or legal advice for the name (repository renamed to superride); signing
     certificate; Windows 10 test machine; dockable length-frequency window;
     Thompson–Bell / VPA; domain review.
 

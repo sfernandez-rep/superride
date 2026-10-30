@@ -1,33 +1,43 @@
-SuperRStudio
+SuperR
 =============================================================================
 
-An independent fork of RStudio Desktop for reproducible visual scientific
-workflows, with a focus on biology, ecology and fisheries research.
+![SuperR](assets/branding/generated/png/superr-128.png)
 
-**Status: unmodified baseline builds on Windows 11.** The source is pinned to
-RStudio **2026.10.0+233** (`e961c6137d92315437caf5af53959f7110b517f9`). The
-toolchain, upstream dependencies, GWT, native backend and Electron package have
-built successfully. R-session tests pass with R 3.6.3 and 4.6.1; one core test
-assumes English Windows error messages and fails on this Spanish host. Desktop
-GUI workflows and full compatibility remain unverified. Visual dataset and
-ggplot2 editors remain planned. See the
-[current provisioning and build assessment](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
+**SuperR** is an independent, experimental fork of RStudio Desktop for
+reproducible visual scientific work in biology, ecology, marine science and
+fisheries. It keeps the RStudio workbench and the active R session, and adds:
 
+- a visual ggplot2 plot editor (docked in a *Visual* tab or floating) that
+  writes clean, reproducible R code;
+- length-frequency analysis with TropFishR: ELEFAN growth, catch curves,
+  Beverton–Holt Z, yield per recruit and saved analyses;
+- optional R packages installed only on request, with consent (renv-aware);
+- a one-click light/dark switch and Spanish for the SuperR windows.
+
+SuperR is not developed, endorsed or supported by Posit Software, PBC.
+RStudio is a trademark of Posit Software, PBC.
+
+**Status:** first Windows x64 preview (`0.1.0-preview.1`), based on RStudio
+**2026.10.0+233** (`e961c6137d92315437caf5af53959f7110b517f9`). It has been
+tested on Windows 11 x64 only. No public release has been published yet; see
+the [release checklist](docs/superrstudio/release/RELEASE-CHECKLIST.md).
+
+- [Release notes (draft)](docs/superrstudio/release/RELEASE-NOTES.md)
+- [Windows packaging and side-by-side installation](docs/superrstudio/packaging-windows.md)
+- [Using existing RStudio projects](docs/superrstudio/project-compatibility.md)
+- [Branding](docs/superrstudio/BRANDING.md)
 - [Fork and upstream pin](UPSTREAM.md)
-- [Build instructions and actual blockers](BUILDING.md)
+- [Build instructions](BUILDING.md)
 - [Architecture and extension decisions](ARCHITECTURE.md)
-- [Milestones and next tasks](ROADMAP.md)
-- [Compatibility matrix and test plan](COMPATIBILITY.md)
-- [Initial execution evidence](docs/superrstudio/baseline/2026-10-27.md)
+- [Milestones and next tasks](ROADMAP.md) and [handoff](HANDOFF.md)
 - [Contribution instructions](CONTRIBUTING.md) and [agent instructions](AGENTS.md)
 
-Preserve the traditional RStudio workbench and active R session. Add visual
-operations incrementally, using established R packages and reproducible code.
-Existing research datasets and project environments must never change silently.
+Repository: https://github.com/sfernandez-rep/superride (renamed from
+`superrstudio`; the old URL redirects).
 
+Existing research datasets and project environments must never change silently.
 Upstream AGPLv3 and third-party terms remain in [COPYING](COPYING) and
-[NOTICE](NOTICE). This fork is not endorsed by Posit. The original upstream
-README is preserved below.
+[NOTICE](NOTICE). The original upstream README is preserved below.
 
 RStudio
 =============================================================================

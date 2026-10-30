@@ -12,7 +12,7 @@
   "progIdPrefix": "SuperR",
   "bundleId": "io.github.sfernandez-rep.superr",
   "userFolder": "SuperR",
-  "homepage": "https://github.com/sfernandez-rep/superrstudio",
+  "homepage": "https://github.com/sfernandez-rep/superride",
   "upstream": {
     "name": "RStudio",
     "version": "2026.10.0+233",

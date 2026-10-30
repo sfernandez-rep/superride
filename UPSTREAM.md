@@ -9,7 +9,7 @@ Verified on **2026-10-27** (America/Montevideo):
 | Source tag | `v2026.10.0+233` |
 | Exact commit | `e961c6137d92315437caf5af53959f7110b517f9` |
 | Upstream | https://github.com/rstudio/rstudio |
-| Fork | https://github.com/sfernandez-rep/superrstudio |
+| Fork | https://github.com/sfernandez-rep/superride (renamed from `superrstudio` on 2026-10-29; the old URL redirects) |
 | Build acceptance | Windows 11 source build PASS; desktop GUI acceptance pending; known locale-sensitive test and npm audit findings |
 
 The machine-readable pin is [superrstudio/upstream.json](superrstudio/upstream.json).

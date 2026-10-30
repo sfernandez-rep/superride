@@ -2,9 +2,11 @@
 
 Updated 2026-10-29 (fifth session: SuperR rename, Windows package, optional
 packages, Beverton–Holt Z / yield per recruit), America/Montevideo, by Claude
-Code (continuing Codex's work). The product is now **SuperR**; the
-repository, directories and internal identifiers keep the `superrstudio`
-names (owner decision, see docs/superrstudio/BRANDING.md).
+Code (continuing Codex's work). The product is now **SuperR**; the GitHub
+repository is **sfernandez-rep/superride** (renamed from `superrstudio` on
+2026-10-29, history and settings kept, old URL redirects); the local
+directory `D:\Git\SuperRStudio` and internal identifiers keep the
+`superrstudio` names (owner decision, see docs/superrstudio/BRANDING.md).
 Continue this repository; do not restart initialization, recreate the GitHub
 fork, clone RStudio again or reinstall verified dependencies. The original brief
 is [PROJECT_BRIEF.md](docs/superrstudio/PROJECT_BRIEF.md); supplemental
@@ -16,7 +18,7 @@ Evolve RStudio Desktop into SuperRStudio, preserving the existing IDE and R
 ecosystem while adding reproducible visual data/ggplot2/statistical workflows.
 Windows 11 x64 comes first, Windows 10 remains experimental, Ubuntu 24.04 follows.
 
-- Official fork: https://github.com/sfernandez-rep/superrstudio (already created).
+- Official fork: https://github.com/sfernandez-rep/superride (renamed from `superrstudio` on 2026-10-29; do not recreate it).
 - Active branch: `feature/visual-scatter` (not merged to `main`/`develop`).
   `git log -1 --oneline` is the authoritative HEAD. Milestone commits:
   `f2aabfc219` (Codex checkpoint), `5bc6a55ce2` (scatter feature verified),
@@ -36,7 +38,7 @@ the owner's added requirement of on-demand R package installation.
 | Logo master and icon set (16–1024 px PNG, 10-size ICO, installer bitmaps, legibility sheet) | Done, reproducible: `tools/superrstudio/branding/make-branding.ps1` | docs/superrstudio/BRANDING.md |
 | Central product identity `package/superr/product.json` (SuperR 0.1.0-preview.1) | Done; `tools/superrstudio/check-identity.ps1` checks the GWT, desktop and R copies | BRANDING.md |
 | User-visible rename (window title, About dialog with notice and source link, menus, messages, generated comments) | Done; internal identifiers and file formats unchanged | BRANDING.md |
-| Preliminary naming/trademark review | Done: **name not cleared** (no register search; repository name contains "rstudio") | docs/superrstudio/legal/superr-naming-review.md |
+| Preliminary naming/trademark review | Done: **name not cleared** (no register search). The repository was renamed to `superride` on 2026-10-29, which removes the "rstudio" repository-name concern | docs/superrstudio/legal/superr-naming-review.md |
 | Windows x64 installer `SuperR-0.1.0-preview.1-Windows-x64.exe` (CPack/NSIS, optimised, update check compiled out, unsigned) | Release candidate built from clean commit `541d0ad275`: 466.8 MB, SHA-256 `7695094cf7d5fade2e012525ea58bb13640c0180687e41be983fa86aea5c530e`, in `dist\superr\` (not in Git) | docs/superrstudio/packaging-windows.md |
 | Side by side with RStudio (own folder/identity/ProgIDs, no default-program change, own settings in %APPDATA%/%LOCALAPPDATA%\SuperR) | Verified by `test-packaged.ps1` (no official RStudio installed here) | packaging-windows.md |
 | Project compatibility (synthetic fixture, copy-and-compare script) | Fixture + `tools/superrstudio/test-project-copy.ps1` | docs/superrstudio/project-compatibility.md |
@@ -203,8 +205,9 @@ a non-interactive caller's pipe open unless run in the background or with `-Wait
    start-up and Electron memory equal to the unmodified baseline.
    Done (fifth session): SuperR identity, installer, packaged tests, release
    workflows, Beverton-Holt Z / yield per recruit, optional packages on request.
-   **Next exact tasks:** (1) owner: name clearance and repository-name decision
-   (blocks the public pre-release, see docs/superrstudio/release/RELEASE-CHECKLIST.md);
+   **Next exact tasks:** (1) owner: register search / legal advice for "SuperR"
+   (the only open publication condition, see docs/superrstudio/release/RELEASE-CHECKLIST.md;
+   repository already renamed to superride);
    (2) register a self-hosted runner (labels self-hosted, Windows, X64,
    superr-build) and run superr-release.yml; (3) Windows 10 test machine;
    (4) dockable length-frequency window; (5) Thompson-Bell / VPA; domain review.

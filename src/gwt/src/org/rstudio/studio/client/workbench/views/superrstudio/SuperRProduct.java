@@ -15,7 +15,7 @@ public class SuperRProduct
    public static final String VERSION = "0.1.0";
    public static final String PRERELEASE = "preview.1";
    public static final String DISPLAY_VERSION = VERSION + "-" + PRERELEASE;
-   public static final String HOMEPAGE = "https://github.com/sfernandez-rep/superrstudio";
+   public static final String HOMEPAGE = "https://github.com/sfernandez-rep/superride";
    public static final String NOTICE =
       "SuperR is an independent fork of RStudio. It is not developed, endorsed or " +
       "supported by Posit Software, PBC. RStudio is a trademark of Posit Software, PBC.";

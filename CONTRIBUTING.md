@@ -1,6 +1,6 @@
-# Contributing to SuperRStudio
+# Contributing to SuperR
 
-Use [the SuperRStudio repository](https://github.com/sfernandez-rep/superrstudio)
+Use [the SuperR repository](https://github.com/sfernandez-rep/superride)
 for fork-specific issues and changes. Read [AGENTS.md](AGENTS.md),
 [BUILDING.md](BUILDING.md) and [COMPATIBILITY.md](COMPATIBILITY.md) first.
 The unmodified Windows baseline now builds. Review the
