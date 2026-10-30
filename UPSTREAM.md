@@ -1,19 +1,30 @@
 # Upstream baseline
 
-Verified on **2026-10-27** (America/Montevideo):
+SuperR is an independent product built on RStudio. It moves to a newer
+official RStudio release only by a reviewed, tested and approved pull
+request. Policy, branching model, update procedure, acceptance gates,
+toolchain updates, rollback and history:
+**[docs/superrstudio/upstream/](docs/superrstudio/upstream/README.md)**.
+
+Current base, verified on **2026-10-27** (America/Montevideo):
 
 | Item | Value |
 | --- | --- |
 | Project | RStudio Desktop Open Source, Blue Mistflower |
-| Latest stable release identified | **2026.10.0+233**, released 2026-10-14 |
+| Release | **2026.10.0+233**, released 2026-10-14 |
 | Source tag | `v2026.10.0+233` |
 | Exact commit | `e961c6137d92315437caf5af53959f7110b517f9` |
-| Upstream | https://github.com/rstudio/rstudio |
-| Fork | https://github.com/sfernandez-rep/superride (renamed from `superrstudio` on 2026-10-29; the old URL redirects) |
-| Build acceptance | Windows 11 source build PASS; desktop GUI acceptance pending; known locale-sensitive test and npm audit findings |
+| Upstream | https://github.com/rstudio/rstudio (remote `upstream`) |
+| Fork | https://github.com/sfernandez-rep/superride (remote `origin`; renamed from `superrstudio` on 2026-10-29; the old URL redirects) |
+| Acceptance | Windows 11 source build, version checks, upstream R-session suites and live desktop smoke PASS (2026-10-28); known locale-sensitive core test and npm audit findings |
 
-The machine-readable pin is [superrstudio/upstream.json](superrstudio/upstream.json).
-This is a source baseline under assessment, not a tested SuperRStudio release.
+Machine-readable: the pin [superrstudio/upstream.json](superrstudio/upstream.json),
+the history [superrstudio/upstream-history.json](superrstudio/upstream-history.json)
+and SuperR's changes to upstream files
+[superrstudio/integration-points.json](superrstudio/integration-points.json),
+checked by `tools/superrstudio/check-baseline.py` and `check-integration.py`.
+Newer upstream releases are assessed with `tools/superrstudio/upstream-sync.py`
+([history](docs/superrstudio/upstream/history.md)).
 
 ## Evidence
 
@@ -26,10 +37,10 @@ This is a source baseline under assessment, not a tested SuperRStudio release.
 
 ## Branches and history
 
-`main` starts at the pinned release and carries reviewed SuperRStudio work;
-`develop` is the integration branch. Use `feature/*` for isolated features and
-`upstream-sync/*` for an explicit upstream upgrade assessment. No release is
-considered stable until the build and compatibility gates pass.
+`main` starts at the pinned release and carries reviewed SuperR work;
+`develop` is the integration branch. Use `feature/*` for features and
+`upstream-sync/rstudio-<version>` for an upstream update; see the
+[branching model](docs/superrstudio/upstream/README.md#branching-model).
 
 GitHub initially copied upstream's current `main` at
 `758ba570f0850efab375a8b213162452f092d3c5`. That newly created fork branch was
@@ -39,10 +50,8 @@ unmodified release commit. Existing upstream branch and tag history is retained.
 The local clone is partial (`--filter=blob:none`), not shallow; Git fetches
 historical blobs on demand.
 
-Remotes: `origin` is the SuperRStudio fork; `upstream` is `rstudio/rstudio`.
-Fetch upstream tags, investigate a candidate on `upstream-sync/*`, build it
-unmodified, execute the compatibility matrix, then update the pin and evidence
-in a dedicated review. Never silently advance the baseline or force-push history.
+Never reset a SuperR branch to upstream, force-push, use GitHub's "Sync
+fork", or merge upstream `main`. Never silently advance the pin.
 
 ## Attribution and distribution
 
@@ -53,6 +62,9 @@ terms; distribution review must include modified-source notices, Corresponding
 Source and build instructions, bundled component licenses, and the network-use
 source provisions when applicable. Do not imply endorsement by Posit.
 
-Before distributing, review generated `SOURCE`, `NOTICE`, installer identity,
-trademarks, update endpoints and crash-reporting destinations. Source-build
-metadata still uses upstream branding and paths; no installer is ready for release.
+The installer's `MODIFIED-FILES.txt` and the release workflow's
+`SOURCE.txt` list SuperR's changes against the pin and the corresponding
+source. Before distributing, review the generated `SOURCE`, `NOTICE`, the
+installer identity, trademarks, update endpoints and crash-reporting
+destinations. The Windows preview installer is built and tested but not
+published ([release checklist](docs/superrstudio/release/RELEASE-CHECKLIST.md)).

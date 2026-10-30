@@ -41,6 +41,15 @@ doubt). In bash heredocs `\\` collapses: write edit scripts with a file.
 - Use `feature/*` for features, `develop` for integration and `upstream-sync/*`
   for upstream assessment. No force-push, history deletion or overwriting existing
   repositories. Coordinate separate worktrees for concurrent agents.
+- Upstream RStudio updates follow `docs/superrstudio/upstream/`: an official
+  release tag only, prepared with `tools/superrstudio/upstream-sync.py` (it never
+  commits or pushes), merged into `develop` and `main` only by an approved pull
+  request after the acceptance gates. Never use GitHub's "Sync fork", merge
+  upstream `main`, or reset a SuperR branch to upstream. A change to an upstream
+  file must be added to `superrstudio/integration-points.json`
+  (`python tools/superrstudio/check-integration.py`). Open pull requests with
+  `gh pr create --repo sfernandez-rep/superride`: without `--repo`, `gh`
+  targets `rstudio/rstudio`. Merge with merge commits, never squash or rebase.
 - Do not install candidate scientific packages or alter R/renv project libraries
   without an explicit need and user action. No silent dataset or source-file edits
   in product workflows. Keep the active R session authoritative.

@@ -9,7 +9,10 @@ desktop GUI acceptance and the known test/audit findings remain gates before
 implementing application extensions.
 
 Branch from `develop` into `feature/*`; use `upstream-sync/*` for baseline
-upgrades. Submit small, focused changes with actual build/test results,
+upgrades ([upstream process](docs/superrstudio/upstream/README.md)). Pull
+requests go into `develop`; `main` receives `develop` after review. If you
+change an upstream file, record it in `superrstudio/integration-points.json`
+and run `python tools/superrstudio/check-integration.py`. Submit small, focused changes with actual build/test results,
 platforms, known limitations and reproducibility implications. Preserve upstream
 license notices and source history. Never commit credentials, private datasets,
 binaries or dependency caches. Scientific methods need explicit assumptions,
