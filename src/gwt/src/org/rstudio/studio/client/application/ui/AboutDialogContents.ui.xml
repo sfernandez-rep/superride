@@ -5,6 +5,7 @@
    ui:generateKeys="com.google.gwt.i18n.server.keygen.MD5KeyGenerator"
    ui:generateLocales="default">
    <ui:with field='res' type='org.rstudio.core.client.theme.res.ThemeResources' />
+   <ui:with field='superr' type='org.rstudio.studio.client.workbench.views.superrstudio.SuperRProduct.Resources' />
    <ui:with field="ElementIds" type="org.rstudio.core.client.ElementIds"/>
    <ui:style>
       @eval fixedWidthFont org.rstudio.core.client.theme.ThemeFonts.getFixedWidthFont();
@@ -154,7 +155,7 @@
          <g:HTMLPanel ui:field="productInfo">
             <g:HTMLPanel styleName="{style.outerProductInfo}">
                <g:HTMLPanel styleName="{style.productInfo}">
-                  <g:Image resource='{res.rstudioLarge2x}'
+                  <g:Image resource='{superr.logo}'
                            styleName="{style.logo}"
                            width="48"
                            height="48"
@@ -163,7 +164,9 @@
                   </g:Image>
                   <g:HTMLPanel styleName="{style.innerProductInfo}">
                      <g:Label ui:field="productName" text="RStudio" styleName="{style.productName}"></g:Label>
+                     <g:Label ui:field="superrVersionLabel" styleName="{style.productVersion}"></g:Label>
                      <g:HTMLPanel styleName="{style.productVersion}">
+                        <g:InlineLabel ui:field="basedOnLabel"></g:InlineLabel>
                         <g:InlineLabel styleName="{style.majorVersion}" ui:field="versionMajorLabel"></g:InlineLabel>
                         <g:InlineLabel styleName="{style.buildNumber}" ui:field="versionBuildLabel"></g:InlineLabel>
                      </g:HTMLPanel>
@@ -183,6 +186,10 @@
             </g:HTMLPanel>
             <g:HTMLPanel styleName="{style.supportNotice}">
                <g:InlineLabel ui:field="supportNotice"></g:InlineLabel>
+            </g:HTMLPanel>
+            <g:HTMLPanel styleName="{style.trademarkNotice}">
+               <g:InlineLabel ui:field="superrNotice"></g:InlineLabel>
+               <g:Anchor ui:field="superrSource" target="_blank"></g:Anchor>
             </g:HTMLPanel>
             <g:HTMLPanel styleName="{style.trademarkNotice}">
                <g:InlineLabel

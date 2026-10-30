@@ -99,7 +99,8 @@ public class PaneManager
 
    public enum Tab {
       History, Files, Plots, Packages, Help, VCS, Tutorial, Build, Connections,
-      Presentation, Presentations, Environment, Viewer, Source, Console, SourceColumn, Chat
+      Presentation, Presentations, Environment, Viewer, Source, Console, SourceColumn, Chat,
+      Visual   // SuperRStudio (suppressed unless SUPER_RSTUDIO_EXPERIMENTAL=1)
    }
 
    public static final String LEFT_COLUMN = "left";
@@ -319,6 +320,7 @@ public class PaneManager
                       @Named(LAUNCHER_PANE) final WorkbenchTab launcherJobsTab,
                       @Named(DATA_OUTPUT_PANE) final WorkbenchTab dataTab,
                       @Named(TUTORIAL_PANE) final WorkbenchTab tutorialTab,
+                      @Named(VISUAL_PANE) final WorkbenchTab visualTab,
                       @Named(CHAT_PANE) final WorkbenchTab chatTab,
                       final MarkersOutputTab markersTab,
                       final FindOutputTab findOutputTab,
@@ -359,6 +361,7 @@ public class PaneManager
       testsTab_ = testsTab;
       dataTab_ = dataTab;
       tutorialTab_ = tutorialTab;
+      visualTab_ = visualTab;
       chatTab_ = chatTab;
       pGlobalDisplay_ = pGlobalDisplay;
 
@@ -2181,6 +2184,8 @@ public class PaneManager
             return vcsTab_;
          case Tutorial:
             return tutorialTab_;
+         case Visual:
+            return visualTab_;
          case Chat:
             return chatTab_;
          case Build:
@@ -2214,6 +2219,7 @@ public class PaneManager
       tabs.add(helpTab_);
       tabs.add(vcsTab_);
       tabs.add(tutorialTab_);
+      tabs.add(visualTab_);
       tabs.add(buildTab_);
       tabs.add(presentationTab_);
       tabs.add(presentation2Tab_);
@@ -2231,6 +2237,11 @@ public class PaneManager
    {
       lastSelectedTab_ = tab;
       WorkbenchTabPanel panel = getOwnerTabPanel(tab);
+      if (panel == null)
+      {
+         Debug.logWarning("Attempt to activate tab '" + tab.name() + "' that is in no panel");
+         return;
+      }
       LogicalWindow parent = panel.getParentWindow();
 
       // If the tab belongs to the hidden tabset, add it to one being displayed
@@ -2312,6 +2323,8 @@ public class PaneManager
    {
       activateTab(tab);
       WorkbenchTabPanel tabPanel = getOwnerTabPanel(tab);
+      if (tabPanel == null)
+         return;
       LogicalWindow parentWindow = tabPanel.getParentWindow();
       if (parentWindow == null)
          return;
@@ -3063,6 +3076,8 @@ public class PaneManager
          return Tab.VCS;
       if (name.equalsIgnoreCase(TUTORIAL_PANE))
          return Tab.Tutorial;
+      if (name.equalsIgnoreCase(VISUAL_PANE))
+         return Tab.Visual;
       if (name.equalsIgnoreCase(CHAT_PANE))
          return Tab.Chat;
       if (name.equalsIgnoreCase(BUILD_PANE))
@@ -3106,6 +3121,7 @@ public class PaneManager
       case SourceColumn: return commands_.layoutZoomSource();
       case VCS:          return commands_.layoutZoomVcs();
       case Tutorial:     return commands_.layoutZoomTutorial();
+      case Visual:       return commands_.layoutZoomVisual();
       case Chat:         return commands_.layoutZoomChat();
       case Viewer:       return commands_.layoutZoomViewer();
       case Connections:  return commands_.layoutZoomConnections();
@@ -3234,6 +3250,7 @@ public class PaneManager
       commands.add(commands_.layoutZoomSource());
       commands.add(commands_.layoutZoomVcs());
       commands.add(commands_.layoutZoomTutorial());
+      commands.add(commands_.layoutZoomVisual());
       commands.add(commands_.layoutZoomViewer());
       commands.add(commands_.layoutZoomConnections());
       commands.add(commands_.layoutZoomPresentation2());
@@ -3301,6 +3318,7 @@ public class PaneManager
    private final WorkbenchTab launcherJobsTab_;
    private final WorkbenchTab dataTab_;
    private final WorkbenchTab tutorialTab_;
+   private final WorkbenchTab visualTab_;
    private final WorkbenchTab chatTab_;
    private final OptionsLoader.Shim optionsLoader_;
    private final Provider<GlobalDisplay> pGlobalDisplay_;
@@ -3368,6 +3386,7 @@ public class PaneManager
    public static final String LAUNCHER_PANE = "Launcher"; //$NON-NLS-1$
    public static final String DATA_OUTPUT_PANE = "Data Output"; //$NON-NLS-1$
    public static final String TUTORIAL_PANE = "Tutorial"; //$NON-NLS-1$
+   public static final String VISUAL_PANE = "Visual"; //$NON-NLS-1$
    public static final String CHAT_PANE = "Chat"; //$NON-NLS-1$
    public static final String SOURCE_COLUMN = "SourceColumn"; //$NON-NLS-1$
    public static final String FIND_PANE = "Find"; //$NON-NLS-1$

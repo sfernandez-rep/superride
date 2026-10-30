@@ -5,32 +5,55 @@ All acceptance checks require recorded execution, not just compilation.
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
 | 0. Upstream investigation | Initial assessment recorded | Verified source pin, architecture, license inventory, host/toolchain evidence and risks; complete dependency/build assessment with M1 |
-| 1. Reproducible baseline | **Blocked locally** by missing MSVC and elevation | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
-| 2. Foundation | Planned; gated on M1 | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
-| 3. Visual dataset workflow | Planned | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
-| 4. ggplot2 editor | Planned | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
+| 1. Reproducible baseline | Windows 11 development baseline accepted; GUI smoke PASS; distribution audit remains open | Unmodified Windows 11 source build; launch and active R session; core workflow tests; exact tool versions and logs |
+| 2. Foundation | **Done for the preview**: feature switch, branding/identity module (`package/superr/product.json`), update check compiled out of the package, optional packages installed only on request | Small feature module, branding/update endpoint audit, feature switch and no baseline regressions |
+| 3. Visual dataset workflow | **First slice desktop-verified** (opt-in scatter: live data/columns, same-session ggplot2 preview, R code export, stale-data tests, appearance with undo, colour mapping, lines and lm/LOESS fits with model statistics, histogram/boxplot/bar/density, tibble/data.table, non-modal editor, load from script; [record](docs/superrstudio/features/visual-scatter.md)) | Select live data/columns, generate scatter plot in the same session, export R code; stale-object and cancellation tests |
+| 4. ggplot2 editor | **In progress**: specification schema 4 with layers, axes, scales, facets, themes, undo/redo, interactive element editing and export, desktop-verified | Versioned specification, layers/scales/themes/facets, undo/redo, validated preview/export; then semantic element interactions |
 | 5. Statistical interface | Planned | Guided methods/assumptions and diagnostics, trusted numerical references and complete reproducibility records |
-| 6. Biological extensions | Planned | Evaluate vegan/FSA/TropFishR methods individually with reference datasets, applicability and version checks |
-| 7. Modern UI | Planned | Light/dark themes, accents, accessible keyboard interaction, high-DPI and English/Spanish acceptance checks |
-| 8. Cross-platform releases | Planned | Windows installer and Ubuntu 24.04 .deb tested in clean machines; license/source/branding review and reproducible release records |
+| 6. Biological extensions | **Desktop-verified**: TropFishR length-frequency preparation, ELEFAN growth with comparison, saved analyses, catch curves, Beverton–Holt Z and yield per recruit ([record](docs/superrstudio/features/lfq-tropfishr.md)); domain review pending | Evaluate vegan/FSA/TropFishR methods individually with reference datasets, applicability and version checks |
+| 7. Modern UI | **In progress**: light/dark switch, design tokens, dockable Visual tab, Spanish SuperR windows, resizable canvas | Light/dark themes, accents, accessible keyboard interaction, high-DPI and English/Spanish acceptance checks |
+| 8. Cross-platform releases | **Windows x64 preview built and tested** (SuperR 0.1.0-preview.1, [packaging](docs/superrstudio/packaging-windows.md), [checklist](docs/superrstudio/release/RELEASE-CHECKLIST.md)); public pre-release blocked on name clearance; Windows 10 and Ubuntu not verified | Windows installer and Ubuntu 24.04 .deb tested in clean machines; license/source/branding review and reproducible release records |
 
 ## Next engineering tasks
 
-1. From an administrator-capable Windows environment, install the pinned VS 2026
-   toolchain and required SDK. Follow [BUILDING.md](BUILDING.md); do not substitute
-   VS 2022 or MinGW for the upstream prebuilts.
-2. Install upstream dependencies from the pinned checkout; inventory downloaded
-   versions and checksums. Assess the old R build bootstrap separately from the
-   R version used for modern scientific packages.
-3. Build and launch **unmodified** `baseline/rstudio-2026.10.0`, record logs and
-   execute the [compatibility plan](COMPATIBILITY.md). Classify dependency or
-   upstream failures before editing build logic.
+1. Use the provisioned Windows toolchain through
+   `tools/superrstudio/enter-windows.cmd`; exact versions and checks are in the
+   [provisioning record](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md).
+2. Review the upstream locale-sensitive logging test and npm audit findings.
+   Keep R 3.6.3 build inputs distinct from the R 4.6.1 runtime.
+3. Done 2026-10-28: live GUI of the unmodified baseline
+   ([record](docs/superrstudio/baseline/windows-gui-2026-10-28.md)); continue the
+   remaining [compatibility plan](COMPATIBILITY.md) items.
 4. Run the existing source-build CI workflows explicitly against that baseline
    when an appropriate hosted runner is available. No daily installer may stand
    in for a source build.
 5. Repeat on a native Ubuntu 24.04 VM and establish the first tested matrix.
-6. Only after M1 passes, implement the read-only dataset-to-scatter vertical
-   slice described in [ARCHITECTURE.md](ARCHITECTURE.md).
+6. Done 2026-10-28: read-only dataset-to-scatter vertical slice, verified in
+   the desktop ([record](docs/superrstudio/features/visual-scatter.md)), and the
+   incremental development workflow (BUILDING.md).
+7. Done 2026-10-28: scatter appearance controls (title, axis labels, point
+   colour/size/opacity, theme, undo/reset) in specification schema 2.
+8. Done 2026-10-28: colour-by-column, lines/fits, five plot types, tibble/
+   data.table, non-modal editor, load from script. Next: contextual editing on
+   an interactive (SVG) rendering, faceting and scales (M4 ggplot2 editor).
+9. M8 branding: provisional development name kept; public name decided before any release (docs/superrstudio/BRANDING.md).
+10. Done 2026-10-28: interactive right-click editing, axes/scales/facets, image export (M4 ggplot2 editor slice).
+11. Done 2026-10-28: TropFishR length-frequency module, first slice (M6).
+12. Done 2026-10-29: LFQ saved analyses, preprocessing (sampling period, quarterly samples), configuration comparison, catch-curve mortality; Spanish SuperRStudio windows; date/time axes; design-system and branding foundation; benchmark suite with a measured preview optimisation. Next: dockable Visual tab (investigated, see docs/superrstudio/features/dockable-workspace.md); domain review by fisheries scientists.
 
-No dataset editor, plot editor, statistical module, package-management extension,
-modernized workbench, installer or Linux build is implemented or verified yet.
+13. Done 2026-10-29 (fifth session): product renamed SuperR (user-visible
+    surfaces), branding assets from the logo master, Windows x64 installer
+    beside RStudio, packaged-app tests, release workflows, Beverton–Holt Z and
+    yield per recruit, on-demand installation of optional R packages. Next:
+    owner register search or legal advice for the name (repository renamed to superride); signing
+    certificate; Windows 10 test machine; dockable length-frequency window;
+    Thompson–Bell / VPA; domain review.
+14. Done 2026-10-30 (sixth session): SuperR maintained as an independent
+    product with its own `main`/`develop` and a documented, scripted,
+    gated process for upstream RStudio updates
+    ([docs/superrstudio/upstream/](docs/superrstudio/upstream/README.md));
+    integration of the preview work into `main` proposed in pull request #1.
+    Next: owner merges #1; complete the RStudio 2026.10.1 update (gates
+    A4–A12) on `upstream-sync/rstudio-2026.10.1`.
+
+No dataset editor, general statistical module or Linux build is implemented yet.

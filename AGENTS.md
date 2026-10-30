@@ -1,9 +1,36 @@
 # SuperRStudio agent instructions
 
+Read `HANDOFF.md` first and keep it current at milestones and before stopping.
+Follow the supplemental instructions in `docs/superrstudio/CONTINUITY.md` along
+with the original project brief. Continue completed work; do not restart or
+reinstall verified tools. Advance to the next verified roadmap milestone when
+resources permit. Prefer inspected, local Graphify analysis; external model/code
+transmission requires user authorization. Do not install Ponytail at this stage.
+
 Read `UPSTREAM.md`, `BUILDING.md`, `ARCHITECTURE.md`, `COMPATIBILITY.md` and
-`docs/superrstudio/baseline/2026-10-27.md` before work. The initial Windows
-baseline has NOT compiled or launched. Application features are gated on a
-verified unmodified baseline build and smoke test.
+`docs/superrstudio/baseline/2026-10-27.md` before work. The Windows baseline now
+builds; its version checks, R-session suites and live desktop GUI smoke pass.
+The development baseline is accepted. The localized logging-test failure and
+dependency audit remain documented release issues, not reasons to repeat setup.
+
+The host toolchain has been provisioned and the full native/Electron build passes. Read
+`docs/superrstudio/baseline/windows-dependencies-2026-10-27.md` for the current
+assessment. Use `tools/superrstudio/enter-windows.cmd` in Command Prompt. Do not
+infer that MSVC is still missing from the historical initial failure report.
+For day-to-day work use `tools/superrstudio/dev-build.ps1` / `dev-run.ps1`
+(incremental, isolated profiles; see BUILDING.md) and verify visual features in
+the live desktop (`tools/superrstudio/test-gui-scatter.ps1` is the pattern).
+SuperRStudio features stay opt-in behind `SUPER_RSTUDIO_EXPERIMENTAL=1`.
+TropFishR (with its dependencies) is installed only in the isolated test
+library for the length-frequency module; never install it into user or
+project libraries. Long analyses run in a separate Rscript process, never on
+the session thread.
+SuperRStudio texts: edit English and Spanish together
+(`tools/superrstudio/i18n/lfq_messages.py`, `ScatterMessages_es.properties`)
+and regenerate the `*MessagesEs.java` classes; keep numbers with a decimal
+point and never translate R code. Do not edit files while a GWT build runs
+without rebuilding afterwards (`dev-build.ps1 -Component gwt -Force` if in
+doubt). In bash heredocs `\\` collapses: write edit scripts with a file.
 
 - This is an RStudio fork. Preserve the existing GWT workbench, Electron shell,
   C++/R session, `.Rproj`, packages, themes, shortcuts and reporting workflows.
@@ -14,6 +41,15 @@ verified unmodified baseline build and smoke test.
 - Use `feature/*` for features, `develop` for integration and `upstream-sync/*`
   for upstream assessment. No force-push, history deletion or overwriting existing
   repositories. Coordinate separate worktrees for concurrent agents.
+- Upstream RStudio updates follow `docs/superrstudio/upstream/`: an official
+  release tag only, prepared with `tools/superrstudio/upstream-sync.py` (it never
+  commits or pushes), merged into `develop` and `main` only by an approved pull
+  request after the acceptance gates. Never use GitHub's "Sync fork", merge
+  upstream `main`, or reset a SuperR branch to upstream. A change to an upstream
+  file must be added to `superrstudio/integration-points.json`
+  (`python tools/superrstudio/check-integration.py`). Open pull requests with
+  `gh pr create --repo sfernandez-rep/superride`: without `--repo`, `gh`
+  targets `rstudio/rstudio`. Merge with merge commits, never squash or rebase.
 - Do not install candidate scientific packages or alter R/renv project libraries
   without an explicit need and user action. No silent dataset or source-file edits
   in product workflows. Keep the active R session authoritative.

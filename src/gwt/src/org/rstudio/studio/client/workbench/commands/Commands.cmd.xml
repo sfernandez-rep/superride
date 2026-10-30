@@ -314,6 +314,7 @@ See `/src/gwt/tools/i18n-helpers/README.md`.
             <cmd refid="layoutZoomViewer"/>
             <cmd refid="layoutZoomVcs"/>
             <cmd refid="layoutZoomTutorial"/>
+            <cmd refid="layoutZoomVisual"/>
             <cmd refid="layoutZoomChat"/>
             <cmd refid="layoutZoomBuild"/>
             <cmd refid="layoutZoomConnections"/>
@@ -369,6 +370,7 @@ See `/src/gwt/tools/i18n-helpers/README.md`.
          <cmd refid="activateChat"/>
          <menu label="Show Other _Panes">
             <cmd refid="activateTutorial"/>
+            <cmd refid="activateVisual"/>
             <cmd refid="activatePresentation"/>
             <cmd refid="activatePresentation2"/>
             <cmd refid="activateCompilePDF"/>
@@ -1535,6 +1537,11 @@ See `/src/gwt/tools/i18n-helpers/README.md`.
         menuLabel="Show _Tutorial"
         windowMode="main"/>
 
+   <cmd id="activateVisual"
+        label="Show Visual Pane"
+        menuLabel="Show _Visual (SuperR)"
+        windowMode="main"/>
+
    <cmd id="activateChat"
         label="Show Posit Assistant Pane"
         menuLabel="Show Pos_it Assistant"
@@ -1653,6 +1660,12 @@ See `/src/gwt/tools/i18n-helpers/README.md`.
         checkable="true"
         label="Zoom Tutorial"
         menuLabel="Zoom _Tutorial"
+        windowMode="main"/>
+
+   <cmd id="layoutZoomVisual"
+        checkable="true"
+        label="Zoom Visual"
+        menuLabel="Zoom _Visual (SuperR)"
         windowMode="main"/>
 
    <cmd id="layoutZoomChat"

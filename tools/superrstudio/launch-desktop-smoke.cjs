@@ -1,0 +1,20 @@
+const {spawn}=require('node:child_process');
+const fs=require('node:fs');
+const path=require('node:path');
+const project=path.resolve(__dirname,'../..');
+const root=path.join(project,'.cache/superrstudio/gui-baseline');
+const baseline=process.argv[2];
+const electron=process.argv[3];
+if(!baseline||!electron)throw Error('Usage: node launch-desktop-smoke.cjs BASELINE_SOURCE_ROOT ELECTRON_EXE');
+const desktop=path.join(baseline,'src/node/desktop-build-amd64');
+fs.mkdirSync(root,{recursive:true});
+const env={...process.env, RSTUDIO_CPP_BUILD_OUTPUT:path.join(baseline,'build/baseline-windows'),RSTUDIO_WHICH_R:'C:/R/R-4.6.1/bin/x64/R.exe',RSTUDIO_DISABLE_WHATS_NEW:'1',RS_NO_SPLASH:'1',R_PROFILE_USER:'NUL',R_ENVIRON_USER:'NUL'};
+delete env.ELECTRON_RUN_AS_NODE;
+for(const key of ['LANG','LC_ALL','LC_CTYPE']) if(env[key]==='C.UTF-8') delete env[key];
+for(const [key,dir] of Object.entries({RSTUDIO_CONFIG_HOME:'config-home',RSTUDIO_CONFIG_DIR:'config-dir',RSTUDIO_DATA_HOME:'data-home',HOME:'home',R_LIBS_USER:'r-library'})){env[key]=path.join(root,dir);fs.mkdirSync(env[key],{recursive:true});}
+fs.writeFileSync(path.join(env.RSTUDIO_CONFIG_HOME,'rstudio-prefs.json'),JSON.stringify({restore_last_project:false,save_workspace:'never',load_workspace:false,initial_working_directory:root,check_for_updates:false}));
+const log=fs.openSync(path.join(root,'launch.log'),'a');
+const child=spawn(electron,[path.join(desktop,'.webpack/x64/main/index.js'),'--remote-debugging-port=19381',`--user-data-dir=${root}/electron-userdata`,'--automation-agent'],{cwd:desktop,env,stdio:['ignore',log,log],windowsHide:true});
+fs.writeFileSync(path.join(root,'pid.json'),JSON.stringify({pid:child.pid,root}));
+console.log('Launched PID',child.pid);
+child.on('exit',code=>{console.log('Desktop exit',code);process.exitCode=code||0;});

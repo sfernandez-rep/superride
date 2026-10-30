@@ -233,6 +233,7 @@ set(SESSION_SOURCE_FILES
    modules/SessionLogging.cpp
    modules/SessionLSP.cpp
    modules/SessionMarkers.cpp
+   modules/SessionSuperRStudio.cpp
    modules/SessionNodeTools.cpp
    modules/SessionObjectExplorer.cpp
    modules/SessionPackageProvidedExtension.cpp

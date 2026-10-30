@@ -1,0 +1,48 @@
+Native core/shared-core/R 3.6.3 runner: exit 1 (one locale-sensitive core test failure)
+[==========] Running 664 tests from 57 test suites.
+[  SKIPPED ] DatabaseTestsFixture.CanCheckExistsPostgres (43 ms)
+[  SKIPPED ] DatabaseTestsFixture.CanUpdateSchemasPostgres (58 ms)
+[  SKIPPED ] DatabaseTest.CanCreatePostgresqlDatabase (0 ms)
+[  SKIPPED ] DatabaseTest.CanCorrectlyParsePostgresqlConnectionUris (0 ms)
+[  SKIPPED ] FileSerializerTest.WriteStringReportsFailedWrite (0 ms)
+[  FAILED  ] LoggingTest.CanJsonLogError (10 ms)
+[==========] 664 tests from 57 test suites ran. (55630 ms total)
+[  PASSED  ] 658 tests.
+[  SKIPPED ] 5 tests, listed below:
+[  SKIPPED ] DatabaseTestsFixture.CanCheckExistsPostgres
+[  SKIPPED ] DatabaseTestsFixture.CanUpdateSchemasPostgres
+[  SKIPPED ] DatabaseTest.CanCreatePostgresqlDatabase
+[  SKIPPED ] DatabaseTest.CanCorrectlyParsePostgresqlConnectionUris
+[  SKIPPED ] FileSerializerTest.WriteStringReportsFailedWrite
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] LoggingTest.CanJsonLogError
+DIAGNOSTICS: 'core' tests failed with exit code 1
+[==========] Running 17 tests from 2 test suites.
+[==========] 17 tests from 2 test suites ran. (17 ms total)
+[  PASSED  ] 17 tests.
+[==========] Running 655 tests from 65 test suites.
+[  SKIPPED ] WindowsShortcutTest.ResolvesStoredShortPathToLongForm (24 ms)
+[  SKIPPED ] SessionRTest.SysGetenvSeesCoreSetenv (4 ms)
+[  SKIPPED ] SessionRTest.SynchronizeLocaleRepairsAClobberedLocale (4 ms)
+[==========] 655 tests from 65 test suites ran. (22695 ms total)
+[  PASSED  ] 652 tests.
+[  SKIPPED ] 3 tests, listed below:
+[  SKIPPED ] WindowsShortcutTest.ResolvesStoredShortPathToLongForm
+[  SKIPPED ] SessionRTest.SysGetenvSeesCoreSetenv
+[  SKIPPED ] SessionRTest.SynchronizeLocaleRepairsAClobberedLocale
+
+Failure detail:
+D:\Git\SuperRStudio-baseline\src\cpp\core\LoggingTests.cpp(773): error: Expected equality of these values:
+  std::string("The system cannot find the file specified")
+    Which is: "The system cannot find the file specified"
+  message
+    Which is: "El sistema no puede encontrar el archivo especificado"
+
+
+R 4.6.1 UTF-8 session runner: exit 0
+[==========] Running 655 tests from 65 test suites.
+[  SKIPPED ] WindowsShortcutTest.ResolvesStoredShortPathToLongForm (21 ms)
+[==========] 655 tests from 65 test suites ran. (21037 ms total)
+[  PASSED  ] 654 tests.
+[  SKIPPED ] 1 test, listed below:
+[  SKIPPED ] WindowsShortcutTest.ResolvesStoredShortPathToLongForm

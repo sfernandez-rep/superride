@@ -16,6 +16,7 @@
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
 import { FilePath } from '../core/file-path';
+import { kSuperRProductName } from './superr-identity';
 
 export class DesktopActivation extends EventEmitter {
   static LAUNCH_FIRST_SESSION = 'desktop-activation-launch_first_session';
@@ -40,7 +41,8 @@ export class DesktopActivation extends EventEmitter {
    * @returns Name of product edition, for use in UI
    */
   editionName(): string {
-    return 'RStudio';
+    // SUPERR CHANGE: window titles and dialogs carry the SuperR name
+    return kSuperRProductName;
   }
 
   /**

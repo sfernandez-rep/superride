@@ -513,6 +513,8 @@ public class ElementIds
    // EnvironmentPane
    public final static String MB_IMPORT_DATASET = "mb_import_dataset";
    public static String getMbImportDataset() { return getElementId(MB_IMPORT_DATASET); }
+   public final static String SUPERRSTUDIO_SCATTER = "superrstudio_scatter";
+   public static String getSuperRStudioScatter() { return getElementId(SUPERRSTUDIO_SCATTER); }
    public final static String MB_ENVIRONMENT_LIST = "mb_environment_list";
    public static String getMbEnvironmentList() { return getElementId(MB_ENVIRONMENT_LIST); }
    public final static String MB_OBJECT_LIST_VIEW = "mb_object_list_view";

@@ -1,13 +1,18 @@
-# Contributing to SuperRStudio
+# Contributing to SuperR
 
-Use [the SuperRStudio repository](https://github.com/sfernandez-rep/superrstudio)
+Use [the SuperR repository](https://github.com/sfernandez-rep/superride)
 for fork-specific issues and changes. Read [AGENTS.md](AGENTS.md),
 [BUILDING.md](BUILDING.md) and [COMPATIBILITY.md](COMPATIBILITY.md) first.
-The unmodified Windows baseline has not yet compiled; establish it before
+The unmodified Windows baseline now builds. Review the
+[current assessment](docs/superrstudio/baseline/windows-dependencies-2026-10-27.md);
+desktop GUI acceptance and the known test/audit findings remain gates before
 implementing application extensions.
 
 Branch from `develop` into `feature/*`; use `upstream-sync/*` for baseline
-upgrades. Submit small, focused changes with actual build/test results,
+upgrades ([upstream process](docs/superrstudio/upstream/README.md)). Pull
+requests go into `develop`; `main` receives `develop` after review. If you
+change an upstream file, record it in `superrstudio/integration-points.json`
+and run `python tools/superrstudio/check-integration.py`. Submit small, focused changes with actual build/test results,
 platforms, known limitations and reproducibility implications. Preserve upstream
 license notices and source history. Never commit credentials, private datasets,
 binaries or dependency caches. Scientific methods need explicit assumptions,

@@ -1,6 +1,8 @@
 /.cache
 /.rstudio-dev/
 /build/
+# SuperR installers and release staging (tools/superrstudio/package-superr.ps1)
+/dist/
 build_*/
 build-*/
 *-build/

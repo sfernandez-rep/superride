@@ -21,7 +21,7 @@ import org.rstudio.studio.client.server.VoidResponse;
 
 import com.google.gwt.core.client.JsArray;
 
-public interface EnvironmentServerOperations
+public interface EnvironmentServerOperations extends org.rstudio.studio.client.workbench.views.superrstudio.SuperRStudioServerOperations
 {
    void listEnvironment(ServerRequestCallback<JsArray<RObject> > callback);
 

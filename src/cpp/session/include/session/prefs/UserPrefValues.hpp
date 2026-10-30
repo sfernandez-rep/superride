@@ -453,6 +453,7 @@ namespace prefs {
 #define kUiLanguage "ui_language"
 #define kUiLanguageEn "en"
 #define kUiLanguageFr "fr"
+#define kUiLanguageEs "es"
 #define kAutohideMenubar "autohide_menubar"
 #define kNativeFileDialogs "native_file_dialogs"
 #define kDiscardPendingConsoleInputOnError "discard_pending_console_input_on_error"

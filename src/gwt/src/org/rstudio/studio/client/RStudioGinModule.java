@@ -265,6 +265,9 @@ import org.rstudio.studio.client.workbench.views.tutorial.TutorialPane;
 import org.rstudio.studio.client.workbench.views.tutorial.TutorialPresenter;
 import org.rstudio.studio.client.workbench.views.tutorial.TutorialServerOperations;
 import org.rstudio.studio.client.workbench.views.tutorial.TutorialTab;
+import org.rstudio.studio.client.workbench.views.visual.VisualPane;
+import org.rstudio.studio.client.workbench.views.visual.VisualPresenter;
+import org.rstudio.studio.client.workbench.views.visual.VisualTab;
 import org.rstudio.studio.client.workbench.views.vcs.VCSTab;
 import org.rstudio.studio.client.workbench.views.vcs.common.diff.LineTablePresenter;
 import org.rstudio.studio.client.workbench.views.vcs.common.diff.LineTableView;
@@ -386,6 +389,7 @@ public class RStudioGinModule extends AbstractGinModule
       bind(GitPresenter.Display.class).to(GitPane.class);
       bind(SVNPresenter.Display.class).to(SVNPane.class);
       bind(TutorialPresenter.Display.class).to(TutorialPane.class);
+      bind(VisualPresenter.Display.class).to(VisualPane.class);
       bind(ChatPresenter.Display.class).to(ChatPane.class);
       bind(BuildPresenter.Display.class).to(BuildPane.class);
       bind(Presentation.Display.class).to(PresentationPane.class);
@@ -425,6 +429,7 @@ public class RStudioGinModule extends AbstractGinModule
       bindTab(PaneManager.LAUNCHER_PANE, LauncherJobsTab.class);
       bindTab(PaneManager.DATA_OUTPUT_PANE, DataOutputTab.class);
       bindTab(PaneManager.TUTORIAL_PANE, TutorialTab.class);
+      bindTab(PaneManager.VISUAL_PANE, VisualTab.class);
       bindTab(PaneManager.CHAT_PANE, ChatTab.class);
 
       bind(Shell.Display.class).to(ShellPane.class);

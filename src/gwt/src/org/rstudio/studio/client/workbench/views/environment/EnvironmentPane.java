@@ -66,6 +66,12 @@ import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentObj
 import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentObjectsObserver;
 import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentResources;
 import org.rstudio.studio.client.workbench.views.environment.view.MemUsageWidget;
+import org.rstudio.studio.client.workbench.views.superrstudio.LfqDialog;
+import org.rstudio.studio.client.workbench.views.superrstudio.LfqMessages;
+import org.rstudio.studio.client.workbench.views.superrstudio.ScatterDialog;
+import org.rstudio.studio.client.workbench.views.superrstudio.ScatterMessages;
+import org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRStudioLanguage;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArray;
@@ -153,6 +159,8 @@ public class EnvironmentPane extends WorkbenchPane
       toolbar.addLeftWidget(commands_.saveWorkspace().createToolbarButton());
       toolbar.addLeftSeparator();
       toolbar.addLeftWidget(createImportMenu());
+      toolbar.addLeftWidget(createScatterButton());
+      toolbar.addLeftWidget(createLfqButton());
       toolbar.addLeftSeparator();
       memUsage_ = new MemUsageWidget(session_.getSessionInfo().getMemoryUsage(), prefs_);
       toolbar.addLeftWidget(memUsage_);
@@ -550,6 +558,67 @@ public class EnvironmentPane extends WorkbenchPane
 
       SendToConsoleEvent event = new SendToConsoleEvent(editCode, activeLanguage_, true);
       events_.fireEvent(event);
+   }
+
+   // SuperRStudio: the visual scatter workflow is opt-in. The button keeps its
+   // toolbar position but stays hidden unless the session module is enabled.
+   private Widget createScatterButton()
+   {
+      ScatterMessages messages = SuperRStudioLanguage.scatter();
+      ToolbarButton button = new ToolbarButton(
+            messages.toolbarLabel(),
+            messages.title(),
+            (ImageResource) null,
+            event -> ScatterDialog.open(server_, events_, commands_));
+      ElementIds.assignElementId(button, ElementIds.SUPERRSTUDIO_SCATTER);
+      button.setVisible(false);
+
+      server_.superrstudioData("status", "", "", "", "", null, new ServerRequestCallback<ScatterResult>()
+      {
+         @Override
+         public void onResponseReceived(ScatterResult result)
+         {
+            button.setVisible(result.enabled());
+         }
+
+         @Override
+         public void onError(ServerError error)
+         {
+            // older or disabled backend: keep the ordinary IDE
+         }
+      });
+
+      return button;
+   }
+
+   // SuperRStudio: the length-frequency (TropFishR) workflow, opt-in like the
+   // plot editor.
+   private Widget createLfqButton()
+   {
+      LfqMessages messages = SuperRStudioLanguage.lfq();
+      ToolbarButton button = new ToolbarButton(
+            messages.toolbarLabel(),
+            messages.title(),
+            (ImageResource) null,
+            event -> LfqDialog.open(server_, events_));
+      ElementIds.assignElementId(button, "superrstudio_lfq");
+      button.setVisible(false);
+
+      server_.superrstudioData("status", "", "", "", "", null, new ServerRequestCallback<ScatterResult>()
+      {
+         @Override
+         public void onResponseReceived(ScatterResult result)
+         {
+            button.setVisible(result.enabled());
+         }
+
+         @Override
+         public void onError(ServerError error)
+         {
+         }
+      });
+
+      return button;
    }
 
    private Widget createImportMenu()

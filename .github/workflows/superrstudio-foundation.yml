@@ -1,5 +1,9 @@
 name: SuperRStudio foundation (not an IDE build)
 
+# Source provenance (upstream pin, history, COPYING/NOTICE), SuperR's
+# documented changes to upstream files and the standalone R fixture. Every
+# pull request into main or develop runs it, including upstream updates
+# (docs/superrstudio/upstream/).
 on:
   push:
     branches: [main, develop]
@@ -10,11 +14,6 @@ on:
       - '.github/workflows/superrstudio-foundation.yml'
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'superrstudio/**'
-      - 'tools/superrstudio/**'
-      - 'tests/superrstudio/**'
-      - '.github/workflows/superrstudio-foundation.yml'
   workflow_dispatch:
 
 permissions:
@@ -33,7 +32,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Check source provenance and licenses
-        run: python tools/superrstudio/check-baseline.py --pristine
+        run: python tools/superrstudio/check-baseline.py
+      - name: Upstream baselines accepted (pull requests into main)
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: python tools/superrstudio/check-baseline.py --accepted
+      - name: SuperR changes to upstream files documented and intact
+        run: python tools/superrstudio/check-integration.py
       - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2, resolved 2026-10-27
         with:
           r-version: '4.6.1'

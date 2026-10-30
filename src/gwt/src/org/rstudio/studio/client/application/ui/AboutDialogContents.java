@@ -40,6 +40,7 @@ import com.google.gwt.user.client.ui.Widget;
 import org.rstudio.studio.client.application.model.ProductNotice;
 import org.rstudio.studio.client.server.ServerError;
 import org.rstudio.studio.client.server.ServerRequestCallback;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRProduct;
 
 public class AboutDialogContents extends Composite
 {
@@ -77,6 +78,13 @@ public class AboutDialogContents extends Composite
            "\"" + info.release_name + "\" " + info.build_type + " (" + StringUtil.substring(info.commit, 0, 8) + ", " +
            info.date + constants_.buildLabelForText() + info.os);
       productName.setText(editionInfo.editionName());
+      // SUPERR CHANGE: SuperR's own version, the RStudio release it is based
+      // on, the independence notice and where the corresponding source is
+      superrVersionLabel.setText(SuperRProduct.DISPLAY_VERSION + " (Preview)");
+      basedOnLabel.setText("Based on RStudio ");
+      superrNotice.setText(SuperRProduct.NOTICE + " Source code: ");
+      superrSource.setText(SuperRProduct.HOMEPAGE);
+      superrSource.setHref(SuperRProduct.HOMEPAGE);
       copyrightYearLabel.setText("2009-" + info.copyright_year);
 
       // Warn that dailies and previews aren't supported
@@ -154,6 +162,10 @@ public class AboutDialogContents extends Composite
    @UiField HTMLPanel preReleaseRibbon;
    @UiField TextArea licenseBox;
    @UiField Label productName;
+   @UiField Label superrVersionLabel;
+   @UiField InlineLabel basedOnLabel;
+   @UiField InlineLabel superrNotice;
+   @UiField Anchor superrSource;
    @UiField HTMLPanel productInfo;
    @UiField InlineLabel supportNotice;
    @UiField Anchor gplLink;

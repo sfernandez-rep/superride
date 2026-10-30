@@ -1,0 +1,222 @@
+{
+  "comment": "Every upstream RStudio file that SuperR modifies, with text that must survive an upstream merge. Checked by tools/superrstudio/check-integration.py against the pinned upstream commit (superrstudio/upstream.json): a modified upstream file missing here, a listed file identical to upstream, or a missing marker fails. See docs/superrstudio/upstream/sync-process.md.",
+  "files": {
+    ".gitignore": {
+      "area": "repository",
+      "markers": ["SuperR installers and release staging", "/dist/"]
+    },
+    "CONTRIBUTING.md": {
+      "area": "documentation",
+      "markers": ["# Contributing to SuperR"]
+    },
+    "README.md": {
+      "area": "documentation",
+      "markers": ["**SuperR** is an independent", "not developed, endorsed or supported by Posit"],
+      "note": "The SuperR section sits above the preserved upstream README; keep upstream's text below it."
+    },
+    "package/CMakeLists.txt": {
+      "area": "installer identity",
+      "markers": ["superr/superr-product.cmake", "SUPERR CHANGE"]
+    },
+    "package/win32/CMakeLists.txt": {
+      "area": "installer identity, side by side",
+      "markers": ["superr-registry.cmake"]
+    },
+    "package/win32/cmake/modules/NSIS.template.in": {
+      "area": "installer identity, side by side",
+      "markers": ["@CPACK_SUPERR_DISPLAY_VERSION@", "SUPERR CHANGE"],
+      "note": "Upstream changes to the installer template need a packaged-app test run (test-packaged.ps1)."
+    },
+    "src/cpp/r/R/AppCommands.R": {
+      "area": "workbench commands",
+      "markers": ["activateVisual", "layoutZoomVisual"]
+    },
+    "src/cpp/session/CMakeLists.txt": {
+      "area": "session module",
+      "markers": ["modules/SessionSuperRStudio.cpp"]
+    },
+    "src/cpp/session/SessionClientInit.cpp": {
+      "area": "session module",
+      "markers": ["modules/SessionSuperRStudio.hpp", "superrstudio_experimental"]
+    },
+    "src/cpp/session/SessionMain.cpp": {
+      "area": "session module",
+      "markers": ["modules/SessionSuperRStudio.hpp", "modules::superrstudio::initialize"]
+    },
+    "src/cpp/session/include/session/prefs/UserPrefValues.hpp": {
+      "area": "preferences (generated)",
+      "markers": ["kUiLanguageEs"],
+      "note": "Generated from user-prefs-schema.json: resolve the schema, then run Rscript scripts/generate-prefs.R."
+    },
+    "src/cpp/session/resources/schema/user-prefs-schema.json": {
+      "area": "preferences",
+      "markers": ["\"en\", \"fr\", \"es\""],
+      "note": "ui_language accepts es (SuperR windows only). Regenerate with Rscript scripts/generate-prefs.R after resolving."
+    },
+    "src/gwt/src/org/rstudio/core/client/ElementIds.java": {
+      "area": "workbench UI",
+      "markers": ["SUPERRSTUDIO_SCATTER"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/RStudioGinModule.java": {
+      "area": "workbench UI",
+      "markers": ["VisualPresenter", "VisualTab"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/application/StudioClientApplicationConstants_en.properties": {
+      "area": "product identity",
+      "markers": ["rStudioEditionName=SuperR{0}"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/application/StudioClientApplicationConstants_fr.properties": {
+      "area": "product identity",
+      "markers": ["rStudioEditionName=SuperR{0}"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/application/ui/AboutDialogContents.java": {
+      "area": "product identity, attribution",
+      "markers": ["SuperRProduct.DISPLAY_VERSION", "Based on RStudio "]
+    },
+    "src/gwt/src/org/rstudio/studio/client/application/ui/AboutDialogContents.ui.xml": {
+      "area": "product identity, attribution",
+      "markers": ["superrVersionLabel", "{superr.logo}"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/application/ui/AboutDialogContentsAboutDialogContentsUiBinderImplGenMessages_en.properties": {
+      "area": "product identity",
+      "markers": ["rStudioLogo=SuperR Logo"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/application/ui/AboutDialogContentsAboutDialogContentsUiBinderImplGenMessages_fr.properties": {
+      "area": "product identity",
+      "markers": ["rStudioLogo=Logo SuperR"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/application/ui/GlobalToolbar.java": {
+      "area": "workbench UI",
+      "markers": ["ThemeToggle", "getSuperRStudioExperimental"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/server/remote/RemoteServer.java": {
+      "area": "session module RPC",
+      "markers": ["\"superrstudio_data\""]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/commands/CmdConstants.java": {
+      "area": "workbench commands",
+      "markers": ["activateVisualLabel"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/commands/CmdConstants_en.properties": {
+      "area": "workbench commands",
+      "markers": ["Show _Visual (SuperR)"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/commands/CmdConstants_fr.properties": {
+      "area": "workbench commands",
+      "markers": ["Afficher _Visual (SuperR)"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/commands/Commands.cmd.xml": {
+      "area": "workbench commands",
+      "markers": ["id=\"activateVisual\"", "refid=\"layoutZoomVisual\""]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/commands/Commands.cmd.xml.MD5": {
+      "area": "workbench commands (generated)",
+      "md5_of": "src/gwt/src/org/rstudio/studio/client/workbench/commands/Commands.cmd.xml",
+      "note": "Never merge by hand: resolve Commands.cmd.xml, then rebuild GWT (ant or dev-build.ps1 -Component gwt) to regenerate."
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/commands/Commands.java": {
+      "area": "workbench commands",
+      "markers": ["activateVisual()", "layoutZoomVisual()"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/model/SessionInfo.java": {
+      "area": "session module",
+      "markers": ["getSuperRStudioExperimental", "superrstudio_experimental"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/prefs/PrefsConstants.java": {
+      "area": "preferences",
+      "markers": ["spanishLabel()"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/prefs/PrefsConstants_en.properties": {
+      "area": "preferences",
+      "markers": ["spanishLabel="]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/prefs/PrefsConstants_fr.properties": {
+      "area": "preferences",
+      "markers": ["spanishLabel="]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/prefs/model/UserPrefsAccessor.java": {
+      "area": "preferences (generated)",
+      "markers": ["UI_LANGUAGE_ES"],
+      "note": "Generated from user-prefs-schema.json by scripts/generate-prefs.R."
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/prefs/views/GeneralPreferencesPane.java": {
+      "area": "preferences",
+      "markers": ["UI_LANGUAGE_ES", "spanishLabel()"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/prefs/views/PaneLayoutPreferencesPane.java": {
+      "area": "workbench UI",
+      "markers": ["PaneManager.VISUAL_PANE"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/ui/PaneConfig.java": {
+      "area": "workbench UI, saved layouts",
+      "markers": ["hiddenTabSet.push(PaneManager.VISUAL_PANE)"],
+      "note": "Layout migration for saved configurations without the Visual tab; rerun test-gui-scatter.ps1 -Scenario visual."
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/ui/PaneManager.java": {
+      "area": "workbench UI",
+      "markers": ["visualTab_", "VISUAL_PANE"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/ui/WorkbenchScreen.java": {
+      "area": "workbench commands",
+      "markers": ["onActivateVisual", "onLayoutZoomVisual"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/environment/EnvironmentPane.java": {
+      "area": "plot editor and length-frequency entry points",
+      "markers": ["createScatterButton()", "createLfqButton()"]
+    },
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/environment/model/EnvironmentServerOperations.java": {
+      "area": "session module RPC",
+      "markers": ["SuperRStudioServerOperations"]
+    },
+    "src/gwt/www/index.htm": {
+      "area": "product identity",
+      "markers": ["<title>SuperR</title>"]
+    },
+    "src/node/desktop/CMakeLists.txt": {
+      "area": "installer identity",
+      "markers": ["superr-product.cmake", "SUPERR_productName"]
+    },
+    "src/node/desktop/forge.config.js": {
+      "area": "installer identity",
+      "markers": ["'package', 'superr', 'product.json'", "SUPERR CHANGE"]
+    },
+    "src/node/desktop/scripts/install-fuses.mjs": {
+      "area": "installer identity",
+      "markers": ["package/superr/product.json"]
+    },
+    "src/node/desktop/src/main/activation-overlay.ts": {
+      "area": "product identity",
+      "markers": ["kSuperRProductName"]
+    },
+    "src/node/desktop/src/main/main.ts": {
+      "area": "configuration isolation",
+      "markers": ["applySuperRIdentity()"],
+      "note": "Must run before loadAppConfig(): SuperR's own %APPDATA%/%LOCALAPPDATA% folders, never RStudio's."
+    }
+  },
+  "superr_files": [
+    "COPYING",
+    "NOTICE",
+    "package/superr/product.json",
+    "package/superr/superr-product.cmake",
+    "package/win32/superr-registry.cmake",
+    "assets/branding/source/logo-master.png",
+    "assets/branding/generated/superr.ico",
+    "src/node/desktop/src/main/superr-identity.ts",
+    "src/cpp/session/modules/SessionSuperRStudio.cpp",
+    "src/cpp/session/modules/SessionSuperRStudio.hpp",
+    "src/cpp/session/modules/SessionSuperRStudio.R",
+    "src/cpp/session/modules/SessionSuperRStudioDeps.R",
+    "src/cpp/session/modules/SessionSuperRStudioLfq.R",
+    "src/cpp/session/modules/SessionSuperRStudioLfqLibrary.R",
+    "src/cpp/session/modules/SessionSuperRStudioLfqMortality.R",
+    "src/cpp/session/modules/SessionSuperRStudioLfqYield.R",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/SuperRProduct.java",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/visual/VisualPresenter.java",
+    "superrstudio/upstream.json",
+    "superrstudio/upstream-history.json",
+    "tests/superrstudio/visual-scatter.R",
+    "tests/superrstudio/lfq-tropfishr.R",
+    "tests/superrstudio/deps.R"
+  ]
+}

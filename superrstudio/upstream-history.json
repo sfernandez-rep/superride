@@ -1,0 +1,20 @@
+{
+  "comment": "Every official RStudio release SuperR has been based on, oldest first. The last entry must match superrstudio/upstream.json (tools/superrstudio/check-baseline.py). Human-readable record: docs/superrstudio/upstream/history.md.",
+  "baselines": [
+    {
+      "version": "2026.10.0+233",
+      "tag": "v2026.10.0+233",
+      "commit": "e961c6137d92315437caf5af53959f7110b517f9",
+      "upstream_release_date": "2026-10-14",
+      "method": "fork-baseline",
+      "incorporated": "2026-10-27",
+      "superr_commit": "5f29e2fc4fcd5cc7ee1ea9255e3030c9f3fdd4d6",
+      "review": "docs/superrstudio/baseline/2026-10-27.md",
+      "acceptance": [
+        "docs/superrstudio/baseline/windows-dependencies-2026-10-27.md",
+        "docs/superrstudio/baseline/windows-gui-2026-10-28.md"
+      ],
+      "status": "accepted"
+    }
+  ]
+}

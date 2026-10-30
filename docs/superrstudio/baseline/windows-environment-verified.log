@@ -1,0 +1,68 @@
+-- Using project root: D:\Git\SuperRStudio
+-- Using RStudio tools root: D:\Git\rstudio-tools
+-- Using JDK: C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot
+Microsoft toolchain configured, can now use cmake. For example:
+mkdir rstudio\src\build
+cd rstudio\src\build
+cmake ..\cpp -GNinja
+ninja
+SuperRStudio Windows build environment configured for this shell.
+cmake version 4.3.4
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+1.13.1
+openjdk version "17.0.20.1" 2026-08-18
+OpenJDK Runtime Environment Temurin-17.0.20.1+1 (build 17.0.20.1+1)
+OpenJDK 64-Bit Server VM Temurin-17.0.20.1+1 (build 17.0.20.1+1, mixed mode, sharing)
+Apache Ant(TM) version 1.10.18 compiled on September 3 2026
+Python 3.13.15
+
+This is perl 5, version 42, subversion 3 (v5.42.3) built for MSWin32-x64-multi-thread
+
+Copyright 1987-2026, Larry Wall
+
+Perl may be copied only under the terms of either the Artistic License or the
+GNU General Public License, which may be found in the Perl 5 source kit.
+
+Complete documentation for Perl, including FAQ lists, should be found on
+this system using "man perl" or "perldoc perl".  If you have access to the
+Internet, point your browser at https://www.perl.org/, the Perl Home Page.
+
+v3.12PASS: import, NA/types, CSV/TSV round trip, source preservation, lm reference, PDF export
+R version 4.6.1 (2026-06-24 ucrt)
+Platform: x86_64-w64-mingw32/x64
+Running under: Windows 11 x64 (build 26300)
+
+Matrix products: default
+  LAPACK version 3.12.1
+
+locale:
+[1] LC_COLLATE=Spanish_Uruguay.utf8  LC_CTYPE=Spanish_Uruguay.utf8
+[3] LC_MONETARY=Spanish_Uruguay.utf8 LC_NUMERIC=C
+[5] LC_TIME=Spanish_Uruguay.utf8
+
+time zone: America/Montevideo
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.1
+PASS: import, NA/types, CSV/TSV round trip, source preservation, lm reference, PDF export
+R version 3.6.3 (2020-02-29)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 10 x64 (build 26300)
+
+Matrix products: default
+
+locale:
+[1] LC_COLLATE=Spanish_Uruguay.1252  LC_CTYPE=Spanish_Uruguay.1252
+[3] LC_MONETARY=Spanish_Uruguay.1252 LC_NUMERIC=C
+[5] LC_TIME=Spanish_Uruguay.1252
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+loaded via a namespace (and not attached):
+[1] compiler_3.6.3

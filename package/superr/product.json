@@ -1,0 +1,22 @@
+{
+  "comment": "Central SuperR product identity. Read by package/CMakeLists.txt, package/win32, src/node/desktop/forge.config.js and checked against the GWT and R copies by tools/superrstudio/check-identity.ps1. Internal identifiers (RStudio APIs, rstudioapi version, saved-file formats, .Rproj handling) are deliberately not derived from this file.",
+  "productName": "SuperR",
+  "executableName": "SuperR",
+  "version": "0.1.0",
+  "prerelease": "preview.1",
+  "channel": "Preview",
+  "vendor": "SuperR contributors",
+  "description": "SuperR - an independent, experimental fork of RStudio Desktop for visual scientific workflows",
+  "installDirectory": "SuperR",
+  "registryKey": "SuperR",
+  "progIdPrefix": "SuperR",
+  "bundleId": "io.github.sfernandez-rep.superr",
+  "userFolder": "SuperR",
+  "homepage": "https://github.com/sfernandez-rep/superride",
+  "upstream": {
+    "name": "RStudio",
+    "version": "2026.10.0+233",
+    "commit": "e961c6137d92315437caf5af53959f7110b517f9"
+  },
+  "notice": "SuperR is an independent fork of RStudio. It is not developed, endorsed or supported by Posit Software, PBC. RStudio is a trademark of Posit Software, PBC."
+}

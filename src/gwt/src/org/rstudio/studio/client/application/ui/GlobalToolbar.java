@@ -43,6 +43,7 @@ import org.rstudio.studio.client.workbench.commands.Commands;
 import org.rstudio.studio.client.workbench.model.SessionInfo;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.views.chat.events.ChatPaneActiveEvent;
+import org.rstudio.studio.client.workbench.views.superrstudio.ThemeToggle;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.Scheduler;
@@ -338,6 +339,10 @@ public class GlobalToolbar extends Toolbar
                   ElementIds.ASSISTANT_TOGGLE_BUTTON + "_context");
          }, ContextMenuEvent.getType());
       }
+
+      // SuperRStudio: one-click light/dark theme switch (experimental features only)
+      if (sessionInfo.getSuperRStudioExperimental())
+         addRightWidget(new ThemeToggle());
 
       // restricted mode indicator (managed by TrustPresenter)
       trustPresenter_.initializeForSession(sessionInfo);

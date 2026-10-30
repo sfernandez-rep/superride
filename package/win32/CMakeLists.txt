@@ -248,6 +248,10 @@ set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
    DeleteRegValue SHCTX 'Software\\\\Classes\\\\.Rtex\\\\OpenWithProgids' 'RStudio.rtex'
 #")
 
+# SUPERR CHANGE: SuperR identity, side-by-side registry entries and artwork
+# (replaces the RStudio values above)
+include("${CMAKE_CURRENT_SOURCE_DIR}/superr-registry.cmake")
+
 # the installer requires NsisMultiUser; check at configure time since a missing
 # include directory only surfaces deep inside makensis as a cryptic
 # '!include: could not find: "UAC.nsh"' error

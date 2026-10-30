@@ -6305,6 +6305,21 @@ public class RemoteServer implements Server
    }
 
    @Override
+   public void superrstudioData(String operation, String dataset, String revision,
+         String x, String y, JSONObject appearance,
+         ServerRequestCallback<org.rstudio.studio.client.workbench.views.superrstudio.ScatterResult> callback)
+   {
+      JSONArray params = new JSONArray();
+      params.set(0, new JSONString(operation));
+      params.set(1, new JSONString(dataset));
+      params.set(2, new JSONString(revision));
+      params.set(3, new JSONString(x));
+      params.set(4, new JSONString(y));
+      params.set(5, appearance == null ? new JSONObject() : appearance);
+      sendRequest(RPC_SCOPE, "superrstudio_data", params, callback);
+   }
+
+   @Override
    public void markersTabClosed(ServerRequestCallback<VoidResponse> requestCallback)
    {
       sendRequest(RPC_SCOPE, "markers_tab_closed", requestCallback);

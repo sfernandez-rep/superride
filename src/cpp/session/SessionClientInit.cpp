@@ -19,6 +19,7 @@
 #include "SessionDirs.hpp"
 
 #include "modules/SessionAuthoring.hpp"
+#include "modules/SessionSuperRStudio.hpp"
 #include "modules/rmarkdown/SessionRMarkdown.hpp"
 #include "modules/rmarkdown/SessionBlogdown.hpp"
 #include "modules/rmarkdown/SessionBookdown.hpp"
@@ -632,6 +633,8 @@ void handleClientInit(const boost::function<void()>& initFunction,
    sessionInfo["package_provided_extensions"] = modules::ppe::indexer().getPayload();
 
    sessionInfo["connections_enabled"] = modules::connections::connectionsEnabled();
+   // SuperRStudio: experimental features (e.g. the Visual workbench tab)
+   sessionInfo["superrstudio_experimental"] = modules::superrstudio::enabled();
    sessionInfo["activate_connections"] = modules::connections::activateConnections();
    sessionInfo["connection_list"] = modules::connections::connectionsAsJson();
    sessionInfo["active_connections"] = modules::connections::activeConnectionsAsJson();

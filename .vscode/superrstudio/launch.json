@@ -1,0 +1,32 @@
+//
+// SuperRStudio debugging configurations (Windows). Merge into
+// .vscode/launch.json (ignored by Git) with tools\superrstudio\install-vscode.ps1.
+//
+{
+  "version": "0.2.0",
+  "configurations": [
+    // >>> superrstudio
+    {
+      "name": "SuperRStudio: Launch and attach to Electron main",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "preLaunchTask": "SuperRStudio: Run desktop for debugging",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "SuperRStudio: Attach to GWT client (DevTools port 9222)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "urlFilter": "http://127.0.0.1:*"
+    },
+    {
+      "name": "SuperRStudio: Attach to rsession (C++)",
+      "type": "cppvsdbg",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
+    },
+    // <<< superrstudio
+  ]
+}

@@ -573,6 +573,10 @@ public abstract class
    public abstract AppCommand tutorialStop();
    public abstract AppCommand tutorialHome();
 
+   // SuperRStudio Visual pane
+   public abstract AppCommand activateVisual();
+   public abstract AppCommand layoutZoomVisual();
+
    // Chat
    public abstract AppCommand activateChat();
    public abstract AppCommand layoutZoomChat();

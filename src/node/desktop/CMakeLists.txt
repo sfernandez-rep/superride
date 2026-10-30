@@ -229,6 +229,10 @@ list(APPEND DESKTOP_SOURCES package.json forge.config.js)
 
 if (WIN32)
 
+   # SUPERR CHANGE: the Windows desktop is packaged as SuperR (product name,
+   # executable, output folder) from package/superr/product.json
+   include("${RSTUDIO_PROJECT_ROOT}/package/superr/superr-product.cmake")
+
    set(RSTUDIO_PRODUCT_VERSION "${CPACK_PACKAGE_VERSION}")
    string(REGEX REPLACE "[.]pro[0-9]+$" "" RSTUDIO_PRODUCT_VERSION "${RSTUDIO_PRODUCT_VERSION}")
 
@@ -237,7 +241,7 @@ if (WIN32)
       DEPENDS "${DESKTOP_SOURCES}"
       COMMENT "Building desktop (Electron ${UNAME_M})"
       WORKING_DIRECTORY "${ELECTRON_BINARY_DIR}"
-      COMMAND ${NPX} json -I -f package.json -e "this.productName=\\\"RStudio\\\""
+      COMMAND ${NPX} json -I -f package.json -e "this.productName=\\\"${SUPERR_productName}\\\""
       COMMAND ${NPX} json -I -f package.json -e "this.version=\\\"${RSTUDIO_PRODUCT_VERSION}\\\""
       COMMAND ${NPM} run package
    )
@@ -307,7 +311,7 @@ endif()
 if(WIN32)
 
    install(
-      DIRECTORY "${ELECTRON_BINARY_DIR}/out/RStudio-win32-x64/"
+      DIRECTORY "${ELECTRON_BINARY_DIR}/out/${SUPERR_productName}-win32-x64/"
       DESTINATION "${RSTUDIO_INSTALL_ELECTRON}")
 
    # install Visual C++ runtime files

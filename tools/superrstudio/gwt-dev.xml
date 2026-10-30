@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SuperRStudio development wrapper around the upstream GWT build.
+  SPDX-License-Identifier: AGPL-3.0-only
+
+  Identical to src/gwt/build.xml except that the panmirror (visual editor)
+  bundle is not rebuilt with yarn when it is already present: it is either
+  kept, copied from a verified build (-Dsuperrstudio.panmirror.source=DIR),
+  or built by the original upstream target as a last resort.
+-->
+<project name="superrstudio-gwt-dev" default="draft" basedir="../../src/gwt">
+
+   <import file="../../src/gwt/build.xml"/>
+
+   <target name="superrstudio-panmirror-check">
+      <available property="superrstudio.panmirror.present"
+                 file="${panmirror.build.dir}/panmirror.js"/>
+      <condition property="superrstudio.panmirror.copy">
+         <and>
+            <not><isset property="superrstudio.panmirror.present"/></not>
+            <isset property="superrstudio.panmirror.source"/>
+            <available file="${superrstudio.panmirror.source}/panmirror.js"/>
+         </and>
+      </condition>
+   </target>
+
+   <target name="superrstudio-panmirror-copy" if="superrstudio.panmirror.copy">
+      <echo message="Copying verified panmirror assets from ${superrstudio.panmirror.source}"/>
+      <copy todir="${panmirror.build.dir}">
+         <fileset dir="${superrstudio.panmirror.source}"/>
+      </copy>
+      <property name="superrstudio.panmirror.present" value="true"/>
+   </target>
+
+   <target name="superrstudio-panmirror-build" unless="superrstudio.panmirror.present">
+      <antcall target="client.panmirror"/>
+   </target>
+
+   <target name="panmirror"
+           depends="superrstudio-panmirror-check,superrstudio-panmirror-copy,superrstudio-panmirror-build">
+      <echo message="panmirror assets: ${panmirror.build.dir}"/>
+   </target>
+
+</project>
