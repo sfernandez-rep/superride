@@ -162,7 +162,7 @@
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/views/environment/EnvironmentPane.java": {
       "area": "plot editor and length-frequency entry points",
-      "markers": ["createScatterButton()", "createLfqButton()"]
+      "markers": ["createSheetButton()", "createScatterButton()", "createLfqButton()"]
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/views/environment/model/EnvironmentServerOperations.java": {
       "area": "session module RPC",
@@ -211,12 +211,14 @@
     "src/cpp/session/modules/SessionSuperRStudioLfqLibrary.R",
     "src/cpp/session/modules/SessionSuperRStudioLfqMortality.R",
     "src/cpp/session/modules/SessionSuperRStudioLfqYield.R",
+    "src/cpp/session/modules/SessionSuperRStudioSheet.R",
     "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/SuperRProduct.java",
     "src/gwt/src/org/rstudio/studio/client/workbench/views/visual/VisualPresenter.java",
     "superrstudio/upstream.json",
     "superrstudio/upstream-history.json",
     "tests/superrstudio/visual-scatter.R",
     "tests/superrstudio/lfq-tropfishr.R",
-    "tests/superrstudio/deps.R"
+    "tests/superrstudio/deps.R",
+    "tests/superrstudio/data-entry.R"
   ]
 }

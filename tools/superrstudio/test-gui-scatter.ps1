@@ -27,6 +27,10 @@
                  package prompt, cancel, unavailable and broken packages, stop,
                  successful installation that resumes the editor, no repeated
                  prompt, a real renv project (tests\superrstudio\desktop-deps.cjs)
+     sheet       the data table window: pasted and typed cells, creation through
+                 the console, plot editor and length-frequency window with the
+                 new data frame, replacement, a Latin-1 CSV, an Excel sheet and
+                 an edited copy (tests\superrstudio\desktop-sheet.cjs)
 
    Screenshots and generated code go to .cache\superrstudio\gui-scatter.
 #>
@@ -45,7 +49,7 @@ $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 foreach ($name in $Scenario)
 {
    if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es', 'visual-migrate', 'visual-restart', 'visual-off',
-                    'theme-first', 'theme-restart', 'theme-off', 'deps')
+                    'theme-first', 'theme-restart', 'theme-off', 'deps', 'sheet')
    { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
@@ -116,7 +120,7 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
+      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'sheet' { 'desktop-sheet.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
                                          default { 'desktop-scatter.cjs' } }
       $argument = if ($name -like 'visual-*') { $name.Substring(7) } elseif ($name -like 'theme-*') { $name.Substring(6) } else { $name }
       & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $argument | Out-Host
