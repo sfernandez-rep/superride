@@ -1,4 +1,4 @@
-# SuperR 0.1.0-preview.1 release checklist
+# SuperR 0.1.1-preview.1 release checklist
 
 A public GitHub pre-release is allowed only when **all eight** conditions
 below hold. Otherwise the installer stays a workflow artifact or a local
@@ -7,18 +7,19 @@ build, and the reason is recorded here.
 Status at the last update: **not published.**
 
 - **Condition 1 is not met:** the name is not cleared.
-- Condition 3 is met for the release candidate built from `4d6c72279c`
-  (66 checks, 0 failed).
+- Condition 3: 0.1.1-preview.1 (built from `8fcf060057`) passed 65 of 66 checks;
+  the missing-package phase could not run on this host (below). 0.1.0-preview.1
+  (built from `4d6c72279c`) passed 66 of 66.
 
 | # | Condition | Status | Evidence |
 | --- | --- | --- | --- |
 | 1 | Trademark and naming review clear | **Not met** | [Preliminary review](../legal/superr-naming-review.md). No conflict was found by web search, but there has been no register search (USPTO/EUIPO/WIPO, classes 9 and 42). The repository was renamed to `superride` on 2026-10-29. Owner action required: register search or legal advice |
 | 2 | Licence and source obligations | Met for the package contents | The package contains `COPYING` (AGPL-3.0) and `NOTICE` (third-party), and the About dialog has the licence, the trademark notice and the source link. The release assets add `SOURCE.txt` (commit, source archive) and `MODIFIED-FILES.txt` (AGPL §5(a): files changed against upstream `e961c6137d`) |
-| 3 | Installer and packaged tests pass | Met (2026-10-29) | `tools/superrstudio/test-packaged.ps1` on `SuperR-0.1.0-preview.1-Windows-x64.exe` built from `4d6c72279c` (SHA-256 `b35ffe80a81c…be086a9f2`): 66 checks, 0 failed, Windows 11 x64 |
+| 3 | Installer and packaged tests pass | Partly (2026-10-30) | `tools/superrstudio/test-packaged.ps1` on `SuperR-0.1.1-preview.1-Windows-x64.exe` built from `8fcf060057` (SHA-256 `51bd3c52a39a70ff49f9758fdbb6e711b8a0702e3ce61c82af98391836253d6d`): 66 checks, 65 passed, 1 failed. The "no ggplot2" phase stops at its precondition because this host's R now has ggplot2 in its own library (`C:\R\R-4.6.1\library`, installed by the owner through SuperR's dialog), so the missing-package prompt in the installed app was not exercised; it needs a host whose R library has no ggplot2. Earlier: `SuperR-0.1.0-preview.1-Windows-x64.exe` built from `4d6c72279c` (SHA-256 `b35ffe80a81c…be086a9f2`): 66 checks, 0 failed, Windows 11 x64 |
 | 4 | Side-by-side behaviour verified | Partly | Own folder, shortcut, uninstall entry, `SuperR.*` ProgIDs, no default-program change, RStudio settings folders untouched, uninstall leaves RStudio keys alone. **No official RStudio is installed on the test machine**, so running both at the same time is unverified |
 | 5 | No private data or secrets | Met (scan below) | Staged package scanned: no user-profile paths and no credentials. Token-like strings are detection regexes inside the Copilot language server. Build paths under `D:\Git\SuperRStudio` remain in native binaries' debug directories, as in any MSVC build |
 | 6 | Windows claims match evidence | Met | Windows 11 x64 only. Windows 10 is stated as untested |
-| 7 | Clearly experimental | Met | Version `0.1.0-preview.1`, About dialog "Preview" and pre-release ribbon, release notes "experimental preview" |
+| 7 | Clearly experimental | Met | Version `0.1.1-preview.1`, About dialog "Preview" and pre-release ribbon, release notes "experimental preview" |
 | 8 | Provenance documented | Met | `*.provenance.json` (commit, versions, toolchain, unsigned), `.sha256`, `SOURCE.txt`; the CI workflow builds from a commit |
 
 ## Test record
