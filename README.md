@@ -3,6 +3,11 @@ SuperR
 
 ![SuperR](assets/branding/generated/png/superr-128.png)
 
+| | |
+| --- | --- |
+| **Authored by** | sfernandez |
+| **Co-authored by** | Claude (Anthropic) & Codex (OpenAI) |
+
 **SuperR** is an independent, experimental fork of RStudio Desktop for
 reproducible visual scientific work in biology, ecology, marine science and
 fisheries. It keeps the RStudio workbench and the active R session, and adds:
