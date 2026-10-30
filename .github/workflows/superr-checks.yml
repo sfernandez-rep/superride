@@ -8,8 +8,9 @@ name: SuperR checks
 
 on:
   push:
-    branches: ['feature/**', 'release/**']
+    branches: ['feature/**', 'release/**', 'upstream-sync/**']
     paths:
+      - 'superrstudio/**'
       - 'package/superr/**'
       - 'assets/branding/**'
       - 'src/cpp/session/modules/SessionSuperRStudio*.R'
@@ -19,7 +20,7 @@ on:
       - 'tests/superrstudio/**'
       - '.github/workflows/superr-checks.yml'
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
