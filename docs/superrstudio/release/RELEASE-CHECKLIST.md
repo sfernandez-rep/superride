@@ -4,9 +4,14 @@ A public GitHub pre-release is allowed only when **all eight** conditions
 below hold. Otherwise the installer stays a workflow artifact or a local
 build, and the reason is recorded here.
 
-Status at the last update: **not published.**
+Status at the last update: **published on 2026-10-30 as a public GitHub
+pre-release by the owner's decision**, with condition 1 not met:
+[superr-v0.1.1-preview.1](https://github.com/sfernandez-rep/superride/releases/tag/superr-v0.1.1-preview.1)
+(tag at `8fcf060057`, the installer's build commit).
 
-- **Condition 1 is not met:** the name is not cleared.
+- **Condition 1 is not met:** the name is not cleared. The owner asked to
+  publish anyway ("subilo al repositorio publico y listo") and accepts that
+  risk; the register search or legal advice is still open.
 - Condition 3: 0.1.1-preview.1 (built from `8fcf060057`) passed 65 of 66 checks;
   the missing-package phase could not run on this host (below). 0.1.0-preview.1
   (built from `4d6c72279c`) passed 66 of 66.
@@ -57,6 +62,16 @@ scenarios of the brief map to these checks:
 
 The installer is unsigned (no code-signing certificate). See
 [packaging-windows.md](../packaging-windows.md#signing).
+
+## Published assets (2026-10-30)
+
+Uploaded from the local build with `gh release create --prerelease`,
+because no self-hosted runner is registered for `superr-release.yml`. The
+assets match that workflow: the installer (GitHub digest
+`51bd3c52a39a70ff49f9758fdbb6e711b8a0702e3ce61c82af98391836253d6d`, equal to
+the tested build), `.sha256`, `.provenance.json`, `SOURCE.txt`,
+`MODIFIED-FILES.txt`, `RELEASE-NOTES.md`, `COPYING` and `NOTICE`, all taken
+from `8fcf060057`.
 
 ## To publish (owner)
 

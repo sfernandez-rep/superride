@@ -94,18 +94,20 @@ release evidence (for example the release candidate built from
   is a GitHub fork of `rstudio/rstudio`, so GitHub offers to merge upstream's
   current `main` (not a release) straight into SuperR's `main`, which
   bypasses every gate here.
-- **Inherited upstream workflows should be disabled (owner action, not done
-  yet).** The `.github/workflows/os-*.yml` files are upstream's CI. They
+- **Inherited upstream workflows are disabled (all 28, 2026-10-30).** The
+  `.github/workflows/os-*.yml` files are upstream's CI. They
   need Posit's runners, secrets, S3 and daily-build infrastructure. On the
   fork, the scheduled ones fail every day, and `os-test-e2e-rstudio-pr.yml`
   starts multi-platform source builds on every pull request that touches
   `src/**`. Keep the files in the tree, so upstream merges don't conflict,
-  and disable them in the repository's Actions settings, or with:
+  and disable them in the repository's Actions settings, or with (Windows
+  PowerShell 5.1 strips the double quotes inside a `--jq` argument, so the
+  filter runs in PowerShell):
 
   ```powershell
-  gh api repos/sfernandez-rep/superride/actions/workflows --paginate `
-    --jq '.workflows[] | select(.path | startswith(".github/workflows/os-")) | .path' |
-    ForEach-Object { gh workflow disable (Split-Path $_ -Leaf) --repo sfernandez-rep/superride }
+  gh workflow list --repo sfernandez-rep/superride --all --limit 200 --json path |
+    ConvertFrom-Json | Where-Object { $_.path -like '.github/workflows/os-*' } |
+    ForEach-Object { gh workflow disable (Split-Path $_.path -Leaf) --repo sfernandez-rep/superride }
   ```
 
   Re-enable one with `gh workflow enable <file> --repo sfernandez-rep/superride`.
