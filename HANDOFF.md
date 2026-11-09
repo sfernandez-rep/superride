@@ -1,5 +1,25 @@
 # SuperR handoff
 
+## Current continuation: Chat IA, 2026-11-09
+
+Current branch is `feature/chat-ia`, based on `develop` at `0498d1776c`.
+The repository is now `sfernandez-rep/superride`. The historical branch/version
+paragraphs below describe earlier checkpoints and are not current Git state.
+The owner requested a complete native SuperR sidebar with Antigravity ACP and
+Codex, own-account authorization, project context and approved script edits.
+The full request is in the conversation; see [chat-ia.md](docs/superrstudio/features/chat-ia.md)
+for checked provider restrictions, source locations, tests and remaining work.
+
+Work so far is **infrastructure only**, not a usable IDE feature: local JSON-RPC
+transport, experimental ACP/Codex adapters, a bounded project reader and an
+in-memory edit preview. Mock protocol/security tests pass; a real Codex
+app-server initialization with isolated dummy credentials passes. No real user
+authentication or inference, sidebar, persisted history or file edits have been
+implemented. Antigravity can preapprove writes via its own settings: do not wire
+these adapters to the UI until the safety boundary is enforced and tested.
+The OpenAI SIWC example devkit has a noncommercial license; do not vendor it into
+this AGPL repository. Continue at the concrete next steps in the feature record.
+
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
 request #1 into `main`, RStudio 2026.10.1 prepared, data table window on
 `feature/data-entry`), America/Montevideo, by
