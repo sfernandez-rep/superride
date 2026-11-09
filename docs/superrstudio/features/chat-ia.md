@@ -52,8 +52,8 @@ undoable transaction, with explicit approval and correct encoding preservation.
 The experimental conversation store writes individual bounded JSON records in
 an app-owned directory, grouped by the project and provider recorded in each
 record. It contains message text in plaintext, can include sensitive content,
-and is not connected to the UI. It does not yet detect stale concurrent saves;
-resolve these privacy and concurrency limitations before exposing history.
+and is not connected to the UI. Revision checks reject stale concurrent saves;
+resolve the privacy and user-consent design before exposing history.
 
 ## Official provider constraints
 

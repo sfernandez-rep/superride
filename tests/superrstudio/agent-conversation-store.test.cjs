@@ -10,12 +10,14 @@ test('history persists by project and provider, validates input and supports del
   try {
     const store = await ConversationStore.open(root);
     const project = path.join(root, 'project');
-    const first = await store.create(project, 'codex');
+    let first = await store.create(project, 'codex');
     const second = await store.create(project, 'antigravity');
     await store.create(null, 'codex');
     first.sessionId = 'session-1';
     first.messages.push({ role: 'user', text: '¿Cómo funciona?', files: ['análisis.R'], time: new Date().toISOString() });
-    await store.save(first);
+    const stale = { ...first, messages: [...first.messages] };
+    first = await store.save(first);
+    await assert.rejects(store.save(stale), /changed/);
     const reopened = await ConversationStore.open(root);
     assert.deepEqual(await reopened.read(first.id), first);
     assert.deepEqual(new Set((await reopened.list(project)).map(item => item.id)), new Set([first.id, second.id]));
@@ -24,6 +26,7 @@ test('history persists by project and provider, validates input and supports del
     await assert.rejects(reopened.save({ ...first, provider: 'invalid' }), /Invalid conversation/);
     await reopened.delete(first.id);
     assert.equal(await reopened.read(first.id), null);
+    await assert.rejects(reopened.save(first), /removed/);
     assert.equal((await reopened.list(project)).length, 1);
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });

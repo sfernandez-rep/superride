@@ -22,7 +22,8 @@ pass without user authentication or prompts. No real user authentication or
 inference, UI-connected account storage, scheduled refresh, sidebar,
 UI-integrated history or file edits have been
 implemented. Conversation storage is plaintext, requires an explicit privacy
-decision before use, and does not resolve concurrent stale saves. Antigravity can preapprove writes via its own settings: do not wire
+decision before use. The store rejects stale saves via revision checks.
+Antigravity can preapprove writes via its own settings: do not wire
 these adapters to the UI until the safety boundary is enforced and tested.
 The OpenAI SIWC example devkit has a noncommercial license; do not vendor it into
 this AGPL repository. Continue at the concrete next steps in the feature record.

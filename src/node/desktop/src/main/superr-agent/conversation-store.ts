@@ -12,6 +12,7 @@ export interface ConversationMessage {
 }
 export interface Conversation {
   version: 1;
+  revision: number;
   id: string;
   project: string | null;
   provider: 'antigravity' | 'codex';
@@ -42,9 +43,9 @@ export class ConversationStore {
     if ((project !== null && (!path.isAbsolute(project) || project.length > 4096)) ||
         (provider !== 'antigravity' && provider !== 'codex')) throw new Error('Invalid conversation');
     const now = new Date().toISOString();
-    const value: Conversation = { version: 1, id: randomUUID(), project, provider, sessionId: null,
+    const value: Conversation = { version: 1, revision: 0, id: randomUUID(), project, provider, sessionId: null,
       created: now, updated: now, messages: [] };
-    await this.save(value);
+    await this.persist(value, true);
     return value;
   }
 
@@ -57,7 +58,7 @@ export class ConversationStore {
       const value = await this.read(name.slice(0, -5));
       if (value && value.project === project) result.push(value);
     }
-    return result.sort ( (a, b) => b.updated.localeCompare(a.updated));
+    return result.sort((a, b) => b.updated.localeCompare(a.updated));
   }
 
   async read(id: string): Promise<Conversation | null> {
@@ -86,11 +87,22 @@ export class ConversationStore {
     } finally { await handle?.close(); }
   }
 
-  async save(conversation: Conversation): Promise<void> {
+  async save(conversation: Conversation): Promise<Conversation> {
+    return this.persist(conversation, false);
+  }
+
+  private async persist(conversation: Conversation, create: boolean): Promise<Conversation> {
     const value = this.validate(conversation);
-    const data = JSON.stringify(value);
-    if (Buffer.byteLength(data) > maxBytes) throw new Error('Conversation is too large');
-    await this.locked(value.id, async () => {
+    return this.locked(value.id, async () => {
+      const current = await this.read(value.id);
+      if (create && current) throw new Error('Conversation already exists');
+      if (!create && !current) throw new Error('Conversation has been removed');
+      if (current && (current.revision !== value.revision || current.project !== value.project ||
+          current.provider !== value.provider || current.created !== value.created))
+        throw new Error('Conversation has changed');
+      const updated = current ? { ...value, revision: value.revision + 1, updated: new Date().toISOString() } : value;
+      const data = JSON.stringify(updated);
+      if (Buffer.byteLength(data) > maxBytes) throw new Error('Conversation is too large');
       const file = path.join(this.root, `${value.id}.json`);
       const temp = path.join(this.root, `.history-${randomBytes(16).toString('hex')}.tmp`);
       let created = false;
@@ -99,6 +111,7 @@ export class ConversationStore {
         try { await handle.writeFile(data, 'utf8'); await handle.sync(); } finally { await handle.close(); }
         await fs.rename(temp, file); created = false;
       } finally { if (created) await fs.unlink(temp).catch(() => {}); }
+      return updated;
     });
   }
 
@@ -110,7 +123,8 @@ export class ConversationStore {
   }
 
   private validate(data: unknown): Conversation {
-    if (!object(data) || data.version !== 1 || typeof data.id !== 'string' || !idPattern.test(data.id) ||
+    if (!object(data) || data.version !== 1 || !Number.isSafeInteger(data.revision) || (data.revision as number) < 0 ||
+        (data.revision as number) >= Number.MAX_SAFE_INTEGER || typeof data.id !== 'string' || !idPattern.test(data.id) ||
         (data.project !== null && (typeof data.project !== 'string' || !path.isAbsolute(data.project) || data.project.length > 4096)) ||
         (data.provider !== 'antigravity' && data.provider !== 'codex') ||
         (data.sessionId !== null && (typeof data.sessionId !== 'string' || data.sessionId.length > 1024)) ||
@@ -124,7 +138,7 @@ export class ConversationStore {
         throw new Error('Invalid conversation message');
       return { role: message.role, text: message.text, files: [...message.files] as string[], time: message.time };
     });
-    return { version: 1, id: data.id, project: data.project, provider: data.provider,
+    return { version: 1, revision: data.revision, id: data.id, project: data.project, provider: data.provider,
       sessionId: data.sessionId, created: data.created, updated: data.updated, messages } as Conversation;
   }
   private checkId(id: string): void { if (!idPattern.test(id)) throw new Error('Invalid conversation ID'); }
