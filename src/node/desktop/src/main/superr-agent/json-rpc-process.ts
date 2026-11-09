@@ -5,9 +5,28 @@ import { StringDecoder } from 'node:string_decoder';
 
 type RpcId = string | number;
 type ObjectValue = Record<string, unknown>;
-type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void };
+type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void; timer?: NodeJS.Timeout };
 type RequestHandler = (method: string, params: unknown) => Promise<unknown>;
 type NotificationHandler = (method: string, params: unknown) => void;
+
+export class AgentRpcError extends Error {
+  constructor(readonly code: number, readonly reason?: string) {
+    super(reason ? `Agent request failed: ${reason}` : `Agent request failed (${code})`);
+    this.name = 'AgentRpcError';
+  }
+}
+const SAFE_REASONS = new Set(['subscription_sharing_user_not_eligible',
+  'subscription_sharing_usage_limit_exceeded', 'subscription_sharing_usage_unavailable',
+  'auth_required']);
+function safeReason(value: unknown, depth = 0): string | undefined {
+  if (typeof value === 'string') return SAFE_REASONS.has(value) ? value : undefined;
+  if (!object(value) || depth >= 4) return undefined;
+  for (const key of ['code', 'type', 'error', 'data']) {
+    const found = safeReason(value[key], depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 const MAX_BUFFER = 4 * 1024 * 1024;
 const MAX_PENDING = 128;
@@ -40,14 +59,16 @@ export class JsonRpcProcess {
     this.child.on('close', code => { this.fail('Agent process exited'); onExit(code); });
   }
 
-  request(method: string, params: unknown): Promise<unknown> {
+  request(method: string, params: unknown, timeoutMs = 30000): Promise<unknown> {
     if (this.closed) return Promise.reject(new Error('Agent connection is closed'));
     if (this.pending.size >= MAX_PENDING) return Promise.reject(new Error('Too many pending requests'));
     const id = ++this.nextId;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = timeoutMs > 0 ? setTimeout(() => this.fail('Agent request timed out'), timeoutMs) : undefined;
+      timer?.unref();
+      this.pending.set(id, { resolve, reject, timer });
       try { this.send({ jsonrpc: '2.0', id, method, params }); }
-      catch (error) { this.pending.delete(id); reject(error); }
+      catch (error) { if (timer) clearTimeout(timer); this.pending.delete(id); reject(error); }
     });
   }
 
@@ -108,10 +129,11 @@ export class JsonRpcProcess {
     const pending = this.pending.get(id);
     if (!pending) return; // A late response can arrive after cancellation or shutdown.
     this.pending.delete(id);
+    if (pending.timer) clearTimeout(pending.timer);
     if ('error' in message) {
       // Preserve the provider error code, but do not copy potentially sensitive server data into logs.
       const code = object(message.error) && typeof message.error.code === 'number' ? message.error.code : 0;
-      pending.reject(new Error(`Agent request failed (${code})`));
+      pending.reject(new AgentRpcError(code, safeReason(message.error)));
     } else if ('result' in message) pending.resolve(message.result);
     else pending.reject(new Error('Agent response has no result'));
   }
@@ -119,7 +141,10 @@ export class JsonRpcProcess {
   private fail(message: string): void {
     if (this.closed) return;
     this.closed = true;
-    for (const pending of this.pending.values()) pending.reject(new Error(message));
+    for (const pending of this.pending.values()) {
+      if (pending.timer) clearTimeout(pending.timer);
+      pending.reject(new Error(message));
+    }
     this.pending.clear();
     this.child.stdin.destroy();
     if (this.child.exitCode === null && this.child.signalCode === null) this.child.kill();

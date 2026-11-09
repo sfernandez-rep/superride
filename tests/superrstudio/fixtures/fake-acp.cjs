@@ -11,16 +11,17 @@ function send(value) {
 }
 input.on('line', line => {
   const msg = JSON.parse(line);
-  if (msg.method === 'initialize') send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: 1, agentCapabilities: { loadSession: true } } });
+  if (msg.method === 'initialize') send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: 1,
+    agentCapabilities: { loadSession: true }, authMethods: [{ id: 'oauth-personal', name: 'Google' }] } });
   else if (msg.method === 'authenticate') send({ jsonrpc: '2.0', id: msg.id, result: {} });
   else if (msg.method === 'session/new') send({ jsonrpc: '2.0', id: msg.id, result: { sessionId: 's1' } });
   else if (msg.method === 'session/load') send({ jsonrpc: '2.0', id: msg.id, result: {} });
   else if (msg.method === 'session/prompt') {
     pendingPrompt = msg.id;
     send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 's1', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'hola á' } } } });
-    send({ jsonrpc: '2.0', id: 'permission-1', method: 'session/request_permission', params: { sessionId: 's1', options: [{ kind: 'allow_once', optionId: 'yes' }] } });
+    send({ jsonrpc: '2.0', id: 'permission-1', method: 'session/request_permission', params: { sessionId: 's1', options: [{ kind: 'allow_once', optionId: 'yes' }, { kind: 'reject_once', optionId: 'no' }] } });
   } else if (msg.id === 'permission-1') {
-    send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 's1', update: { sessionUpdate: 'permission-test', outcome: msg.result.outcome.outcome } } });
+    send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 's1', update: { sessionUpdate: 'permission-test', outcome: msg.result.outcome.optionId } } });
   } else if (msg.method === 'session/cancel' && pendingPrompt) {
     send({ jsonrpc: '2.0', id: pendingPrompt, result: { stopReason: 'cancelled' } });
     pendingPrompt = null;

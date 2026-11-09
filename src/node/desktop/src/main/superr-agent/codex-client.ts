@@ -22,6 +22,7 @@ export class CodexClient {
   private readonly rpc: Rpc;
   private initialized = false;
   private threads = new Set<string>();
+  private readonly activeTurns = new Map<string, { id?: string; completed: Set<string> }>();
   private readonly workspace: string;
 
   constructor(executable: string, cwd: string, privateHome: string, accessToken: string,
@@ -38,13 +39,23 @@ export class CodexClient {
       '-c', 'model_providers.openai_chatgpt_plan.env_key="ACCESS_TOKEN"',
       '-c', 'model_providers.openai_chatgpt_plan.wire_api="responses"',
       '-c', 'model_providers.openai_chatgpt_plan.requires_openai_auth=false',
-      '-c', 'model_providers.openai_chatgpt_plan.supports_websockets=false'];
+      '-c', 'model_providers.openai_chatgpt_plan.supports_websockets=false',
+      '-c', 'shell_environment_policy.ignore_default_excludes=false',
+      '-c', 'shell_environment_policy.filters.ACCESS_TOKEN="exclude"'];
     const env: NodeJS.ProcessEnv = { ...childEnvironment(process.env), ACCESS_TOKEN: accessToken, CODEX_HOME: privateHome };
     this.rpc = factory(executable, args, cwd, async method => {
       if (method === 'item/commandExecution/requestApproval' || method === 'item/fileChange/requestApproval')
         return { decision: 'decline' };
       throw new Error('Unsupported client operation');
-    }, onUpdate, onExit, 'codex', env);
+    }, (method, params) => {
+      if (method === 'turn/completed' && obj(params) && typeof params.threadId === 'string' &&
+          obj(params.turn) && typeof params.turn.id === 'string') {
+        const active = this.activeTurns.get(params.threadId);
+        if (active && active.id === params.turn.id) this.activeTurns.delete(params.threadId);
+        else if (active && !active.id && active.completed.size < 16) active.completed.add(params.turn.id);
+      }
+      onUpdate(method, params);
+    }, code => { this.initialized = false; this.threads.clear(); this.activeTurns.clear(); onExit(code); }, 'codex', env);
   }
 
   async initialize(): Promise<unknown> {
@@ -76,14 +87,24 @@ export class CodexClient {
   async prompt(threadId: string, text: string): Promise<unknown> {
     this.checkThread(threadId);
     if (!text.trim()) throw new Error('A message is required');
-    return this.rpc.request('turn/start', { threadId, input: [{ type: 'text', text, text_elements: [] }] });
+    if (this.activeTurns.has(threadId)) throw new Error('A turn is already running');
+    const active: { id?: string; completed: Set<string> } = { completed: new Set<string>() };
+    this.activeTurns.set(threadId, active);
+    try {
+      const result = await this.rpc.request('turn/start', { threadId, input: [{ type: 'text', text, text_elements: [] }] });
+      if (!obj(result) || !obj(result.turn) || typeof result.turn.id !== 'string' || !result.turn.id)
+        throw new Error('Agent returned an invalid turn');
+      active.id = result.turn.id;
+      if (active.completed.has(active.id)) this.activeTurns.delete(threadId);
+      return result;
+    } catch (error) { this.activeTurns.delete(threadId); throw error; }
   }
   async cancel(threadId: string, turnId: string): Promise<void> {
     this.checkThread(threadId);
-    if (!turnId) throw new Error('A turn ID is required');
+    if (!turnId || this.activeTurns.get(threadId)?.id !== turnId) throw new Error('Unknown active turn');
     await this.rpc.request('turn/interrupt', { threadId, turnId });
   }
-  shutdown(): void { this.initialized = false; this.threads.clear(); this.rpc.shutdown(); }
+  shutdown(): void { this.initialized = false; this.threads.clear(); this.activeTurns.clear(); this.rpc.shutdown(); }
   private check(): void { if (!this.initialized) throw new Error('Agent connection is not initialized'); }
   private checkThread(id: string): void { this.check(); if (!this.threads.has(id)) throw new Error('Unknown agent thread'); }
   private checkWorkspace(cwd: string): void {

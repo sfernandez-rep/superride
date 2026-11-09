@@ -6,8 +6,10 @@ import { TextDecoder } from 'node:util';
 
 const MAX_FILE_BYTES = 1024 * 1024;
 const EXTENSIONS = new Set(['.r', '.rmd', '.qmd', '.csv', '.tsv', '.txt']);
+const DATA_EXTENSIONS = new Set(['.rds', '.rdata']);
 const HIDDEN = new Set(['.git', '.svn', '.hg', '.ssh', '.aws', '.config', '.gnupg',
-  '.renviron', '.rprofile', '.rhistory', '.env', 'node_modules', 'renv', 'packrat']);
+  '.renviron', '.rprofile', '.rhistory', '.env', '.cache', '.rproj.user', '.quarto',
+  'node_modules', 'renv', 'packrat', 'build', 'dist', 'vendor', '_site']);
 
 function inside(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
@@ -30,6 +32,58 @@ export class ProjectReader {
     const realRoot = await fs.realpath(root);
     if (!(await fs.stat(realRoot)).isDirectory()) throw new Error('Project root is not a directory');
     return new ProjectReader(realRoot);
+  }
+
+  /** Enumerates names only. Binary R files are identified but never unserialized. */
+  async list(): Promise<{ files: string[]; truncated: boolean }> {
+    const files: string[] = [];
+    const directories = [''];
+    let visited = 0;
+    let scanned = 0;
+    let truncated = false;
+    while (directories.length) {
+      if (++visited > 1000 || files.length >= 2000) { truncated = true; break; }
+      const relative = directories.shift()!;
+      const directory = path.join(this.root, relative);
+      const stat = await fs.lstat(directory);
+      if (stat.isSymbolicLink() || !stat.isDirectory()) continue;
+      const real = await fs.realpath(directory);
+      if (real !== this.root && !inside(this.root, real)) continue;
+      const entries = await fs.opendir(directory);
+      for await (const entry of entries) {
+        if (++scanned > 20000) { truncated = true; directories.length = 0; break; }
+        if (!allowedPart(entry.name) || entry.isSymbolicLink()) continue;
+        const name = relative ? path.join(relative, entry.name) : entry.name;
+        if (entry.isDirectory()) directories.push(name);
+        else if (entry.isFile() && (EXTENSIONS.has(path.extname(name).toLowerCase()) ||
+                                   DATA_EXTENSIONS.has(path.extname(name).toLowerCase()))) {
+          if (files.length === 2000) { truncated = true; break; }
+          files.push(name.split(path.sep).join('/'));
+        }
+      }
+    }
+    files.sort();
+    return { files, truncated };
+  }
+
+  /** Search locally; the caller chooses whether to disclose returned snippets. */
+  async search(query: string): Promise<{ matches: Array<{ file: string; line: number; snippet: string }>; truncated: boolean }> {
+    if (!query.trim() || query.length > 200) throw new Error('Invalid search term');
+    const listing = await this.list();
+    const matches: Array<{ file: string; line: number; snippet: string }> = [];
+    const term = query.toLowerCase();
+    for (const file of listing.files) {
+      if (!EXTENSIONS.has(path.extname(file).toLowerCase())) continue;
+      let content: string;
+      try { content = await this.read(file); } catch { continue; }
+      const lines = content.split(/\r\n|\n|\r/);
+      for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].toLowerCase().includes(term)) continue;
+        matches.push({ file, line: i + 1, snippet: lines[i].slice(0, 300) });
+        if (matches.length === 100) return { matches, truncated: true };
+      }
+    }
+    return { matches, truncated: listing.truncated };
   }
 
   async read(relative: string): Promise<string> {
@@ -65,7 +119,7 @@ export class ProjectReader {
       }
       if (bytesRead > MAX_FILE_BYTES || bytes.subarray(0, bytesRead).includes(0))
         throw new Error('File is not a supported text file');
-      return new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, bytesRead));
+      return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, bytesRead));
     } finally {
       await handle.close();
     }

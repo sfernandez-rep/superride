@@ -12,10 +12,15 @@ input.on('line', line => {
   else if (msg.method === 'thread/start' || msg.method === 'thread/resume')
     send({ id: msg.id, result: { thread: { id: msg.params.threadId || 't1' } } });
   else if (msg.method === 'model/list') send({ id: msg.id, result: { data: [] } });
+  else if (msg.method === 'mock-error') send({ id: msg.id, error: { code: -32000,
+    message: 'DO NOT SHOW PRIVATE TOKEN', data: { type: 'subscription_sharing_user_not_eligible' } } });
   else if (msg.method === 'turn/start') {
     send({ id: msg.id, result: { turn: { id: 'turn1', status: 'inProgress' } } });
     send({ method: 'item/agentMessage/delta', params: { threadId: 't1', delta: 'hola á' } });
     send({ id: 'approve-1', method: 'item/fileChange/requestApproval', params: {} });
   } else if (msg.id === 'approve-1') send({ method: 'approval-result', params: { decision: msg.result.decision } });
-  else if (msg.method === 'turn/interrupt') send({ id: msg.id, result: {} });
+  else if (msg.method === 'turn/interrupt') {
+    send({ id: msg.id, result: {} });
+    send({ method: 'turn/completed', params: { threadId: msg.params.threadId, turn: { id: msg.params.turnId, status: 'interrupted' } } });
+  }
 });

@@ -21,9 +21,19 @@ components: bounded JSON-RPC process transport; an Antigravity ACP v1 adapter;
 a Codex app-server adapter using an explicitly supplied OAuth token; a bounded
 selective UTF-8 project reader; and pure text-proposal validation. Both agents'
 simulated requests for writes and command execution currently default to deny.
-An independent OIDC helper verifies RS256 identity-token signatures and claims
-against a caller-supplied trusted JWKS; the OAuth/JWKS retrieval flow is not yet
-implemented or connected to it.
+The independent SIWC OAuth code starts a loopback listener only on request,
+validates state, performs PKCE exchange, checks OpenAI's discovery/JWKS origin,
+verifies RS256 identity signatures and claims, and checks the granted scope.
+Separate credential-vault code supports atomic encrypted records using Electron
+`safeStorage` and refuses Linux's plaintext/unknown backend. Refresh and sign-out
+helpers serialize updates with a per-profile lock file and retain credentials
+if revocation fails unless the caller explicitly elects to clear them. A crash
+may leave a lock file; automatic stale-lock recovery is not implemented. These
+components are unwired. An account coordinator persists the opaque host ID and
+issued client IDs, stores verified identities and credentials, rotates on demand,
+and exposes token-free status. Account-selection UI, proactive expiry scheduling,
+and integration remain. OAuth and provider requests have
+only been exercised with synthetic identity keys and fake endpoints.
 The process adapters do not yet provide an independently enforced security
 boundary, a working approval interface, protected history, authentication, or
 process-tree cleanup. They must not be exposed to an end user as a complete chat.
@@ -63,27 +73,39 @@ protocol independently or find a compatible implementation.
 - Real installed Codex `0.164.0-alpha.11.1`: app-server initialize succeeded
   with a disposable `CODEX_HOME` and dummy token. No login, prompt, inference or
   access to the user's Codex credentials was tested.
+- Official Google-signed Antigravity CLI `1.5.3`, downloaded to the local cache
+  and checked against the SHA-512 manifest, successfully answered ACP initialize
+  with an isolated profile and announced `oauth-personal`. No Google sign-in,
+  prompt, project data or real inference was tested.
 - Project-reader tests cover UTF-8/CRLF, traversal, secrets by common names,
   junctions and size limits. In-memory proposal tests cover approval, dirty and
   changed editors, overlap and Unicode. No actual editor was changed.
+- OAuth/identity, refresh/revocation and encrypted storage tests pass with
+  synthetic data; no real account or authorization grant was used. Windows
+  Electron `safeStorage` also encrypted and decrypted a synthetic credential.
+- The component tests pass on Ubuntu 24.04 under WSL with a SHA-256-verified
+  Node 22.22.2 binary. This is not a Linux build or desktop GUI test.
 - TypeScript strict check passes for these new files. Full Windows Desktop build,
   GUI tests, Linux compilation and real Gemini/Codex conversations not yet run.
 
 Re-run the mock tests on this provisioned Windows host:
 
 ```powershell
-$env:NODE_PATH = "$PWD\src\node\desktop-build-amd64\node_modules"
+Push-Location tests/superrstudio/agent-test-deps
+npm ci --ignore-scripts --no-audit --no-fund
+Pop-Location
+$env:NODE_PATH = "$PWD\tests\superrstudio\agent-test-deps\node_modules"
 $env:TS_NODE_PROJECT = "$PWD\src\node\desktop\tsconfig.json"
 $env:TS_NODE_TRANSPILE_ONLY = '1'
-& D:\Git\rstudio-tools\dependencies\common\node\22.22.2\node.exe --test --require ts-node/register tests\superrstudio\agent-transport.test.cjs tests\superrstudio\agent-project-reader.test.cjs tests\superrstudio\agent-text-proposal.test.cjs tests\superrstudio\agent-oidc.test.cjs
+& D:\Git\rstudio-tools\dependencies\common\node\22.22.2\node.exe --test --require ts-node/register tests\superrstudio\agent-transport.test.cjs tests\superrstudio\agent-project-reader.test.cjs tests\superrstudio\agent-text-proposal.test.cjs tests\superrstudio\agent-oidc.test.cjs tests\superrstudio\agent-chatgpt-auth.test.cjs tests\superrstudio\agent-vault.test.cjs tests\superrstudio\agent-registration.test.cjs tests\superrstudio\agent-accounts.test.cjs
 ```
 
 ## Next work
 
 Establish verified agent isolation including inherited permissions, sensitive
 files, outside paths, child processes, cancellation and cleanup on Windows and
-Linux. Implement independently licensed SIWC authentication with OS-protected
-storage and refresh. Connect a provider-neutral session/approval coordinator to
+Linux. Complete SIWC account-selection UI, expiry scheduling, stale-lock
+recovery and OS-protected storage integration. Connect a provider-neutral session/approval coordinator to
 the actual sidebar, project context and source editor; show diffs, preserve dirty
 buffers and provide undo. Persist per-project/provider histories locally without
 credentials. Add real GUI and provider tests only with explicit user sign-in.

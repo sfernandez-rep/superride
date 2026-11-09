@@ -21,6 +21,10 @@ export class AcpClient {
   private readonly rpc: Rpc;
   private initialized = false;
   private sessions = new Set<string>();
+  private readonly activeTurns = new Set<string>();
+  private readonly cancelTimers = new Map<string, NodeJS.Timeout>();
+  private authenticationMethods = new Set<string>();
+  private canLoadSession = false;
   private readonly workspace: string;
 
   constructor(executable: string, cwd: string,
@@ -33,11 +37,19 @@ export class AcpClient {
     // with this flag. Do not connect this client to a product UI until those
     // rules and filesystem isolation are enforced independently.
     this.rpc = factory(executable, ['acp', '--sandbox', '--disable-telemetry'], cwd,
-      async (method) => {
-        if (method === 'session/request_permission') return { outcome: { outcome: 'cancelled' } };
+      async (method, params) => {
+        if (method === 'session/request_permission') {
+          if (obj(params) && Array.isArray(params.options)) {
+            const reject = params.options.find((option: unknown) => obj(option) && option.kind === 'reject_once' && typeof option.optionId === 'string');
+            if (obj(reject)) return { outcome: { outcome: 'selected', optionId: reject.optionId } };
+          }
+          return { outcome: { outcome: 'cancelled' } };
+        }
         throw new Error('Unsupported client operation');
       },
-      (method, params) => { if (method === 'session/update') onUpdate(params); }, onExit,
+      (method, params) => { if (method === 'session/update') onUpdate(params); }, code => {
+        this.initialized = false; this.sessions.clear(); this.activeTurns.clear(); onExit(code);
+      },
       childEnvironment(process.env));
   }
 
@@ -48,13 +60,20 @@ export class AcpClient {
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
     });
     if (!obj(result) || result.protocolVersion !== 1) { this.shutdown(); throw new Error('Unsupported ACP protocol version'); }
+    this.authenticationMethods.clear();
+    if (Array.isArray(result.authMethods))
+      for (const method of result.authMethods)
+        if (obj(method) && typeof method.id === 'string' && (method.type === undefined || method.type === 'agent'))
+          this.authenticationMethods.add(method.id);
+    this.canLoadSession = obj(result.agentCapabilities) && result.agentCapabilities.loadSession === true;
     this.initialized = true;
     return result;
   }
 
   async authenticate(methodId: string): Promise<void> {
     this.requireInitialized();
-    if (methodId !== 'oauth-personal') throw new Error('Unsupported authentication method');
+    if (methodId !== 'oauth-personal' || !this.authenticationMethods.has(methodId))
+      throw new Error('Unsupported authentication method');
     await this.rpc.request('authenticate', { methodId });
   }
 
@@ -70,6 +89,7 @@ export class AcpClient {
 
   async loadSession(sessionId: string, cwd: string): Promise<Obj> {
     this.requireInitialized();
+    if (!this.canLoadSession) throw new Error('Agent does not support resuming sessions');
     if (!sessionId) throw new Error('A session ID is required');
     this.requireWorkspace(cwd);
     const result = await this.rpc.request('session/load', { sessionId, cwd, mcpServers: [] });
@@ -81,17 +101,36 @@ export class AcpClient {
   async prompt(sessionId: string, text: string): Promise<unknown> {
     this.requireSession(sessionId);
     if (!text.trim()) throw new Error('A message is required');
-    return this.rpc.request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
+    if (this.activeTurns.has(sessionId)) throw new Error('A turn is already running');
+    this.activeTurns.add(sessionId);
+    try { return await this.rpc.request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] }, 0); }
+    finally {
+      this.activeTurns.delete(sessionId);
+      const timer = this.cancelTimers.get(sessionId);
+      if (timer) clearTimeout(timer);
+      this.cancelTimers.delete(sessionId);
+    }
   }
 
   cancel(sessionId: string): void {
     this.requireSession(sessionId);
+    if (!this.activeTurns.has(sessionId)) throw new Error('No active turn');
     this.rpc.notify('session/cancel', { sessionId });
+    if (!this.cancelTimers.has(sessionId)) {
+      const timer = setTimeout(() => this.shutdown(), 5000);
+      timer.unref();
+      this.cancelTimers.set(sessionId, timer);
+    }
   }
 
   shutdown(): void {
     this.initialized = false;
     this.sessions.clear();
+    this.activeTurns.clear();
+    for (const timer of this.cancelTimers.values()) clearTimeout(timer);
+    this.cancelTimers.clear();
+    this.authenticationMethods.clear();
+    this.canLoadSession = false;
     this.rpc.shutdown();
   }
 

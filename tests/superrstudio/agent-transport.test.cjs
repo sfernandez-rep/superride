@@ -34,9 +34,10 @@ test('ACP handshake, sessions, streaming, denied permission and cancellation', a
     assert.equal((await client.createSession(cwd)).sessionId, 's1');
     await client.loadSession('s2', cwd);
     const turn = client.prompt('s1', 'Analyze the project');
+    await assert.rejects(client.prompt('s1', 'another'), /already running/);
     await sleepUntil(() => updates.length === 2);
     assert.equal(updates[0].update.content.text, 'hola á');
-    assert.equal(updates[1].update.outcome, 'cancelled');
+    assert.equal(updates[1].update.outcome, 'no');
     client.cancel('s1');
     assert.equal((await turn).stopReason, 'cancelled');
     assert.throws(() => client.cancel('unrecognized'), /Unknown/);
@@ -58,6 +59,26 @@ test('shutdown rejects outstanding work', async () => {
   await assert.rejects(pending, /closed/);
 });
 
+test('an unresponsive agent request times out and closes the process', async () => {
+  const rpc = new JsonRpcProcess(process.execPath, [fixture], cwd, async () => ({}), () => {}, () => {});
+  await assert.rejects(rpc.request('hang', {}, 60), /timed out/);
+  await assert.rejects(rpc.request('anything', {}), /closed/);
+});
+
+test('provider errors preserve only approved structured reason codes', async () => {
+  const rpc = new JsonRpcProcess(process.execPath, [codexFixture], cwd, async () => ({}), () => {}, () => {}, 'codex');
+  try {
+    await rpc.request('initialize', {});
+    rpc.notify('initialized', {});
+    await assert.rejects(rpc.request('mock-error', {}), error => {
+      assert.equal(error.code, -32000);
+      assert.equal(error.reason, 'subscription_sharing_user_not_eligible');
+      assert.doesNotMatch(error.message, /PRIVATE/);
+      return true;
+    });
+  } finally { rpc.shutdown(); }
+});
+
 test('Codex app-server handshake, scoped thread, streaming and denied writes', async () => {
   const updates = [];
   let launch;
@@ -72,12 +93,14 @@ test('Codex app-server handshake, scoped thread, streaming and denied writes', a
     assert.equal(launch.hasToken, true);
     assert.equal(launch.home, cwd);
     assert.ok(launch.args.includes('model_providers.openai_chatgpt_plan.base_url="https://api.openai.com/v1"'));
+    assert.ok(launch.args.includes('shell_environment_policy.filters.ACCESS_TOKEN="exclude"'));
     await client.initialize();
     assert.deepEqual(await client.models(), { data: [] });
     await assert.rejects(client.startThread(path.dirname(cwd)), /Workspace/);
     assert.equal((await client.startThread(cwd)).thread.id, 't1');
     assert.equal((await client.resumeThread('t2', cwd)).thread.id, 't2');
     assert.equal((await client.prompt('t1', 'Explain the code')).turn.id, 'turn1');
+    await assert.rejects(client.prompt('t1', 'another'), /already running/);
     await sleepUntil(() => updates.length === 2);
     assert.equal(updates[0].params.delta, 'hola á');
     assert.equal(updates[1].params.decision, 'decline');

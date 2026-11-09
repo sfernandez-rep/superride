@@ -11,10 +11,14 @@ The full request is in the conversation; see [chat-ia.md](docs/superrstudio/feat
 for checked provider restrictions, source locations, tests and remaining work.
 
 Work so far is **infrastructure only**, not a usable IDE feature: local JSON-RPC
-transport, experimental ACP/Codex adapters, a bounded project reader and an
-in-memory edit preview. Mock protocol/security tests pass; a real Codex
-app-server initialization with isolated dummy credentials passes. No real user
-authentication or inference, sidebar, persisted history or file edits have been
+transport, experimental ACP/Codex adapters, a bounded project reader, an
+in-memory edit preview, independently implemented SIWC OAuth/identity checks,
+encrypted credentials, registration/account coordination and refresh/revoke
+helpers. These components are unwired. Mock protocol,
+OAuth and security tests pass; real Codex and Antigravity server initializations
+pass without user authentication or prompts. No real user authentication or
+inference, UI-connected account storage, scheduled refresh, sidebar,
+persisted history or file edits have been
 implemented. Antigravity can preapprove writes via its own settings: do not wire
 these adapters to the UI until the safety boundary is enforced and tested.
 The OpenAI SIWC example devkit has a noncommercial license; do not vendor it into

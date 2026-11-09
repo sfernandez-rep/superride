@@ -11,13 +11,24 @@ test('reads selected UTF-8 files and rejects traversal, secrets, binaries and ju
   await fs.mkdir(root);
   try {
     await fs.writeFile(path.join(root, 'análisis.R'), 'x <- "á"\r\n');
+    await fs.writeFile(path.join(root, 'bom.Rmd'), '\ufeff# título\r\n');
     await fs.writeFile(path.join(root, '.Renviron'), 'SECRET=private');
     await fs.writeFile(path.join(root, 'data.csv'), Buffer.from([65, 0, 66]));
     await fs.writeFile(path.join(root, 'large.txt'), Buffer.alloc(1024 * 1024 + 1, 65));
+    await fs.writeFile(path.join(root, 'datos.Rds'), Buffer.from([1, 2, 3]));
+    await fs.mkdir(path.join(root, 'scripts'));
+    await fs.writeFile(path.join(root, 'scripts', 'otro.R'), '# análisis relacionado\r\nx <- 3\r\n');
     await fs.writeFile(path.join(temp, 'outside.R'), 'private');
     await fs.symlink(temp, path.join(root, 'outside'), process.platform === 'win32' ? 'junction' : 'dir');
     const reader = await ProjectReader.open(root);
     assert.equal(await reader.read('análisis.R'), 'x <- "á"\r\n');
+    assert.equal(await reader.read('bom.Rmd'), '\ufeff# título\r\n');
+    const listing = await reader.list();
+    assert.ok(listing.files.includes('datos.Rds'));
+    assert.ok(listing.files.includes('scripts/otro.R'));
+    assert.ok(!listing.files.some(name => name.includes('outside') || name.includes('Renviron')));
+    assert.deepEqual((await reader.search('RELACIONADO')).matches.map(x => [x.file, x.line]), [['scripts/otro.R', 1]]);
+    await assert.rejects(reader.read('datos.Rds'));
     for (const name of ['../outside.R', '.Renviron', '.env.txt', 'outside/outside.R', 'data.csv', 'large.txt', path.join(temp, 'outside.R')])
       await assert.rejects(reader.read(name));
   } finally { await fs.rm(temp, { recursive: true, force: true }); }

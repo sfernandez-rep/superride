@@ -16,6 +16,7 @@ on:
       - 'src/cpp/session/modules/SessionSuperRStudio*.R'
       - 'src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/**'
       - 'src/node/desktop/src/main/superr-identity.ts'
+      - 'src/node/desktop/src/main/superr-agent/**'
       - 'tools/superrstudio/**'
       - 'tests/superrstudio/**'
       - '.github/workflows/superr-checks.yml'
@@ -27,6 +28,38 @@ permissions:
   contents: read
 
 jobs:
+  agent-components:
+    strategy:
+      matrix:
+        os: [windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.22.2'
+      - name: Install pinned test dependencies without lifecycle scripts
+        working-directory: tests/superrstudio/agent-test-deps
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Type-check agent components
+        run: node tests/superrstudio/agent-test-deps/node_modules/typescript/bin/tsc -p tests/superrstudio/agent-test-deps/tsconfig.json
+      - name: Agent protocol, authorization and safety tests
+        env:
+          NODE_PATH: ${{ github.workspace }}/tests/superrstudio/agent-test-deps/node_modules
+          TS_NODE_PROJECT: ${{ github.workspace }}/src/node/desktop/tsconfig.json
+          TS_NODE_TRANSPILE_ONLY: '1'
+        run: >-
+          node --test --require ts-node/register
+          tests/superrstudio/agent-transport.test.cjs
+          tests/superrstudio/agent-project-reader.test.cjs
+          tests/superrstudio/agent-text-proposal.test.cjs
+          tests/superrstudio/agent-oidc.test.cjs
+          tests/superrstudio/agent-chatgpt-auth.test.cjs
+          tests/superrstudio/agent-vault.test.cjs
+          tests/superrstudio/agent-registration.test.cjs
+          tests/superrstudio/agent-accounts.test.cjs
+
   checks:
     runs-on: windows-2025
     timeout-minutes: 40
