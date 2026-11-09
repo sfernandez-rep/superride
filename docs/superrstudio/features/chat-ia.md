@@ -19,7 +19,9 @@ the existing Posit chat or implement a parallel code editor.
 Under `src/node/desktop/src/main/superr-agent/` are experimental, **unwired**
 components: bounded JSON-RPC process transport; an Antigravity ACP v1 adapter;
 a Codex app-server adapter using an explicitly supplied OAuth token; a bounded
-selective UTF-8 project reader; and pure text-proposal validation. Both agents'
+selective UTF-8 project reader; an explicitly populated disposable workspace;
+private Antigravity configuration; a provider-neutral turn interface; a local
+conversation store; and pure text-proposal validation. Both agents'
 simulated requests for writes and command execution currently default to deny.
 The independent SIWC OAuth code starts a loopback listener only on request,
 validates state, performs PKCE exchange, checks OpenAI's discovery/JWKS origin,
@@ -35,15 +37,23 @@ and exposes token-free status. Account-selection UI, proactive expiry scheduling
 and integration remain. OAuth and provider requests have
 only been exercised with synthetic identity keys and fake endpoints.
 The process adapters do not yet provide an independently enforced security
-boundary, a working approval interface, protected history, authentication, or
+boundary, a working approval interface, protected history, user-facing authentication, or
 process-tree cleanup. They must not be exposed to an end user as a complete chat.
 
-The reader rejects common sensitive paths, symlinks, binaries and files over
-1 MiB; it does not cover every possible secret and does not provide race-free
+The reader lists allowed names and searches locally, rejects common sensitive
+paths, symlinks, binaries and files over 1 MiB, and identifies `.rds`/`.RData`
+without deserializing them. Staging copies only explicitly selected files before
+launch. It does not cover every possible secret and does not provide race-free
 OS-level confinement. A running agent can access files through its own tools,
 independently of this reader. The proposal helper does not write files: its
 preview and conflict checks must be integrated into the existing editor in one
 undoable transaction, with explicit approval and correct encoding preservation.
+
+The experimental conversation store writes individual bounded JSON records in
+an app-owned directory, grouped by the project and provider recorded in each
+record. It contains message text in plaintext, can include sensitive content,
+and is not connected to the UI. It does not yet detect stale concurrent saves;
+resolve these privacy and concurrency limitations before exposing history.
 
 ## Official provider constraints
 
@@ -75,7 +85,8 @@ protocol independently or find a compatible implementation.
   access to the user's Codex credentials was tested.
 - Official Google-signed Antigravity CLI `1.5.3`, downloaded to the local cache
   and checked against the SHA-512 manifest, successfully answered ACP initialize
-  with an isolated profile and announced `oauth-personal`. No Google sign-in,
+  with an isolated managed profile and announced `oauth-personal`. Policy
+  enforcement during an authenticated agent turn is untested. No Google sign-in,
   prompt, project data or real inference was tested.
 - Project-reader tests cover UTF-8/CRLF, traversal, secrets by common names,
   junctions and size limits. In-memory proposal tests cover approval, dirty and
@@ -97,7 +108,7 @@ Pop-Location
 $env:NODE_PATH = "$PWD\tests\superrstudio\agent-test-deps\node_modules"
 $env:TS_NODE_PROJECT = "$PWD\src\node\desktop\tsconfig.json"
 $env:TS_NODE_TRANSPILE_ONLY = '1'
-& D:\Git\rstudio-tools\dependencies\common\node\22.22.2\node.exe --test --require ts-node/register tests\superrstudio\agent-transport.test.cjs tests\superrstudio\agent-project-reader.test.cjs tests\superrstudio\agent-text-proposal.test.cjs tests\superrstudio\agent-oidc.test.cjs tests\superrstudio\agent-chatgpt-auth.test.cjs tests\superrstudio\agent-vault.test.cjs tests\superrstudio\agent-registration.test.cjs tests\superrstudio\agent-accounts.test.cjs
+& D:\Git\rstudio-tools\dependencies\common\node\22.22.2\node.exe --test --require ts-node/register tests\superrstudio\agent-transport.test.cjs tests\superrstudio\agent-project-reader.test.cjs tests\superrstudio\agent-text-proposal.test.cjs tests\superrstudio\agent-oidc.test.cjs tests\superrstudio\agent-chatgpt-auth.test.cjs tests\superrstudio\agent-vault.test.cjs tests\superrstudio\agent-registration.test.cjs tests\superrstudio\agent-accounts.test.cjs tests\superrstudio\agent-staged-workspace.test.cjs tests\superrstudio\agent-antigravity-policy.test.cjs
 ```
 
 ## Next work

@@ -17,13 +17,14 @@ const sleepUntil = async condition => {
 test('ACP handshake, sessions, streaming, denied permission and cancellation', async () => {
   const updates = [];
   let launched;
-  const client = new AcpClient(process.execPath, cwd, x => updates.push(x), () => {},
+  const client = new AcpClient(process.execPath, cwd, cwd, x => updates.push(x), () => {},
     (exe, args, dir, request, notification, exit, env) => {
       launched = { exe, args, dir, leakedApiKey: Object.hasOwn(env, 'OPENAI_API_KEY') };
       return new JsonRpcProcess(process.execPath, [fixture], dir, request, notification, exit, 'acp', env);
     });
   try {
-    assert.deepEqual(launched.args, ['acp', '--sandbox', '--disable-telemetry']);
+    assert.deepEqual(launched.args, ['acp', '--sandbox', '--disable-telemetry', '--gemini-dir', cwd,
+      '--include-default-customizations=false']);
     assert.equal(launched.leakedApiKey, false);
     await assert.rejects(client.prompt('s1', 'hi'), /not initialized/);
     const capabilities = await client.initialize();

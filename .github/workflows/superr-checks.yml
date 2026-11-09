@@ -59,6 +59,10 @@ jobs:
           tests/superrstudio/agent-vault.test.cjs
           tests/superrstudio/agent-registration.test.cjs
           tests/superrstudio/agent-accounts.test.cjs
+          tests/superrstudio/agent-staged-workspace.test.cjs
+          tests/superrstudio/agent-antigravity-policy.test.cjs
+          tests/superrstudio/agent-provider.test.cjs
+          tests/superrstudio/agent-conversation-store.test.cjs
 
   checks:
     runs-on: windows-2025

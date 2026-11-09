@@ -27,16 +27,18 @@ export class AcpClient {
   private canLoadSession = false;
   private readonly workspace: string;
 
-  constructor(executable: string, cwd: string,
+  constructor(executable: string, cwd: string, privateGeminiDir: string,
     onUpdate: (params: unknown) => void, onExit: (code: number | null) => void,
     factory: RpcFactory = (exe, args, dir, request, notification, exit, env) =>
       new JsonRpcProcess(exe, args, dir, request, notification, exit, 'acp', env)) {
-    if (!isAbsolute(executable) || !isAbsolute(cwd)) throw new Error('Absolute executable and workspace paths are required');
+    if (!isAbsolute(executable) || !isAbsolute(cwd) || !isAbsolute(privateGeminiDir))
+      throw new Error('Absolute executable, workspace and private agent paths are required');
     this.workspace = resolve(cwd);
     // Antigravity's inherited permission rules can preapprove actions, even
     // with this flag. Do not connect this client to a product UI until those
     // rules and filesystem isolation are enforced independently.
-    this.rpc = factory(executable, ['acp', '--sandbox', '--disable-telemetry'], cwd,
+    this.rpc = factory(executable, ['acp', '--sandbox', '--disable-telemetry', '--gemini-dir', privateGeminiDir,
+      '--include-default-customizations=false'], cwd,
       async (method, params) => {
         if (method === 'session/request_permission') {
           if (obj(params) && Array.isArray(params.options)) {

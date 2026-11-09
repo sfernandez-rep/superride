@@ -12,14 +12,17 @@ for checked provider restrictions, source locations, tests and remaining work.
 
 Work so far is **infrastructure only**, not a usable IDE feature: local JSON-RPC
 transport, experimental ACP/Codex adapters, a bounded project reader, an
+explicitly populated temporary workspace and managed Antigravity policy, an
 in-memory edit preview, independently implemented SIWC OAuth/identity checks,
 encrypted credentials, registration/account coordination and refresh/revoke
-helpers. These components are unwired. Mock protocol,
+helpers, a provider-neutral turn interface and a local conversation store.
+These components are unwired. Mock protocol,
 OAuth and security tests pass; real Codex and Antigravity server initializations
 pass without user authentication or prompts. No real user authentication or
 inference, UI-connected account storage, scheduled refresh, sidebar,
-persisted history or file edits have been
-implemented. Antigravity can preapprove writes via its own settings: do not wire
+UI-integrated history or file edits have been
+implemented. Conversation storage is plaintext, requires an explicit privacy
+decision before use, and does not resolve concurrent stale saves. Antigravity can preapprove writes via its own settings: do not wire
 these adapters to the UI until the safety boundary is enforced and tested.
 The OpenAI SIWC example devkit has a noncommercial license; do not vendor it into
 this AGPL repository. Continue at the concrete next steps in the feature record.
