@@ -31,7 +31,9 @@ const timestamp = (value: unknown): value is string => typeof value === 'string'
 /** Private local history; callers supply only intentionally disclosed chat text. */
 export class ConversationStore {
   private constructor(private readonly root: string) {}
-  static async open(root: string): Promise<ConversationStore> {
+  /** The caller must obtain informed consent before enabling plaintext history. */
+  static async open(root: string, historyEnabled: boolean = false): Promise<ConversationStore> {
+    if (historyEnabled !== true) throw new Error('Local history is disabled');
     if (!path.isAbsolute(root)) throw new Error('An absolute history directory is required');
     await fs.mkdir(root, { recursive: true, mode: 0o700 });
     const stat = await fs.lstat(root);

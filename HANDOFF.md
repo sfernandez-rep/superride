@@ -22,9 +22,23 @@ pass without user authentication or prompts. No real user authentication or
 inference, UI-connected account storage, scheduled refresh, sidebar,
 UI-integrated history or file edits have been
 implemented. Conversation storage is plaintext, requires an explicit privacy
-decision before use. The store rejects stale saves via revision checks.
+decision before use. The store defaults to disabled and rejects stale saves via
+revision checks; no informed-consent or history-management UI exists yet.
 Antigravity can preapprove writes via its own settings: do not wire
 these adapters to the UI until the safety boundary is enforced and tested.
+Continuation 2026-11-09: staged-workspace review now creates in-memory previews
+for changed, explicitly staged files and marks disk conflicts. It aborts on a
+missing or linked staged file. It does not yet handle new or deleted files,
+editor buffers, race-free path confinement or actual application of changes.
+The native panel and end-to-end integration remain the immediate priority.
+All 25 component tests pass on Windows and Ubuntu 24.04 WSL after these changes.
+Strict TypeScript and
+baseline/integration checks pass. `tools/superrstudio/dev-build.ps1 -Component
+all` passed the incremental Windows native and GWT build (it does not rebuild
+the Electron shell). `test-gui-scatter.ps1 -Scenario ggplot2` passed with an
+isolated desktop profile, including launch and clean quit. This is a regression
+test for the existing plot editor, not Chat IA. No Chat IA GUI or real account
+turn has been tested.
 The OpenAI SIWC example devkit has a noncommercial license; do not vendor it into
 this AGPL repository. Continue at the concrete next steps in the feature record.
 

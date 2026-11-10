@@ -8,7 +8,10 @@ const { ConversationStore } = require('../../src/node/desktop/src/main/superr-ag
 test('history persists by project and provider, validates input and supports deletion', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'superr-history-test-'));
   try {
-    const store = await ConversationStore.open(root);
+    const disabledRoot = path.join(root, 'disabled');
+    await assert.rejects(ConversationStore.open(disabledRoot), /disabled/);
+    await assert.rejects(fs.access(disabledRoot));
+    const store = await ConversationStore.open(root, true);
     const project = path.join(root, 'project');
     let first = await store.create(project, 'codex');
     const second = await store.create(project, 'antigravity');
@@ -18,7 +21,7 @@ test('history persists by project and provider, validates input and supports del
     const stale = { ...first, messages: [...first.messages] };
     first = await store.save(first);
     await assert.rejects(store.save(stale), /changed/);
-    const reopened = await ConversationStore.open(root);
+    const reopened = await ConversationStore.open(root, true);
     assert.deepEqual(await reopened.read(first.id), first);
     assert.deepEqual(new Set((await reopened.list(project)).map(item => item.id)), new Set([first.id, second.id]));
     assert.equal((await reopened.list(null)).length, 1);
@@ -34,7 +37,7 @@ test('history persists by project and provider, validates input and supports del
 test('history rejects symlink files and malformed data', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'superr-history-test-'));
   try {
-    const store = await ConversationStore.open(root);
+    const store = await ConversationStore.open(root, true);
     const item = await store.create(null, 'codex');
     const file = path.join(root, `${item.id}.json`);
     await fs.writeFile(file, '{broken');

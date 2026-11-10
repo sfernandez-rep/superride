@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { ProjectReader } from './project-reader';
+import { previewTextEdit, TextPreview } from './text-proposal';
 
 /**
  * A disposable, explicitly populated copy. It is not an OS sandbox: a caller
@@ -12,6 +13,7 @@ export class StagedWorkspace {
   private sealed = false;
   private pendingIncludes = 0;
   private removed = false;
+  private sourceReader?: ProjectReader;
   private readonly originals = new Map<string, { text: string; sha256: string }>();
   private constructor(private readonly base: string, readonly directory: string) {}
 
@@ -28,6 +30,8 @@ export class StagedWorkspace {
   /** Must be called before launching an agent; never reads an entire project. */
   async include(reader: ProjectReader, relative: string): Promise<void> {
     if (this.sealed || this.removed) throw new Error('The agent workspace is already sealed');
+    if (this.sourceReader && this.sourceReader !== reader) throw new Error('Workspace belongs to another project');
+    this.sourceReader = reader;
     this.pendingIncludes++;
     try {
       const text = await reader.read(relative); // validates each component and extension
@@ -54,6 +58,29 @@ export class StagedWorkspace {
   original(relative: string): { text: string; sha256: string } | undefined {
     const value = this.originals.get(relative.replaceAll('\\', '/'));
     return value ? { ...value } : undefined;
+  }
+
+  /** Read changes to files explicitly included in the snapshot, without writing originals. */
+  async changes(reader: ProjectReader): Promise<Array<{ file: string; preview: TextPreview; conflict: boolean }>> {
+    if (!this.sealed || this.removed) throw new Error('The agent workspace is not available for review');
+    if (this.sourceReader !== reader) throw new Error('Workspace belongs to another project');
+    const info = await fs.lstat(this.directory);
+    if (!info.isDirectory() || info.isSymbolicLink() || await fs.realpath(this.directory) !== this.directory)
+      throw new Error('Invalid staging directory');
+    const staged = await ProjectReader.open(this.directory);
+    const changes: Array<{ file: string; preview: TextPreview; conflict: boolean }> = [];
+    for (const [file, original] of this.originals) {
+      // The reader rejects links, invalid UTF-8 and oversized files. Missing or
+      // replaced files abort review rather than silently presenting partial changes.
+      const after = await staged.read(file);
+      if (after === original.text) continue;
+      let conflict = true;
+      try { conflict = await reader.read(file) !== original.text; } catch { /* removed or inaccessible */ }
+      changes.push({ file, preview: previewTextEdit(original.text, [{
+        start: 0, end: original.text.length, expected: original.text, replacement: after,
+      }]), conflict });
+    }
+    return changes;
   }
 
   async cleanup(): Promise<void> {

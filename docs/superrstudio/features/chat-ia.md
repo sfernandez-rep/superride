@@ -48,12 +48,19 @@ OS-level confinement. A running agent can access files through its own tools,
 independently of this reader. The proposal helper does not write files: its
 preview and conflict checks must be integrated into the existing editor in one
 undoable transaction, with explicit approval and correct encoding preservation.
+The staged workspace can now compare explicitly included changed files with
+their snapshot and flag changes to the project copy. Review aborts when staged
+files are missing, invalid or linked. Creation, deletion, dirty editor buffers,
+and application of previews are not implemented; the path checks are not an
+OS-enforced security boundary.
 
 The experimental conversation store writes individual bounded JSON records in
 an app-owned directory, grouped by the project and provider recorded in each
 record. It contains message text in plaintext, can include sensitive content,
-and is not connected to the UI. Revision checks reject stale concurrent saves;
-resolve the privacy and user-consent design before exposing history.
+and is not connected to the UI. Opening the store defaults to disabled and
+requires an explicit enabled argument. This is a backend guard, not an informed
+consent interface. Revision checks reject stale concurrent saves; provide a
+clear opt-in and deletion UI before exposing history.
 
 ## Official provider constraints
 
@@ -65,6 +72,15 @@ a sandbox. Require and verify an isolated, fail-closed policy before enabling
 the provider; do not modify a user's global permissions or copy Google tokens.
 Sources: [ACP setup](https://antigravity.google/docs/ide/extensions/acp/) and
 [permissions](https://antigravity.google/docs/permissions?tab=cli).
+The documented CLI sandbox is for terminal commands and can be unavailable on
+unsupported Windows builds; it does not establish confinement for the ACP
+agent itself. Microsoft's experimental
+[Create Process in Sandbox](https://learn.microsoft.com/en-us/windows/win32/secauthz/createprocessinsandbox)
+API is not a drop-in replacement for the existing stdio transport: its
+`inheritHandles` parameter must currently be false. A separate, tested IPC and
+process-lifecycle design is needed before relying on it.
+Antigravity's [plan mode](https://antigravity.google/docs/cli/modes) adds a
+planning instruction; it must not be treated as an OS access-control boundary.
 
 OpenAI documents its separate [Sign in with ChatGPT flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in),
 including dynamic registration, PKCE, ID-token verification, granted scopes,
@@ -96,6 +112,11 @@ protocol independently or find a compatible implementation.
   Electron `safeStorage` also encrypted and decrypted a synthetic credential.
 - The component tests pass on Ubuntu 24.04 under WSL with a SHA-256-verified
   Node 22.22.2 binary. This is not a Linux build or desktop GUI test.
+- On this continuation, `dev-build.ps1 -Component all` passed the incremental
+  Windows native and GWT builds. It did not rebuild Electron or integrate these
+  agent components into the running application.
+- `test-gui-scatter.ps1 -Scenario ggplot2` passed against the existing Windows
+  desktop in an isolated profile. It is not a Chat IA UI or provider test.
 - TypeScript strict check passes for these new files. Full Windows Desktop build,
   GUI tests, Linux compilation and real Gemini/Codex conversations not yet run.
 
