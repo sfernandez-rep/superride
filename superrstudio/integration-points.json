@@ -202,6 +202,9 @@
   },
   "superr_files": [
     "src/node/desktop/src/main/superr-agent/chat-bridge.ts",
+    "src/node/desktop/src/main/superr-agent/gemini-api.ts",
+    "tests/superrstudio/agent-gemini-api.test.cjs",
+    "tests/superrstudio/desktop-chat.cjs",
     "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatAiPane.java",
     "COPYING",
     "NOTICE",

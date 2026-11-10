@@ -37,9 +37,30 @@ export class CredentialVault {
   }
 
   private async saveUnlocked(id: string, grant: StoredGrant): Promise<void> {
-    const destination = this.file(id);
     if (!validGrant(grant)) throw new Error('Invalid credential grant');
-    const encrypted = this.codec.encrypt(JSON.stringify(grant));
+    await this.writeEncrypted(id, JSON.stringify(grant));
+  }
+
+  /** A single opaque secret, such as a user's API key, under its own profile. */
+  async saveSecret(id: string, secret: string): Promise<void> {
+    if (!validSecret(secret)) throw new Error('Invalid secret');
+    await this.withLock(id, () => this.writeEncrypted(id, JSON.stringify({ secret })));
+  }
+
+  async loadSecret(id: string): Promise<string | null> {
+    const text = await this.readDecrypted(id);
+    if (text === null) return null;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      const secret = (parsed as { secret?: unknown } | null)?.secret;
+      if (validSecret(secret)) return secret;
+    } catch { /* reported below */ }
+    throw new Error('Cannot decrypt or validate credential storage');
+  }
+
+  private async writeEncrypted(id: string, plaintext: string): Promise<void> {
+    const destination = this.file(id);
+    const encrypted = this.codec.encrypt(plaintext);
     if (!Buffer.isBuffer(encrypted) || encrypted.length === 0 || encrypted.length > 1024 * 1024)
       throw new Error('Credential encryption failed');
     const temp = path.join(this.root, `.credentials-${randomBytes(16).toString('hex')}.tmp`);
@@ -57,6 +78,16 @@ export class CredentialVault {
   }
 
   async load(id: string): Promise<StoredGrant | null> {
+    const text = await this.readDecrypted(id);
+    if (text === null) return null;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (validGrant(parsed)) return parsed;
+    } catch { /* reported below */ }
+    throw new Error('Cannot decrypt or validate credential storage');
+  }
+
+  private async readDecrypted(id: string): Promise<string | null> {
     const file = this.file(id);
     let handle;
     try {
@@ -78,9 +109,7 @@ export class CredentialVault {
         count += chunk.bytesRead;
       }
       if (count !== info.size) throw new Error('Credential storage changed during read');
-      const parsed: unknown = JSON.parse(this.codec.decrypt(data.subarray(0, count)));
-      if (!validGrant(parsed)) throw new Error('Invalid credential storage');
-      return parsed;
+      return this.codec.decrypt(data.subarray(0, count));
     } catch { throw new Error('Cannot decrypt or validate credential storage'); }
     finally { await handle.close(); }
   }
@@ -132,6 +161,10 @@ export class CredentialVault {
     if (!/^[a-f0-9]{32}$/.test(id)) throw new Error('Invalid profile identifier');
     return path.join(this.root, `${id}.bin`);
   }
+}
+
+function validSecret(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 4096 && !/[\s\u0000-\u001f]/.test(value);
 }
 
 function validGrant(value: unknown): value is StoredGrant {

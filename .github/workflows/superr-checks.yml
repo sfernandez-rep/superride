@@ -63,6 +63,7 @@ jobs:
           tests/superrstudio/agent-antigravity-policy.test.cjs
           tests/superrstudio/agent-provider.test.cjs
           tests/superrstudio/agent-chat-bridge.test.cjs
+          tests/superrstudio/agent-gemini-api.test.cjs
           tests/superrstudio/agent-conversation-store.test.cjs
 
   checks:

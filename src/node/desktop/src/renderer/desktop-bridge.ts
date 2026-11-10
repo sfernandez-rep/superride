@@ -14,6 +14,7 @@
  */
 
 import { ipcRenderer, OpenDialogReturnValue, SaveDialogReturnValue, webUtils } from 'electron';
+import type { IpcRendererEvent } from 'electron';
 import { logString } from './logger-bridge';
 import { createAliasedPath, normalizeSeparators } from '../ui/utils';
 
@@ -30,12 +31,26 @@ function reportIpcError(name: string, error: Error) {
   logString('err', `IpcError: ${name}: ${error.message}`);
 }
 
+// SuperR Chat IA: one streaming listener at a time (the panel can be reopened).
+let superrChatListener: ((event: IpcRendererEvent, data: unknown) => void) | undefined;
+
 export function getDesktopBridge() {
   return {
     superrChatStatus: (provider: string) => ipcRenderer.invoke('superr_chat_status', provider),
     superrChatSignIn: (provider: string) => ipcRenderer.invoke('superr_chat_sign_in', provider),
-    superrChatSend: (provider: string, message: string) => ipcRenderer.invoke('superr_chat_send', provider, message),
+    superrChatSend: (provider: string, message: string, model: string, turn: string) =>
+      ipcRenderer.invoke('superr_chat_send', provider, message, model, turn),
     superrChatCancel: (provider: string) => ipcRenderer.invoke('superr_chat_cancel', provider),
+    superrChatOpenKeyPage: (provider: string) => ipcRenderer.invoke('superr_chat_open_key_page', provider),
+    superrChatSetKey: (provider: string, key: string) => ipcRenderer.invoke('superr_chat_set_key', provider, key),
+    superrChatForgetKey: (provider: string) => ipcRenderer.invoke('superr_chat_forget_key', provider),
+    superrChatModels: (provider: string) => ipcRenderer.invoke('superr_chat_models', provider),
+    superrChatNew: (provider: string) => ipcRenderer.invoke('superr_chat_new', provider),
+    superrChatOnEvent: (callback: (data: unknown) => void) => {
+      if (superrChatListener) ipcRenderer.removeListener('superr_chat_event', superrChatListener);
+      superrChatListener = (_event, data) => callback(data);
+      ipcRenderer.on('superr_chat_event', superrChatListener);
+    },
     writeStdout: (output: string) => {
       ipcRenderer.send('desktop_write_stdout', output);
     },

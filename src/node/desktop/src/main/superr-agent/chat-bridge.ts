@@ -1,33 +1,74 @@
 // Copyright (C) 2026 SuperR contributors. SPDX-License-Identifier: AGPL-3.0-only
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { ChatGptAccounts } from './chatgpt-accounts';
+import { AI_STUDIO_KEY_PAGE, GEMINI_FREE_MODELS, GeminiApi, GeminiApiError, GeminiErrorKind, GeminiMessage,
+  GeminiModel } from './gemini-api';
 
-export type ChatProvider = 'gemini' | 'codex';
+export type ChatProvider = 'gemini-api' | 'gemini' | 'codex';
 export interface ChatStatus {
   provider: ChatProvider;
   installed: boolean;
   authentication: 'connected' | 'signed_out' | 'unknown';
   readOnlyAvailable: false;
+  /** Only the text-only Gemini API mode can chat; agents stay closed until isolation is verified. */
+  chatAvailable: boolean;
+}
+export type ChatErrorKind = GeminiErrorKind | 'busy' | 'no_key' | 'storage';
+export interface KeyResult { ok: boolean; kind?: ChatErrorKind; models?: GeminiModel[] }
+export interface SendResult { status: 'completed' | 'cancelled' | 'incomplete' | 'error'; kind?: ChatErrorKind;
+  finishReason?: string }
+export interface ChatEvent { provider: 'gemini-api'; turn: string; text: string }
+export interface SecretStore {
+  loadSecret(id: string): Promise<string | null>;
+  saveSecret(id: string, secret: string): Promise<void>;
+  remove(id: string): Promise<void>;
+}
+export interface ChatBridgeOptions {
+  searchPath?: string;
+  secrets?: () => Promise<SecretStore>;
+  gemini?: GeminiApi;
+  onEvent?: (event: ChatEvent) => void;
 }
 
-/** Explicit, fail-closed surface. No process is launched without a verified boundary. */
+const GEMINI_KEY_ID = createHash('md5').update('superr-gemini-api-key').digest('hex');
+const MAX_HISTORY_MESSAGES = 20;
+const MAX_HISTORY_CHARS = 200000;
+
+/**
+ * Explicit, fail-closed surface. No agent process is launched without a verified
+ * boundary. The Gemini API mode sends only the typed conversation text: no
+ * project files, tools or commands. The API key never leaves the main process.
+ */
 export class ChatBridge {
   private closed = false;
   private signingIn = false;
+  private history: GeminiMessage[] = [];
+  private active: AbortController | undefined;
+  private readonly searchPath: string;
+  private readonly gemini: GeminiApi;
   constructor(private readonly accounts: () => Promise<ChatGptAccounts>,
     private readonly openExternal: (url: string) => Promise<void>,
-    private readonly searchPath: string = process.env.PATH ?? '') {}
+    private readonly options: ChatBridgeOptions = {}) {
+    this.searchPath = options.searchPath ?? process.env.PATH ?? '';
+    this.gemini = options.gemini ?? new GeminiApi();
+  }
 
   async status(provider: unknown): Promise<ChatStatus> {
     const name = this.provider(provider);
+    if (name === 'gemini-api') {
+      const connected = (await this.key()) !== null;
+      return { provider: name, installed: true, authentication: connected ? 'connected' : 'signed_out',
+        readOnlyAvailable: false, chatAvailable: connected };
+    }
     const installed = await this.installed(name);
     let authentication: ChatStatus['authentication'] = 'unknown';
     if (name === 'codex') {
       const list = await (await this.accounts()).list();
       authentication = list.some(account => account.state === 'connected') ? 'connected' : 'signed_out';
     }
-    return { provider: name, installed, authentication, readOnlyAvailable: false };
+    return { provider: name, installed, authentication, readOnlyAvailable: false, chatAvailable: false };
   }
 
   async signIn(provider: unknown): Promise<ChatStatus> {
@@ -47,22 +88,97 @@ export class ChatBridge {
     } finally { this.signingIn = false; }
   }
 
-  async send(provider: unknown, message: unknown): Promise<never> {
-    this.provider(provider);
+  /** Opens Google AI Studio's own key page; the URL is fixed here, never supplied by the renderer. */
+  async openKeyPage(provider: unknown): Promise<void> {
+    this.geminiApi(provider);
+    await this.openExternal(AI_STUDIO_KEY_PAGE);
+  }
+
+  /** Checks the key with Google, then stores it encrypted. The key is never returned. */
+  async setKey(provider: unknown, key: unknown): Promise<KeyResult> {
+    this.geminiApi(provider);
+    const value = typeof key === 'string' ? key.trim() : '';
+    if (value.length < 10 || value.length > 4096 || /\s/.test(value)) return { ok: false, kind: 'invalid_key' };
+    let models: GeminiModel[];
+    try { models = await this.gemini.models(value); }
+    catch (error: unknown) { return { ok: false, kind: kindOf(error) }; }
+    try { await (await this.secrets()).saveSecret(GEMINI_KEY_ID, value); }
+    catch { return { ok: false, kind: 'storage' }; }
+    return { ok: true, models };
+  }
+
+  async forgetKey(provider: unknown): Promise<ChatStatus> {
+    this.geminiApi(provider);
+    this.active?.abort();
+    this.history = [];
+    await (await this.secrets()).remove(GEMINI_KEY_ID);
+    return this.status(provider);
+  }
+
+  async models(provider: unknown): Promise<KeyResult> {
+    this.geminiApi(provider);
+    const key = await this.key();
+    if (key === null) return { ok: false, kind: 'no_key' };
+    try { return { ok: true, models: await this.gemini.models(key) }; }
+    catch (error: unknown) { return { ok: false, kind: kindOf(error) }; }
+  }
+
+  async newChat(provider: unknown): Promise<void> {
+    this.geminiApi(provider);
+    if (this.active) throw new Error('A response is in progress');
+    this.history = [];
+  }
+
+  async send(provider: unknown, message: unknown, model?: unknown, turn?: unknown): Promise<SendResult> {
+    const name = this.provider(provider);
     if (typeof message !== 'string' || !message.trim() || message.length > 100000) throw new Error('Invalid message');
-    throw new Error('Agent read-only isolation is not verified');
+    if (name !== 'gemini-api') throw new Error('Agent read-only isolation is not verified');
+    if (typeof model !== 'string' || !GEMINI_FREE_MODELS.some(m => m.id === model)) throw new Error('Invalid model');
+    if (typeof turn !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(turn)) throw new Error('Invalid turn');
+    if (this.active) return { status: 'error', kind: 'busy' };
+    const controller = new AbortController();
+    this.active = controller;
+    try {
+      const key = await this.key();
+      if (key === null) return { status: 'error', kind: 'no_key' };
+      const conversation = trim([...this.history, { role: 'user', text: message }]);
+      let answer = '';
+      const result = await this.gemini.stream(key, model, conversation, text => {
+        answer += text;
+        if (!controller.signal.aborted) this.options.onEvent?.({ provider: 'gemini-api', turn, text });
+      }, controller.signal);
+      // Keep only complete exchanges so the next turn alternates user/model.
+      if (result.status !== 'cancelled' && answer) this.history = trim([...conversation, { role: 'model', text: answer }]);
+      return result;
+    } catch (error: unknown) {
+      return { status: 'error', kind: error instanceof GeminiApiError ? error.kind : 'storage' };
+    } finally { if (this.active === controller) this.active = undefined; }
   }
-  async cancel(provider: unknown): Promise<never> {
-    this.provider(provider);
-    throw new Error('No active agent turn');
+
+  async cancel(provider: unknown): Promise<void> {
+    const name = this.provider(provider);
+    if (name !== 'gemini-api' || !this.active) throw new Error('No active agent turn');
+    this.active.abort();
   }
-  shutdown(): void { this.closed = true; }
+
+  shutdown(): void { this.closed = true; this.active?.abort(); this.history = []; }
+
   private provider(value: unknown): ChatProvider {
     if (this.closed) throw new Error('Chat is closed');
-    if (value !== 'gemini' && value !== 'codex') throw new Error('Invalid provider');
+    if (value !== 'gemini-api' && value !== 'gemini' && value !== 'codex') throw new Error('Invalid provider');
     return value;
   }
-  private async installed(provider: ChatProvider): Promise<boolean> {
+  private geminiApi(value: unknown): void {
+    if (this.provider(value) !== 'gemini-api') throw new Error('Only the Gemini API mode uses an API key');
+  }
+  private async secrets(): Promise<SecretStore> {
+    if (!this.options.secrets) throw new Error('Protected credential storage is unavailable');
+    return this.options.secrets();
+  }
+  private async key(): Promise<string | null> {
+    return (await this.secrets()).loadSecret(GEMINI_KEY_ID);
+  }
+  private async installed(provider: 'gemini' | 'codex'): Promise<boolean> {
     const names = process.platform === 'win32' ? (provider === 'gemini' ? ['agy.exe', 'agy.cmd'] : ['codex.exe', 'codex.cmd']) :
       [provider === 'gemini' ? 'agy' : 'codex'];
     for (const dir of this.searchPath.split(path.delimiter)) {
@@ -73,4 +189,16 @@ export class ChatBridge {
     }
     return false;
   }
+}
+
+function kindOf(error: unknown): ChatErrorKind {
+  return error instanceof GeminiApiError ? error.kind : 'connection';
+}
+
+/** Drops the oldest messages beyond the limits, starting the history with a user message. */
+function trim(messages: GeminiMessage[]): GeminiMessage[] {
+  let result = messages.slice(-MAX_HISTORY_MESSAGES);
+  while (result.length > 1 && (result[0].role !== 'user' || result.reduce((n, m) => n + m.text.length, 0) > MAX_HISTORY_CHARS))
+    result = result.slice(1);
+  return result;
 }

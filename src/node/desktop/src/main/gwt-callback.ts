@@ -68,6 +68,9 @@ import { toReleaseSlug, isValidSlug, resolveReleaseName, resolveWhatsNewContentP
 import { ChatBridge } from './superr-agent/chat-bridge';
 import { ChatGptAccounts } from './superr-agent/chatgpt-accounts';
 import { electronCredentialCodec } from './superr-agent/electron-credential-codec';
+import { CredentialVault } from './superr-agent/credential-vault';
+import { GeminiApi } from './superr-agent/gemini-api';
+import { net } from 'electron';
 
 export enum PendingQuit {
   PendingQuitNone,
@@ -146,17 +149,34 @@ export class GwtCallback extends EventEmitter {
     // SuperR Chat IA: only the main workbench may invoke these narrow actions.
     let accounts: Promise<ChatGptAccounts> | undefined;
     const getAccounts = () => accounts ??= ChatGptAccounts.open(path.join(app.getPath('userData'), 'superr-chat'), electronCredentialCodec());
-    const chat = new ChatBridge(getAccounts, url => shell.openExternal(url));
+    // The Gemini API key is stored encrypted (Electron safeStorage) and stays in this process.
+    let vault: Promise<CredentialVault> | undefined;
+    const getVault = () => vault ??= CredentialVault.open(path.join(app.getPath('userData'), 'superr-chat', 'gemini-api'),
+      electronCredentialCodec());
+    const chat = new ChatBridge(getAccounts, url => shell.openExternal(url), {
+      secrets: getVault,
+      // net.fetch follows the system proxy configuration
+      gemini: new GeminiApi((input, init) => net.fetch(input as string, init)),
+      onEvent: event => { if (!mainWindow.window.isDestroyed()) mainWindow.window.webContents.send('superr_chat_event', event); },
+    });
     const authorize = (event: Electron.IpcMainInvokeEvent) => {
       if (process.env.SUPER_RSTUDIO_EXPERIMENTAL !== '1' || event.sender !== mainWindow.window.webContents ||
           event.senderFrame !== mainWindow.window.webContents.mainFrame) throw new Error('Chat IA is unavailable');
     };
     ipcMain.handle('superr_chat_status', (event, provider: unknown) => { authorize(event); return chat.status(provider); });
     ipcMain.handle('superr_chat_sign_in', (event, provider: unknown) => { authorize(event); return chat.signIn(provider); });
-    ipcMain.handle('superr_chat_send', (event, provider: unknown, message: unknown) => { authorize(event); return chat.send(provider, message); });
+    ipcMain.handle('superr_chat_send', (event, provider: unknown, message: unknown, model: unknown, turn: unknown) => {
+      authorize(event); return chat.send(provider, message, model, turn);
+    });
     ipcMain.handle('superr_chat_cancel', (event, provider: unknown) => { authorize(event); return chat.cancel(provider); });
+    ipcMain.handle('superr_chat_open_key_page', (event, provider: unknown) => { authorize(event); return chat.openKeyPage(provider); });
+    ipcMain.handle('superr_chat_set_key', (event, provider: unknown, key: unknown) => { authorize(event); return chat.setKey(provider, key); });
+    ipcMain.handle('superr_chat_forget_key', (event, provider: unknown) => { authorize(event); return chat.forgetKey(provider); });
+    ipcMain.handle('superr_chat_models', (event, provider: unknown) => { authorize(event); return chat.models(provider); });
+    ipcMain.handle('superr_chat_new', (event, provider: unknown) => { authorize(event); return chat.newChat(provider); });
     mainWindow.window.once('closed', () => {
-      for (const channel of ['superr_chat_status', 'superr_chat_sign_in', 'superr_chat_send', 'superr_chat_cancel'])
+      for (const channel of ['superr_chat_status', 'superr_chat_sign_in', 'superr_chat_send', 'superr_chat_cancel',
+        'superr_chat_open_key_page', 'superr_chat_set_key', 'superr_chat_forget_key', 'superr_chat_models', 'superr_chat_new'])
         ipcMain.removeHandler(channel);
       chat.shutdown();
       void accounts?.then(value => value.shutdown()).catch(() => {});
