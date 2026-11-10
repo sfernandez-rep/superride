@@ -195,6 +195,7 @@
     }
   },
   "superr_files": [
+    "src/node/desktop/src/main/superr-updater/releases.cjs",
     "COPYING",
     "NOTICE",
     "package/superr/product.json",

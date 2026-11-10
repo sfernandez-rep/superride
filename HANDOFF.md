@@ -1,5 +1,21 @@
 # SuperR handoff
 
+## Updater worktree, 2026-11-10
+
+`D:\Git\SuperRStudio-updater`, branch `feature/auto-updater`, based on
+`0498d1776c`; the separate Chat IA worktree must not be edited or built here.
+The NSIS installer supports per-user/all-users modes and invokes an older
+uninstaller during upgrade; do not assume in-place upgrade is safe without an
+isolated installed-version test. Existing packages disable the Posit updater.
+`src/node/desktop/src/main/superr-updater/releases.cjs` implements bounded,
+unauthenticated release detection and semantic version/channel selection for
+the official `sfernandez-rep/superride` repository. Run
+`node --test tests/superrstudio/updater-releases.test.cjs` (3 pass with Node
+22.22.2); baseline and integration checks pass. It is not wired into the IDE.
+No trusted update signing key is configured; no executable may be installed
+automatically. Next: signed manifest verification, then IDE integration and
+isolated validation. No public release or installed copy was changed.
+
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
 request #1 into `main`, RStudio 2026.10.1 prepared, data table window on
 `feature/data-entry`), America/Montevideo, by
