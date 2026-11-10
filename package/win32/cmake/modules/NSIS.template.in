@@ -432,7 +432,9 @@ Section "-Remove previous installation"
       Call RunCrossModeUninstaller
     ${EndIf}
     ${If} $0 <> 0
-      DetailPrint "Warning: the existing installation could not be removed; continuing."
+      ; SUPERR UPDATE SAFETY: do not install over a failed cross-mode removal.
+      SetErrorLevel 1
+      Abort "The existing installation could not be removed. The update was stopped."
     ${EndIf}
   ${EndIf}
 
@@ -449,15 +451,23 @@ Section "-Remove previous installation"
   ${If} $MultiUser.InstallMode == "AllUsers"
     StrCpy $0 "/allusers"
   ${EndIf}
-  ExecWait '"$INSTDIR\Uninstall.exe" /S $0 /uninstall _?=$INSTDIR'
+  ExecWait '"$INSTDIR\Uninstall.exe" /S $0 /uninstall _?=$INSTDIR' $1
 
   ; don't remove the uninstaller if we failed
-  IfErrors done
+  IfErrors superr_remove_failed
+  ${If} $1 <> 0
+    Goto superr_remove_failed
+  ${EndIf}
 
   ; remove the uninstaller if it exists
   IfFileExists "$INSTDIR\Uninstall.exe" 0 done
     Delete "$INSTDIR\Uninstall.exe"
-    RMDir $INSTDIR 
+    RMDir $INSTDIR
+  Goto done
+
+superr_remove_failed:
+  SetErrorLevel 1
+  Abort "The existing installation could not be removed. The update was stopped."
  
 done:
 

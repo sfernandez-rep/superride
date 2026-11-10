@@ -37,6 +37,13 @@ export function getDesktopBridge() {
     superrGetUpdatePrefs: () => ipcRenderer.invoke('superr_get_update_prefs'),
     superrSetUpdatePrefs: (automatic: boolean, channel: string) =>
       ipcRenderer.invoke('superr_set_update_prefs', automatic, channel),
+    superrDownloadUpdate: (version: string, channel: string) => ipcRenderer.invoke('superr_download_update', version, channel),
+    superrCancelDownload: () => ipcRenderer.invoke('superr_cancel_download'),
+    superrOnUpdateProgress: (callback: (progress: {stage: string; received: number; total: number}) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, progress: {stage: string; received: number; total: number}) => callback(progress);
+      ipcRenderer.on('superr_update_progress', listener);
+      return () => ipcRenderer.removeListener('superr_update_progress', listener);
+    },
     writeStdout: (output: string) => {
       ipcRenderer.send('desktop_write_stdout', output);
     },

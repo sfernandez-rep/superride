@@ -27,7 +27,7 @@
     },
     "package/win32/cmake/modules/NSIS.template.in": {
       "area": "installer identity, side by side",
-      "markers": ["@CPACK_SUPERR_DISPLAY_VERSION@", "SUPERR CHANGE"],
+      "markers": ["@CPACK_SUPERR_DISPLAY_VERSION@", "SUPERR CHANGE", "SUPERR UPDATE SAFETY"],
       "note": "Upstream changes to the installer template need a packaged-app test run (test-packaged.ps1)."
     },
     "src/cpp/r/R/AppCommands.R": {
@@ -198,9 +198,12 @@
     }
   },
   "superr_files": [
+    "tools/superrstudio/generate-update-key.cjs",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/SuperRUpdateDownload.java",
     "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/SuperRUpdatePrefs.java",
     "src/node/desktop/src/main/superr-updater/releases.cjs",
     "src/node/desktop/src/main/superr-updater/manifest.cjs",
+    "src/node/desktop/src/main/superr-updater/download.cjs",
     "tools/superrstudio/sign-update-manifest.cjs",
     "tools/superrstudio/create-update-manifest.cjs",
     "COPYING",

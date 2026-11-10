@@ -45,6 +45,7 @@ function verifyWithKeys(bytes, signature, keyId, currentVersion, channel, keys, 
 function verifyManifest(bytes, signature, keyId, currentVersion, channel) {
   return verifyWithKeys(bytes, signature, keyId, currentVersion, channel, TRUSTED_KEYS, Date.now());
 }
+function hasTrustedKeys() { return Object.keys(TRUSTED_KEYS).length > 0; }
 
 /** Check a downloaded file against an already verified manifest, without executing it. */
 async function verifyArtifact(filename, manifest) {
@@ -69,7 +70,7 @@ async function verifyArtifact(filename, manifest) {
 }
 
 /** Download only an authenticated manifest's artifact, never execute it. */
-async function downloadArtifact(manifest, privateRoot, request = fetch, signal) {
+async function downloadArtifact(manifest, privateRoot, request = fetch, signal, onProgress = () => {}) {
   if (!manifest || !verifiedManifests.has(manifest)) throw new Error('Unverified update manifest');
   if (!path.isAbsolute(privateRoot)) throw new Error('An absolute download directory is required');
   await fs.mkdir(privateRoot, {recursive:true, mode:0o700});
@@ -111,12 +112,14 @@ async function downloadArtifact(manifest, privateRoot, request = fetch, signal) 
           if (!written.bytesWritten) throw new Error('Could not write update artifact');
           offset += written.bytesWritten;
         }
+        onProgress(size, manifest.size);
       }
     } finally { reader.releaseLock(); }
     signal?.throwIfAborted();
     if (size !== manifest.size || hash.digest('hex') !== manifest.sha256) throw new Error('Update artifact integrity check failed');
     await file.sync(); await file.close(); file = undefined;
     await verifyArtifact(filePath, manifest);
+    signal?.throwIfAborted();
     completed = true;
     return filePath;
   } finally {
@@ -131,4 +134,4 @@ async function downloadArtifact(manifest, privateRoot, request = fetch, signal) 
     }
   }
 }
-module.exports = {verifyManifest, verifyArtifact, downloadArtifact, _verifyWithKeysForTests: verifyWithKeys};
+module.exports = {verifyManifest, hasTrustedKeys, verifyArtifact, downloadArtifact, _verifyWithKeysForTests: verifyWithKeys};

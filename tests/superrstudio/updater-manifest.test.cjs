@@ -90,3 +90,16 @@ test('release manifest binds version, filename, size and artifact hash', async (
    assert.notEqual(spawnSync(process.execPath,[script,'0.2.0',artifact,path.join(dir,'wrong.json')],{env}).status,0);
  } finally { await fs.rm(dir,{recursive:true,force:true}); }
 });
+
+test('key generator creates a matching pair only in an external directory', async () => {
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'superr-keys-'));
+ try {
+   const script=path.join(__dirname,'../../tools/superrstudio/generate-update-key.cjs');
+   assert.notEqual(spawnSync(process.execPath,[script,path.resolve(__dirname,'../..')]).status,0);
+   assert.equal(spawnSync(process.execPath,[script,dir]).status,0);
+   const priv=crypto.createPrivateKey(await fs.readFile(path.join(dir,'superr-update-private.pem')));
+   const pub=crypto.createPublicKey(await fs.readFile(path.join(dir,'superr-update-public.pem')));
+   assert.equal(crypto.verify(null,payload,pub,crypto.sign(null,payload,priv)),true);
+   assert.notEqual(spawnSync(process.execPath,[script,dir]).status,0);
+ } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});

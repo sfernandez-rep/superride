@@ -68,6 +68,7 @@ import org.rstudio.studio.client.workbench.views.source.editors.text.ace.Selecti
 import org.rstudio.studio.client.workbench.views.superrstudio.SuperRProduct;
 import org.rstudio.studio.client.workbench.views.superrstudio.SuperRStudioLanguage;
 import org.rstudio.studio.client.workbench.views.superrstudio.SuperRUpdatePrefs;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRUpdateDownload;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArrayString;
@@ -464,11 +465,11 @@ public class DesktopApplicationHeader implements ApplicationHeader,
       }
       desktop.superrCheckForUpdates(@org.rstudio.studio.client.workbench.views.superrstudio.SuperRProduct::DISPLAY_VERSION, channel)
          .then(function(result) {
-            self.@org.rstudio.studio.client.application.ui.impl.DesktopApplicationHeader::superrUpdateResult(Ljava/lang/String;Z)(result ? result.version : "", manual);
+            self.@org.rstudio.studio.client.application.ui.impl.DesktopApplicationHeader::superrUpdateResult(Ljava/lang/String;ZLjava/lang/String;)(result ? result.version : "", manual, channel);
          }, function() { self.@org.rstudio.studio.client.application.ui.impl.DesktopApplicationHeader::superrUpdateError(Z)(manual); });
    }-*/;
 
-   private void superrUpdateResult(String version, boolean manual)
+   private void superrUpdateResult(String version, boolean manual, String channel)
    {
       if (version.isEmpty())
       {
@@ -478,10 +479,18 @@ public class DesktopApplicationHeader implements ApplicationHeader,
          globalDisplay_.showWarningBar(false, superrText("Nueva versión de SuperR: ", "New SuperR version: ") + version +
                superrText(". Abre Ayuda > Buscar actualizaciones para verla.", ". Open Help > Check for Updates to view it."));
       else
-         globalDisplay_.showYesNoMessage(GlobalDisplay.MSG_QUESTION, "SuperR",
-               superrText("Nueva versión: ", "New version: ") + version +
-               superrText(". ¿Abrir la página oficial de descargas?", ". Open the official downloads page?"),
-               () -> Desktop.getFrame().browseUrl(SuperRProduct.HOMEPAGE + "/releases"), true);
+      {
+         ArrayList<String> labels = new ArrayList<>();
+         ArrayList<String> ids = new ArrayList<>();
+         ArrayList<Operation> actions = new ArrayList<>();
+         labels.add(superrText("Descargar", "Download")); ids.add("superr_update_download");
+         actions.add(() -> new SuperRUpdateDownload(version, channel));
+         labels.add(superrText("Notas de versión", "Release notes")); ids.add("superr_update_notes");
+         actions.add(() -> Desktop.getFrame().browseUrl(SuperRProduct.HOMEPAGE + "/releases/tag/" + version));
+         labels.add(superrText("Cancelar", "Cancel")); ids.add("superr_update_result_cancel"); actions.add(null);
+         globalDisplay_.showGenericDialog(GlobalDisplay.MSG_QUESTION, "SuperR",
+               superrText("Nueva versión: ", "New version: ") + version, labels, ids, actions, 0);
+      }
    }
 
    private void superrUpdateError(boolean manual)
