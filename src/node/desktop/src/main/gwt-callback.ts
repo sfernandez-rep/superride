@@ -65,6 +65,9 @@ import { showPersistentSplashScreen } from './splash-screen';
 import { harvestRendererTiming, startupCheckpoint } from './startup-timing';
 import { showWhatsNewWindow } from './whats-new-window';
 import { toReleaseSlug, isValidSlug, resolveReleaseName, resolveWhatsNewContentPath } from './whats-new-utils';
+import { ChatBridge } from './superr-agent/chat-bridge';
+import { ChatGptAccounts } from './superr-agent/chatgpt-accounts';
+import { electronCredentialCodec } from './superr-agent/electron-credential-codec';
 
 export enum PendingQuit {
   PendingQuitNone,
@@ -139,6 +142,25 @@ export class GwtCallback extends EventEmitter {
   constructor(public mainWindow: MainWindow) {
     super();
     this.owners.add(mainWindow);
+
+    // SuperR Chat IA: only the main workbench may invoke these narrow actions.
+    let accounts: Promise<ChatGptAccounts> | undefined;
+    const getAccounts = () => accounts ??= ChatGptAccounts.open(path.join(app.getPath('userData'), 'superr-chat'), electronCredentialCodec());
+    const chat = new ChatBridge(getAccounts, url => shell.openExternal(url));
+    const authorize = (event: Electron.IpcMainInvokeEvent) => {
+      if (process.env.SUPER_RSTUDIO_EXPERIMENTAL !== '1' || event.sender !== mainWindow.window.webContents ||
+          event.senderFrame !== mainWindow.window.webContents.mainFrame) throw new Error('Chat IA is unavailable');
+    };
+    ipcMain.handle('superr_chat_status', (event, provider: unknown) => { authorize(event); return chat.status(provider); });
+    ipcMain.handle('superr_chat_sign_in', (event, provider: unknown) => { authorize(event); return chat.signIn(provider); });
+    ipcMain.handle('superr_chat_send', (event, provider: unknown, message: unknown) => { authorize(event); return chat.send(provider, message); });
+    ipcMain.handle('superr_chat_cancel', (event, provider: unknown) => { authorize(event); return chat.cancel(provider); });
+    mainWindow.window.once('closed', () => {
+      for (const channel of ['superr_chat_status', 'superr_chat_sign_in', 'superr_chat_send', 'superr_chat_cancel'])
+        ipcMain.removeHandler(channel);
+      chat.shutdown();
+      void accounts?.then(value => value.shutdown()).catch(() => {});
+    });
 
     if (process.platform === 'linux') {
       try {

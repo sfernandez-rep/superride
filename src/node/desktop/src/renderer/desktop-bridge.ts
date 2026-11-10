@@ -32,6 +32,10 @@ function reportIpcError(name: string, error: Error) {
 
 export function getDesktopBridge() {
   return {
+    superrChatStatus: (provider: string) => ipcRenderer.invoke('superr_chat_status', provider),
+    superrChatSignIn: (provider: string) => ipcRenderer.invoke('superr_chat_sign_in', provider),
+    superrChatSend: (provider: string, message: string) => ipcRenderer.invoke('superr_chat_send', provider, message),
+    superrChatCancel: (provider: string) => ipcRenderer.invoke('superr_chat_cancel', provider),
     writeStdout: (output: string) => {
       ipcRenderer.send('desktop_write_stdout', output);
     },

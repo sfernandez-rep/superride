@@ -1,6 +1,8 @@
 {
   "comment": "Every upstream RStudio file that SuperR modifies, with text that must survive an upstream merge. Checked by tools/superrstudio/check-integration.py against the pinned upstream commit (superrstudio/upstream.json): a modified upstream file missing here, a listed file identical to upstream, or a missing marker fails. See docs/superrstudio/upstream/sync-process.md.",
   "files": {
+    "src/node/desktop/src/main/gwt-callback.ts": { "area": "SuperR Chat IA IPC", "markers": ["superr_chat_status"] },
+    "src/node/desktop/src/renderer/desktop-bridge.ts": { "area": "SuperR Chat IA IPC", "markers": ["superrChatStatus"] },
     ".gitignore": {
       "area": "repository",
       "markers": ["SuperR installers and release staging", "/dist/"]
@@ -199,6 +201,7 @@
     }
   },
   "superr_files": [
+    "src/node/desktop/src/main/superr-agent/chat-bridge.ts",
     "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatAiPane.java",
     "COPYING",
     "NOTICE",
