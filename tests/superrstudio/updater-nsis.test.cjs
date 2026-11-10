@@ -31,6 +31,17 @@ test('NSIS stops before replacement when the previous uninstaller fails', {skip:
       if (code) { assert.notEqual(run.status,0); await assert.rejects(fs.access(path.join(app,'marker.txt'))); }
       else { assert.equal(run.status,0,run.stderr); assert.equal(await fs.readFile(path.join(app,'marker.txt'),'utf8'),'updated'); }
     }
+    const crossStart=template.indexOf('Function RunCrossModeUninstaller');
+    const crossEnd=template.indexOf('FunctionEnd',crossStart);
+    assert.ok(crossStart>0 && crossEnd>crossStart);
+    const cross=template.slice(crossStart,crossEnd+'FunctionEnd'.length);
+    const crossScript=path.join(dir,'cross.nsi'), crossExe=path.join(dir,'cross.exe');
+    await fs.writeFile(crossScript, `!include "LogicLib.nsh"\nName "SuperR cross-mode fixture"\nOutFile "${crossExe}"\nRequestExecutionLevel user\nSilentInstall silent\n${cross}\nSection\nStrCpy $1 '"${path.join(app,'missing.exe')}"'\nStrCpy $2 "${app}"\nCall RunCrossModeUninstaller\n\${If} $0 <> 0\nSetErrorLevel 1\nAbort\n\${EndIf}\nSectionEnd\n`);
+    const builtCross=spawnSync(makensis,[crossScript],{encoding:'utf8'});
+    assert.equal(builtCross.status,0,builtCross.stdout + builtCross.stderr);
+    await fs.writeFile(path.join(app,'Uninstall.exe'),'must remain');
+    assert.notEqual(spawnSync(crossExe,['/S'],{timeout:30000}).status,0);
+    assert.equal(await fs.readFile(path.join(app,'Uninstall.exe'),'utf8'),'must remain');
   } finally {
     const rel=path.relative(base,dir); const info=await fs.lstat(dir);
     if (!rel.startsWith('case-') || rel.includes(path.sep) || info.isSymbolicLink() || await fs.realpath(dir)!==dir)

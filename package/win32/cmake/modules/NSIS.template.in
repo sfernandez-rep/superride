@@ -391,18 +391,9 @@ Function RunCrossModeUninstaller
   ClearErrors
   ExecWait '$1 /S /uninstall _?=$2' $0
   ${If} ${Errors}
-    ; Uninstallers from RStudio installers that predate NsisMultiUser have no
-    ; manifest, so Windows installer detection demands elevation and the
-    ; CreateProcess behind ExecWait fails outright when this instance is not
-    ; elevated. ExecShellWait goes through ShellExecute, which shows the UAC
-    ; prompt and waits. Only that legacy all-users uninstaller can end up here
-    ; (NsisMultiUser uninstallers run asInvoker and launch fine), so /allusers
-    ; is the right mode - and legacy uninstallers ignore these switches anyway.
-    ClearErrors
-    ExecShellWait "open" "$2\Uninstall.exe" "/allusers /S /uninstall _?=$2"
-    ${IfNot} ${Errors}
-      StrCpy $0 0
-    ${EndIf}
+    ; Shell execution cannot report the child exit code. Fail closed when an
+    ; older all-users uninstaller needs elevation instead of claiming success.
+    StrCpy $0 -1
   ${EndIf}
   ${If} $0 = 0
     ; when this instance is not elevated and the removed installation was in
@@ -424,10 +415,8 @@ Section "-Remove previous installation"
       DetailPrint "Removing the existing per-user installation..."
       !insertmacro UAC_AsUser_Call Function RunCrossModeUninstaller ${UAC_SYNCREGISTERS}
     ${Else}
-      ; removing a per-machine installation needs admin rights, but selecting
-      ; per-user does not elevate this installer (the install-mode page only
-      ; shows the UAC shield); the spawned uninstaller requests elevation
-      ; itself and shows its own UAC prompt
+      ; An older uninstaller requiring elevation fails closed; remove that
+      ; installation explicitly before switching to a per-user installation.
       DetailPrint "Removing the existing all-users installation..."
       Call RunCrossModeUninstaller
     ${EndIf}

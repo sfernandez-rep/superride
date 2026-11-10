@@ -77,10 +77,10 @@ The tests use synthetic keys and
 fake downloads; they do not validate a real publisher or install an update.
 The existing NSIS script supports user and machine modes and runs an old
 uninstaller during upgrade. The direct `ExecWait` path now aborts on a nonzero
-exit; a small registry-free NSIS fixture tests the same-mode exit paths. The
-legacy elevated `ExecShellWait` fallback does not obtain an exit code and can
-still misclassify failure; it needs a safe verification strategy. This is not a
-SuperR upgrade test.
+exit; a small registry-free NSIS fixture tests the same-mode exit paths and a
+cross-mode launch failure. An old all-users uninstaller that cannot be started
+without elevation now stops the installation; remove it explicitly before
+switching install modes. This is not a SuperR upgrade test.
 The existing product installer uses shared SuperR registry keys and packaging
 defaults to `C:\rsbuild`; the current machine has no Windows Sandbox, so no
 two-version product installation was attempted. Its behaviour, preservation of

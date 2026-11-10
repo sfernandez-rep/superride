@@ -2,6 +2,22 @@
 
 ## Updater worktree, 2026-11-10
 
+Release continuation: removed the cross-mode `ExecShellWait` fallback, which
+could not report the uninstaller exit code. Launch failure now stops the
+installation; an older all-users installation requiring elevation must be
+removed explicitly before switching mode. The NSIS fixture exercises a failed
+cross-mode launch and verifies that its sentinel remains. It is not a real
+product upgrade. Automatic installation and restart remain unimplemented.
+
+Remote `feature/chat-ia` was `44ae6c82740701c5483a6f942dc0f9dca04f7909`;
+GitHub Actions run 42763754940 failed in Windows agent tests: project-context
+tests at `agent-project-context.test.cjs:66` and `:200` failed. Linux agent
+tests and R contract tests passed in that run. No final confirmation from its
+owner and no clean Windows CI were available; do not integrate that snapshot
+as final. No self-hosted Actions runner was listed; the existing full-build
+workflow requires one. Only `superr-v0.1.1-preview.1` existed remotely among
+SuperR tags at inspection. Do not publish a preview until the stated gates pass.
+
 Continuation: `UpdateDownload` now obtains release metadata, verifies the
 signature and streams a size/hash-checked installer with progress and cancel;
 the GWT dialog and narrowly scoped Electron IPC are connected. Production has
@@ -11,8 +27,7 @@ IPC was checked to reject a production download without a trusted key; a real
 signed release/download was not tested. The direct NSIS previous-uninstaller
 path now aborts on nonzero exit; a registry-free same-mode NSIS fixture passed
 for success and failure, not a two-version SuperR upgrade. The legacy elevated
-`ExecShellWait` fallback does not capture the uninstaller exit code and still
-needs a safe verification strategy. `RunAsNode` is disabled
+fallback has since been removed as described above. `RunAsNode` is disabled
 in the packaged Electron fuses, so an Electron-as-Node helper is unavailable.
 Windows Sandbox is not installed (optional feature state 2); the existing
 product installer writes shared SuperR registry keys, and packaging defaults to
