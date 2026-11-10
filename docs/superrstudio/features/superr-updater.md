@@ -6,7 +6,10 @@ channel and an opt-in automatic check, stored in the SuperR Electron profile.
 An automatic check reports a newer release in a non-modal warning bar; it does
 not close the IDE. No installer is executed. The existing upstream Posit update
 service is not used by this SuperR action. Network checks transmit no project
-files. Full desktop validation is still pending until the isolated build passes.
+files. The Windows development desktop, native session, Electron and GWT were
+built and checked in an isolated worktree/profile. The actual release lookup,
+native channel dialog, and update preferences including restart persistence
+were exercised; no installed SuperR copy was upgraded.
 
 The updater modules include a bounded release check, semantic-version ordering,
 Ed25519 manifest verification and a streaming download that checks signed size

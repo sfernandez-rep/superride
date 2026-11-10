@@ -47,6 +47,9 @@ import org.rstudio.studio.client.workbench.prefs.model.LocaleCookie;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefsAccessor;
 import org.rstudio.studio.client.workbench.prefs.model.WebDialogCookie;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRUpdatePrefs;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRStudioLanguage;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRProduct;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArrayString;
@@ -58,6 +61,7 @@ import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.resources.client.ImageResource;
 import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.ListBox;
 import com.google.inject.Inject;
 
 public class GeneralPreferencesPane extends PreferencesPane
@@ -201,10 +205,33 @@ public class GeneralPreferencesPane extends PreferencesPane
       // provide check for updates option in desktop mode when not
       // already globally disabled
       if (Desktop.isDesktop() &&
-          !session.getSessionInfo().getDisableCheckForUpdates())
+          !session.getSessionInfo().getDisableCheckForUpdates() &&
+          !session.getSessionInfo().getSuperRStudioExperimental())
       {
          basic.add(checkboxPref(constants_.otherNotifyMeLabel(),
                    prefs_.checkForUpdates(), true /*defaultSpaced*/));
+      }
+
+      if (Desktop.isDesktop() && session.getSessionInfo().getSuperRStudioExperimental())
+      {
+         basic.add(spacedBefore(headerLabel("SuperR Updater")));
+         basic.add(new Label((SuperRStudioLanguage.spanish() ? "Versión instalada: " : "Installed version: ") + SuperRProduct.DISPLAY_VERSION));
+         superrAutoUpdate_ = new CheckBox(SuperRStudioLanguage.spanish() ? "Buscar actualizaciones automáticamente" : "Check for updates automatically");
+         superrAutoUpdate_.setEnabled(false);
+         basic.add(superrAutoUpdate_);
+         superrUpdateChannel_ = new ListBox();
+         superrUpdateChannel_.addItem("Stable", "stable");
+         superrUpdateChannel_.addItem("Preview", "preview");
+         superrUpdateChannel_.setEnabled(false);
+         superrUpdateChannel_.getElement().setAttribute("aria-label", SuperRStudioLanguage.spanish() ? "Canal de actualizaciones" : "Update channel");
+         basic.add(superrUpdateChannel_);
+         SuperRUpdatePrefs.load(() -> {
+            superrAutoUpdate_.setValue(SuperRUpdatePrefs.automatic());
+            superrUpdateChannel_.setSelectedIndex("preview".equals(SuperRUpdatePrefs.channel()) ? 1 : 0);
+            superrUpdateLoaded_ = true;
+            superrAutoUpdate_.setEnabled(true);
+            superrUpdateChannel_.setEnabled(true);
+         });
       }
 
       CheckBox autohideMenubar = checkboxPref(constants_.autohideMenubarLabel(), prefs_.autohideMenubar());
@@ -548,6 +575,8 @@ public class GeneralPreferencesPane extends PreferencesPane
    public RestartRequirement onApply(UserPrefs prefs)
    {
       RestartRequirement restartRequirement = super.onApply(prefs);
+      if (superrAutoUpdate_ != null && superrUpdateLoaded_)
+         SuperRUpdatePrefs.save(superrAutoUpdate_.getValue(), superrUpdateChannel_.getValue(superrUpdateChannel_.getSelectedIndex()));
 
       if (clipboardMonitoring_ != null &&
           desktopMonitoring_ != clipboardMonitoring_.getValue())
@@ -779,6 +808,9 @@ public class GeneralPreferencesPane extends PreferencesPane
    private CheckBox reuseSessionsForProjectLinks_ = null;
    private SelectWidget uiLanguage_;
    private CheckBox clipboardMonitoring_ = null;
+   private CheckBox superrAutoUpdate_ = null;
+   private ListBox superrUpdateChannel_ = null;
+   private boolean superrUpdateLoaded_ = false;
    private CheckBox fullPathInTitle_ = null;
    private CheckBox reduceRemoteFilesystemOperations_ = null;
    private boolean initialReduceRemoteFilesystemOperations_ = false;

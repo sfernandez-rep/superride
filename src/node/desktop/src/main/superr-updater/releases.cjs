@@ -54,8 +54,19 @@ function selectRelease(releases, currentVersion, channel) {
 
 async function checkForUpdates(currentVersion, channel, request = fetch, signal) {
   if (!parseVersion(currentVersion) || !['stable', 'preview'].includes(channel)) throw new Error('Invalid update query');
-  const response = await request(RELEASES_API, {headers: {Accept: 'application/vnd.github+json'}, redirect: 'error',
-    signal: signal || AbortSignal.timeout(15000)});
+  const deadline = signal || AbortSignal.timeout(15000);
+  let newest = null;
+  for (let page = 1; page <= 10; page++) {
+    const releases = await fetchPage(`${RELEASES_API}&page=${page}`, request, deadline);
+    const candidate = selectRelease(releases, currentVersion, channel);
+    if (candidate && (!newest || compareVersions(candidate.version, newest.version) > 0)) newest = candidate;
+    if (releases.length < 100) return newest;
+  }
+  throw new Error('Release list exceeds the supported limit');
+}
+
+async function fetchPage(url, request, signal) {
+  const response = await request(url, {headers: {Accept: 'application/vnd.github+json'}, redirect: 'error', signal});
   if (!response.ok) throw new Error(`Release service error: ${response.status}`);
   // Cap the response before parsing, including when no content length is supplied.
   if (!response.body) throw new Error('Empty release response');
@@ -73,7 +84,8 @@ async function checkForUpdates(currentVersion, channel, request = fetch, signal)
   let releases;
   try { releases = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(Buffer.concat(chunks))); }
   catch { throw new Error('Invalid release response'); }
-  return selectRelease(releases, currentVersion, channel);
+  if (!Array.isArray(releases) || releases.length > 100) throw new Error('Invalid release response');
+  return releases;
 }
 
 module.exports = { RELEASES_PAGE, parseVersion, compareVersions, selectRelease, checkForUpdates };

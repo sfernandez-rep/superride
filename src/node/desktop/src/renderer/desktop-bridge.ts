@@ -32,6 +32,11 @@ function reportIpcError(name: string, error: Error) {
 
 export function getDesktopBridge() {
   return {
+    superrCheckForUpdates: (version: string, channel: string) =>
+      ipcRenderer.invoke('superr_check_for_updates', version, channel),
+    superrGetUpdatePrefs: () => ipcRenderer.invoke('superr_get_update_prefs'),
+    superrSetUpdatePrefs: (automatic: boolean, channel: string) =>
+      ipcRenderer.invoke('superr_set_update_prefs', automatic, channel),
     writeStdout: (output: string) => {
       ipcRenderer.send('desktop_write_stdout', output);
     },

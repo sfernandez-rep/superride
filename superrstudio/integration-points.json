@@ -1,6 +1,9 @@
 {
   "comment": "Every upstream RStudio file that SuperR modifies, with text that must survive an upstream merge. Checked by tools/superrstudio/check-integration.py against the pinned upstream commit (superrstudio/upstream.json): a modified upstream file missing here, a listed file identical to upstream, or a missing marker fails. See docs/superrstudio/upstream/sync-process.md.",
   "files": {
+    "src/node/desktop/src/main/gwt-callback.ts": {"area":"SuperR update detection", "markers":["superr_check_for_updates"]},
+    "src/node/desktop/src/renderer/desktop-bridge.ts": {"area":"SuperR update detection", "markers":["superrCheckForUpdates"]},
+    "src/gwt/src/org/rstudio/studio/client/application/ui/impl/DesktopApplicationHeader.java": {"area":"SuperR update detection", "markers":["superrChooseUpdateChannel"]},
     ".gitignore": {
       "area": "repository",
       "markers": ["SuperR installers and release staging", "/dist/"]
@@ -141,7 +144,7 @@
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/prefs/views/GeneralPreferencesPane.java": {
       "area": "preferences",
-      "markers": ["UI_LANGUAGE_ES", "spanishLabel()"]
+      "markers": ["UI_LANGUAGE_ES", "spanishLabel()", "SuperRUpdatePrefs"]
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/prefs/views/PaneLayoutPreferencesPane.java": {
       "area": "workbench UI",
@@ -174,7 +177,7 @@
     },
     "src/node/desktop/CMakeLists.txt": {
       "area": "installer identity",
-      "markers": ["superr-product.cmake", "SUPERR_productName"]
+      "markers": ["superr-product.cmake", "SUPERR_productName", "SUPERR_UPDATER_SOURCES"]
     },
     "src/node/desktop/forge.config.js": {
       "area": "installer identity",
@@ -195,9 +198,11 @@
     }
   },
   "superr_files": [
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/SuperRUpdatePrefs.java",
     "src/node/desktop/src/main/superr-updater/releases.cjs",
     "src/node/desktop/src/main/superr-updater/manifest.cjs",
     "tools/superrstudio/sign-update-manifest.cjs",
+    "tools/superrstudio/create-update-manifest.cjs",
     "COPYING",
     "NOTICE",
     "package/superr/product.json",

@@ -65,6 +65,13 @@ import { showPersistentSplashScreen } from './splash-screen';
 import { harvestRendererTiming, startupCheckpoint } from './startup-timing';
 import { showWhatsNewWindow } from './whats-new-window';
 import { toReleaseSlug, isValidSlug, resolveReleaseName, resolveWhatsNewContentPath } from './whats-new-utils';
+import ElectronStore from 'electron-store';
+
+// SuperR update detection only: signed installation is intentionally unavailable
+// until a publisher key has been provisioned.
+const { checkForUpdates: checkSuperrUpdates } = require('./superr-updater/releases.cjs') as {
+  checkForUpdates: (version: string, channel: string) => Promise<{version: string; notes: string} | null>;
+};
 
 export enum PendingQuit {
   PendingQuitNone,
@@ -139,6 +146,33 @@ export class GwtCallback extends EventEmitter {
   constructor(public mainWindow: MainWindow) {
     super();
     this.owners.add(mainWindow);
+
+    const superrUpdateStore = new ElectronStore({ name: 'superr-updater' }) as unknown as {
+      get: (key: string, fallback: unknown) => unknown; set: (key: string, value: unknown) => void;
+    };
+    const authorizeSuperrUpdater = (event: Electron.IpcMainInvokeEvent) => {
+      if (process.env.SUPER_RSTUDIO_EXPERIMENTAL !== '1' || event.sender !== mainWindow.window.webContents ||
+          event.senderFrame !== mainWindow.window.webContents.mainFrame) throw new Error('Update check unavailable');
+    };
+    ipcMain.handle('superr_check_for_updates', (event, version: unknown, channel: unknown) => {
+      authorizeSuperrUpdater(event);
+      if (typeof version !== 'string' || (channel !== 'stable' && channel !== 'preview')) throw new Error('Invalid update query');
+      return checkSuperrUpdates(version, channel);
+    });
+    ipcMain.handle('superr_get_update_prefs', event => {
+      authorizeSuperrUpdater(event);
+      return { automatic: superrUpdateStore.get('automatic', false) === true,
+        channel: superrUpdateStore.get('channel', 'stable') === 'preview' ? 'preview' : 'stable' };
+    });
+    ipcMain.handle('superr_set_update_prefs', (event, automatic: unknown, channel: unknown) => {
+      authorizeSuperrUpdater(event);
+      if (typeof automatic !== 'boolean' || (channel !== 'stable' && channel !== 'preview')) throw new Error('Invalid update preferences');
+      superrUpdateStore.set('channel', channel);
+      superrUpdateStore.set('automatic', automatic);
+    });
+    mainWindow.window.once('closed', () => {
+      for (const channel of ['superr_check_for_updates', 'superr_get_update_prefs', 'superr_set_update_prefs']) ipcMain.removeHandler(channel);
+    });
 
     if (process.platform === 'linux') {
       try {

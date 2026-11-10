@@ -33,3 +33,14 @@ test('fetch checks failures and parses release data without credentials', async 
   await assert.rejects(checkForUpdates('0.1.0','stable', async () => new Response('', {status:503})), /503/);
   await assert.rejects(checkForUpdates('0.1.0','stable', async () => new Response('not json')), /Invalid release/);
 });
+
+test('checks subsequent release pages before selecting the newest version', async () => {
+  let calls = 0;
+  const first = Array.from({length:100}, () => release('0.1.1'));
+  const result = await checkForUpdates('0.1.0', 'stable', async url => {
+    calls++;
+    return new Response(JSON.stringify(url.endsWith('page=1') ? first : [release('0.3.0')]));
+  });
+  assert.equal(calls,2);
+  assert.equal(result.version,'superr-v0.3.0');
+});

@@ -19,13 +19,14 @@ synthetic keys. Verified downloads stream only from GitHub release hosts into
 an isolated directory, enforce size/hash and remove incomplete files. A
 standalone signing command accepts an Ed25519 key only from outside the worktree.
 The protected release workflow can optionally produce signed manifests from a
-matching tag; production trust keys are still empty. Eight component tests pass
+matching tag; production trust keys are still empty. Nine component tests pass
 on Windows and Ubuntu 24.04 WSL using Node 22.22.2; the official GitHub release
 query also returned the published preview. The Help menu and opt-in preferences
-are being integrated and compiled in this worktree; installer execution remains
-unimplemented. The first isolated native/Electron build is in progress under
-`build/updater-windows`, not in the Chat IA worktree. No public release or
-installed copy was changed.
+are integrated; Windows desktop tests verified the real IPC, native channel
+dialog, preference changes and restart persistence in an isolated profile.
+Installer execution remains unimplemented. Native, Electron and final GWT
+builds passed under this worktree; Electron was rebuilt after pagination changes.
+No public release or installed copy was changed.
 
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
 request #1 into `main`, RStudio 2026.10.1 prepared, data table window on
