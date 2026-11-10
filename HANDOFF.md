@@ -13,8 +13,12 @@ the official `sfernandez-rep/superride` repository. Run
 `node --test tests/superrstudio/updater-releases.test.cjs` (3 pass with Node
 22.22.2); baseline and integration checks pass. It is not wired into the IDE.
 No trusted update signing key is configured; no executable may be installed
-automatically. Next: signed manifest verification, then IDE integration and
-isolated validation. No public release or installed copy was changed.
+automatically. `manifest.cjs` checks Ed25519 signatures over the exact bytes,
+version/channel/expiry/architecture and installer size/hash; tests use only
+synthetic keys. No production key, download or installer execution is wired.
+Five component tests pass with Node 22.22.2. Next: IDE integration, provision
+signing through a protected release workflow, and isolated update validation.
+No public release or installed copy was changed.
 
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
 request #1 into `main`, RStudio 2026.10.1 prepared, data table window on
