@@ -31,9 +31,13 @@
                  the console, plot editor and length-frequency window with the
                  new data frame, replacement, a Latin-1 CSV, an Excel sheet and
                  an edited copy (tests\superrstudio\desktop-sheet.cjs)
-     chat        the Chat IA panel's real GWT <-> Electron IPC: status, selector,
-                 Google sign-in not offered, refused message, Stop
-                 (tests\superrstudio\desktop-chat.cjs; no agent or account)
+     chat        the Chat IA panel's real GWT <-> Electron IPC in a fresh profile:
+                 Gemini API key setup, a made-up key rejected by Google (real
+                 request), no key in the profile or logs, Antigravity sign-in not
+                 offered, Codex refused (tests\superrstudio\desktop-chat.cjs)
+     chat-real   a real Gemini API conversation; the owner first saves their own
+                 AI Studio key in profile gui-chat-real through the panel
+                 (not in the default set)
 
    Screenshots and generated code go to .cache\superrstudio\gui-scatter.
 #>
@@ -52,7 +56,7 @@ $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 foreach ($name in $Scenario)
 {
    if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es', 'visual-migrate', 'visual-restart', 'visual-off',
-                    'theme-first', 'theme-restart', 'theme-off', 'deps', 'sheet', 'chat')
+                    'theme-first', 'theme-restart', 'theme-off', 'deps', 'sheet', 'chat', 'chat-real')
    { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
@@ -67,6 +71,10 @@ foreach ($name in $Scenario)
    # the theme sequence starts from a fresh profile (preferences and the
    # desktop's local storage, where the remembered themes live)
    if ($name -eq 'theme-first') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
+   # Chat IA: a fresh profile has no saved key; gui-chat-real keeps the owner's
+   # encrypted key between runs
+   if ($name -eq 'chat') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
+   $env:SUPER_RSTUDIO_TEST_PROFILE = Join-Path $SrsProfilesDir $profileName
    $run = @{ ProfileName = $profileName; DebugPort = $Port; Automation = $true }
    if ($name -notin 'disabled', 'visual-off', 'theme-off') { $run.Experimental = $true }
    if ($name -eq 'visual-migrate')
@@ -123,7 +131,7 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'sheet' { 'desktop-sheet.cjs' } 'chat' { 'desktop-chat.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
+      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'sheet' { 'desktop-sheet.cjs' } 'chat*' { 'desktop-chat.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
                                          default { 'desktop-scatter.cjs' } }
       $argument = if ($name -like 'visual-*') { $name.Substring(7) } elseif ($name -like 'theme-*') { $name.Substring(6) } else { $name }
       & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $argument | Out-Host
@@ -135,6 +143,14 @@ foreach ($name in $Scenario)
       & $Node (Join-Path $PSScriptRoot 'dev-quit.cjs') $Port | Out-Host
       Wait-Process -Id $desktopPid -Timeout 60 -ErrorAction SilentlyContinue
       if (Get-Process -Id $desktopPid -ErrorAction SilentlyContinue) { $results[$name] += ' (desktop did not quit)' }
+      if ($name -eq 'chat')
+      {
+         # after quit, with every log and storage file flushed: the made-up key
+         # typed in the panel must not be readable anywhere in the profile
+         $leaks = Get-ChildItem -Recurse -File $env:SUPER_RSTUDIO_TEST_PROFILE |
+            Select-String -SimpleMatch -List 'AIzaSuperRInvalidTestKey0000000000000000'
+         if ($leaks) { $results[$name] = "FAIL (key found in $($leaks.Path -join ', '))" }
+      }
    }
 }
 
