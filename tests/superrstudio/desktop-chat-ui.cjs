@@ -196,7 +196,16 @@ async function ask(page, message)
    // drag the sidebar splitter: wider, then narrow
    const drag = async to => {
       const box = await panel.boundingBox();
-      await page.mouse.move(box.x - 3, box.y + box.height / 2);
+      const y = box.y + box.height / 2;
+      // the splitter is the element left of the panel with a resize cursor
+      const x = await page.evaluate(([left, top]) => {
+         for (let dx = 1; dx <= 12; dx++) {
+            const node = document.elementFromPoint(left - dx, top);
+            if (node && /resize/.test(getComputedStyle(node).cursor)) return left - dx;
+         }
+         return left - 3;
+      }, [box.x, y]);
+      await page.mouse.move(x, y);
       await page.mouse.down();
       await page.mouse.move(to(box), box.y + box.height / 2, {steps: 10});
       await page.mouse.up();
@@ -215,4 +224,4 @@ async function ask(page, message)
    await shot('light-narrow');
    log('PASS screenshots in light and dark themes, wide and narrow');
    await browser.close();
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exit(1); }); // exit: an open CDP connection would keep node alive

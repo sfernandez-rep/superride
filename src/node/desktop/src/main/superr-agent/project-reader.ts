@@ -25,7 +25,7 @@ function allowedPart(part: string): boolean {
 
 /** Bounded, explicitly selected project files only; does not sandbox agent processes. */
 export class ProjectReader {
-  private constructor(private readonly root: string) {}
+  private constructor(readonly root: string) {}
 
   static async open(root: string): Promise<ProjectReader> {
     if (!path.isAbsolute(root)) throw new Error('An absolute project directory is required');
@@ -86,13 +86,53 @@ export class ProjectReader {
     return { matches, truncated: listing.truncated };
   }
 
-  async read(relative: string): Promise<string> {
+  /** Size and kind of a listed file; binary R data is identified, never read. */
+  async info(relative: string): Promise<{ bytes: number; kind: 'text' | 'r-binary' }> {
+    const binary = DATA_EXTENSIONS.has(path.extname(relative).toLowerCase());
+    const realPath = await this.resolve(relative, binary);
+    const info = await fs.stat(realPath);
+    if (!info.isFile()) throw new Error('Not a file');
+    return { bytes: info.size, kind: binary ? 'r-binary' : 'text' };
+  }
+
+  /** The start of a text file (for example a large CSV), cut at a line end. */
+  async readHead(relative: string, maxBytes: number): Promise<{ text: string; truncated: boolean; bytes: number }> {
+    const limit = Math.max(1, Math.min(maxBytes, MAX_FILE_BYTES));
+    const realPath = await this.resolve(relative, false);
+    const handle = await fs.open(realPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    try {
+      const info = await handle.stat();
+      if (!info.isFile()) throw new Error('File is not a supported size or type');
+      const bytes = Buffer.alloc(limit);
+      let bytesRead = 0;
+      while (bytesRead < bytes.length) {
+        const result = await handle.read(bytes, bytesRead, bytes.length - bytesRead, bytesRead);
+        if (!result.bytesRead) break;
+        bytesRead += result.bytesRead;
+      }
+      let end = bytesRead;
+      const truncated = info.size > bytesRead;
+      if (truncated) {
+        const newline = bytes.subarray(0, bytesRead).lastIndexOf(10);
+        if (newline > 0) end = newline + 1;
+      }
+      if (bytes.subarray(0, end).includes(0)) throw new Error('File is not a supported text file');
+      const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, end));
+      return { text, truncated, bytes: info.size };
+    } finally {
+      await handle.close();
+    }
+  }
+
+  private async resolve(relative: string, allowBinary: boolean): Promise<string> {
     if (!relative || path.isAbsolute(relative) || relative.includes('\0')) throw new Error('Invalid project path');
     const parts = relative.split(/[\\/]+/);
     if (parts.some(part => !part || part === '.' || part === '..' || !allowedPart(part)))
       throw new Error('Project path is not allowed');
     const candidate = path.join(this.root, ...parts);
-    if (!inside(this.root, candidate) || !EXTENSIONS.has(path.extname(candidate).toLowerCase()))
+    const extension = path.extname(candidate).toLowerCase();
+    const allowed = EXTENSIONS.has(extension) || (allowBinary && DATA_EXTENSIONS.has(extension));
+    if (!inside(this.root, candidate) || !allowed)
       throw new Error('Project path is not allowed');
 
     // Reject symlinks/junctions anywhere under the root, including the leaf.
@@ -104,6 +144,11 @@ export class ProjectReader {
     }
     const realPath = await fs.realpath(candidate);
     if (!inside(this.root, realPath)) throw new Error('Project path is not allowed');
+    return realPath;
+  }
+
+  async read(relative: string): Promise<string> {
+    const realPath = await this.resolve(relative, false);
     const flags = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
     const handle = await fs.open(realPath, flags);
     try {

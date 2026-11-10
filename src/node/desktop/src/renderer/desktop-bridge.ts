@@ -38,8 +38,8 @@ export function getDesktopBridge() {
   return {
     superrChatStatus: (provider: string) => ipcRenderer.invoke('superr_chat_status', provider),
     superrChatSignIn: (provider: string) => ipcRenderer.invoke('superr_chat_sign_in', provider),
-    superrChatSend: (provider: string, message: string, model: string, turn: string) =>
-      ipcRenderer.invoke('superr_chat_send', provider, message, model, turn),
+    superrChatSend: (provider: string, message: string, model: string, turn: string, context?: unknown) =>
+      ipcRenderer.invoke('superr_chat_send', provider, message, model, turn, context),
     superrChatCancel: (provider: string) => ipcRenderer.invoke('superr_chat_cancel', provider),
     superrChatOpenKeyPage: (provider: string, page?: string) => ipcRenderer.invoke('superr_chat_open_key_page', provider, page),
     superrChatSetKey: (provider: string, key: string) => ipcRenderer.invoke('superr_chat_set_key', provider, key),

@@ -11,6 +11,15 @@
 // javascript: link that must stay inert), "lento"/"slow" streams slowly until
 // cancelled, "cuota"/"quota" returns Google's 429 body, "retirado"/"retired"
 // returns 404; anything else gets a short answer.
+//
+// Project context (function calling): when the request offers functions and
+// the message asks to analyse ("analiz"), the fake model calls
+// read_project_files for the scripts in SuperR's index, with a thought
+// signature; given the function results (and only if the signature came back,
+// as Gemini 3 requires) it lists each file with its first line. With "cuota"
+// the second request gets a 429. A message carrying SuperR's attached document
+// is answered with the document name, whether it had unsaved changes and its
+// first line.
 const http = require('node:http');
 
 const port = Number(process.argv[2] || 19395);
@@ -50,8 +59,42 @@ http.createServer((req, res) => {
   let body = '';
   req.on('data', d => { body += d; });
   req.on('end', async () => {
-    const contents = JSON.parse(body).contents;
-    const last = contents[contents.length - 1].parts[0].text.toLowerCase();
+    const request = JSON.parse(body);
+    const contents = request.contents;
+    const lastParts = contents[contents.length - 1].parts;
+    if (lastParts[0].functionResponse) {
+      const asked = contents[contents.length - 3]?.parts[0]?.text?.toLowerCase() ?? '';
+      const previous = contents[contents.length - 2];
+      if (!previous.parts.some(part => part.thoughtSignature === 'fake-signature'))
+        return json(res, 400, { error: { code: 400, status: 'INVALID_ARGUMENT', message: 'Function call is missing a thought_signature' } });
+      if (/cuota|quota/.test(asked))
+        return json(res, 429, { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'quota', details: [
+          { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '20' }] }] } });
+      const files = lastParts.flatMap(part => part.functionResponse.response.files ?? []);
+      const lines = files.map(f => f.content !== undefined ? `- **${f.path}**: ${f.content.split(/\r?\n/)[0]}` :
+        `- ${f.path}: ${f.error ? 'no legible' : 'sin contenido'}`);
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end(chunk(`Leí ${files.length} archivos del proyecto:\n\n${lines.join('\n')}\n`, true));
+      return;
+    }
+    const last = lastParts[0].text.toLowerCase();
+    if (request.tools && /analiz/.test(last)) {
+      const index = request.systemInstruction?.parts[0]?.text ?? '';
+      const scripts = [...index.matchAll(/^(\S+\.R) \(/gm)].map(m => m[1]).slice(0, 4);
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end(`data: ${JSON.stringify({ candidates: [{ content: { role: 'model', parts: [
+        { text: 'Voy a leer los scripts. ' },
+        { functionCall: { name: 'read_project_files', args: { paths: scripts } }, thoughtSignature: 'fake-signature' }] },
+        finishReason: 'STOP' }] })}\r\n\r\n`);
+      return;
+    }
+    const attached = /^\[superr attached the active editor document "([^"]+)"( \(with unsaved changes\))?/i.exec(lastParts[0].text);
+    if (attached) {
+      const code = lastParts[0].text.split('\n')[2] ?? '';
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end(chunk(`Recibí el documento "${attached[1]}" (sin guardar: ${attached[2] ? 'sí' : 'no'}). Primera línea: ${code}`, true));
+      return;
+    }
     if (/cuota|quota/.test(last))
       return json(res, 429, { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota.', details: [
         { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '5' }] },

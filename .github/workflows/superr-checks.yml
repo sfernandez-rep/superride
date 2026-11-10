@@ -64,6 +64,8 @@ jobs:
           tests/superrstudio/agent-provider.test.cjs
           tests/superrstudio/agent-chat-bridge.test.cjs
           tests/superrstudio/agent-gemini-api.test.cjs
+          tests/superrstudio/agent-project-context.test.cjs
+          tests/superrstudio/agent-edit-proposal.test.cjs
           tests/superrstudio/agent-conversation-store.test.cjs
 
   checks:

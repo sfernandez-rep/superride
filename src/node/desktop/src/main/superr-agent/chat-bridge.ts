@@ -3,9 +3,10 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { ChatGptAccounts } from './chatgpt-accounts';
-import { AI_STUDIO_KEY_PAGE, AI_STUDIO_LIMITS_PAGE, GEMINI_FREE_MODELS, GeminiApi, GeminiApiError, GeminiErrorKind,
-  GeminiMessage,
-  GeminiModel, QuotaInfo } from './gemini-api';
+import { AI_STUDIO_KEY_PAGE, AI_STUDIO_LIMITS_PAGE, GEMINI_FREE_MODELS, GeminiApi, GeminiApiError, GeminiContent,
+  GeminiErrorKind, GeminiMessage, GeminiModel, GeminiPart, QuotaInfo } from './gemini-api';
+import { ContextError, DisclosedFile, ProjectContext, parseContext } from './project-context';
+import type { EditProposal } from './edit-proposal';
 
 export type ChatProvider = 'gemini-api' | 'gemini' | 'codex';
 export interface ChatStatus {
@@ -16,11 +17,13 @@ export interface ChatStatus {
   /** Only the text-only Gemini API mode can chat; agents stay closed until isolation is verified. */
   chatAvailable: boolean;
 }
-export type ChatErrorKind = GeminiErrorKind | 'busy' | 'no_key' | 'storage';
+export type ChatErrorKind = GeminiErrorKind | 'busy' | 'no_key' | 'storage' | 'context';
 export interface KeyResult { ok: boolean; kind?: ChatErrorKind; models?: GeminiModel[] }
 export interface SendResult { status: 'completed' | 'cancelled' | 'incomplete' | 'error'; kind?: ChatErrorKind;
-  finishReason?: string; quota?: QuotaInfo }
-export interface ChatEvent { provider: 'gemini-api'; turn: string; text: string }
+  finishReason?: string; quota?: QuotaInfo; detail?: string; files?: DisclosedFile[] }
+/** Streamed text, or a report of what was disclosed: attached context or a function SuperR ran. */
+export interface ChatEvent { provider: 'gemini-api'; turn: string; text?: string; kind?: 'context' | 'tool' | 'proposal';
+  tool?: string; files?: DisclosedFile[]; proposal?: EditProposal }
 export interface SecretStore {
   loadSecret(id: string): Promise<string | null>;
   saveSecret(id: string, secret: string): Promise<void>;
@@ -31,16 +34,24 @@ export interface ChatBridgeOptions {
   secrets?: () => Promise<SecretStore>;
   gemini?: GeminiApi;
   onEvent?: (event: ChatEvent) => void;
+  /** Expands the IDE's aliased paths (~/...) to absolute ones before they are checked. */
+  resolvePath?: (aliased: string) => string;
+  /** The reverse, so the IDE can open the file a proposal targets. */
+  aliasPath?: (absolute: string) => string;
 }
 
 const GEMINI_KEY_ID = createHash('md5').update('superr-gemini-api-key').digest('hex');
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_HISTORY_CHARS = 200000;
+/** Function rounds per message; each round is one more request against the user's quota. */
+const MAX_TOOL_ROUNDS = 4;
 
 /**
  * Explicit, fail-closed surface. No agent process is launched without a verified
- * boundary. The Gemini API mode sends only the typed conversation text: no
- * project files, tools or commands. The API key never leaves the main process.
+ * boundary. The Gemini API mode sends the typed conversation and, only when the
+ * user chose a file or project context, what ProjectContext discloses through
+ * read-only functions; it never writes files or runs commands. The API key never
+ * leaves the main process.
  */
 export class ChatBridge {
   private closed = false;
@@ -131,31 +142,72 @@ export class ChatBridge {
     this.history = [];
   }
 
-  async send(provider: unknown, message: unknown, model?: unknown, turn?: unknown): Promise<SendResult> {
+  async send(provider: unknown, message: unknown, model?: unknown, turn?: unknown,
+    context?: unknown): Promise<SendResult> {
     const name = this.provider(provider);
     if (typeof message !== 'string' || !message.trim() || message.length > 100000) throw new Error('Invalid message');
     if (name !== 'gemini-api') throw new Error('Agent read-only isolation is not verified');
     if (typeof model !== 'string' || !GEMINI_FREE_MODELS.some(m => m.id === model)) throw new Error('Invalid model');
     if (typeof turn !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(turn)) throw new Error('Invalid turn');
+    let parsed;
+    try { parsed = parseContext(context); }
+    catch (error: unknown) { return { status: 'error', kind: 'context', detail: (error as ContextError).code }; }
+    const resolve = this.options.resolvePath;
+    if (resolve) {
+      const document = <T extends { path?: string }>(d: T): T => d.path ? { ...d, path: resolve(d.path) } : d;
+      parsed = { ...parsed, ...(parsed.projectRoot ? { projectRoot: resolve(parsed.projectRoot) } : {}),
+        ...(parsed.active ? { active: document(parsed.active) } : {}),
+        ...(parsed.open ? { open: parsed.open.map(document) } : {}) };
+    }
     if (this.active) return { status: 'error', kind: 'busy' };
     const controller = new AbortController();
     this.active = controller;
+    const emit = (event: Omit<ChatEvent, 'provider' | 'turn'>) => {
+      if (!controller.signal.aborted) this.options.onEvent?.({ provider: 'gemini-api', turn, ...event });
+    };
+    let scope: ProjectContext | undefined;
     try {
       const key = await this.key();
       if (key === null) return { status: 'error', kind: 'no_key' };
+      scope = await ProjectContext.open(parsed, { aliasPath: this.options.aliasPath,
+        homes: this.options.resolvePath ? [this.options.resolvePath('~')] : [] });
+      const attachment = scope.attachment();
+      if (scope.files.length) emit({ kind: 'context', files: scope.files });
       const conversation = trim([...this.history, { role: 'user', text: message }]);
+      const contents: GeminiContent[] = conversation.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+      contents[contents.length - 1] = { role: 'user', parts: [{ text: attachment + message }] };
+      const request = { contents, systemInstruction: await scope.instruction(), functions: scope.tools() };
       let answer = '';
-      const result = await this.gemini.stream(key, model, conversation, text => {
-        answer += text;
-        if (!controller.signal.aborted) this.options.onEvent?.({ provider: 'gemini-api', turn, text });
-      }, controller.signal);
-      // Keep only complete exchanges so the next turn alternates user/model.
-      if (result.status !== 'cancelled' && answer && !controller.signal.aborted)
-        this.history = trim([...conversation, { role: 'model', text: answer }]);
-      return result;
+      let result: SendResult = { status: 'completed' };
+      for (let round = 0; ; round++) {
+        const onText = (text: string) => { answer += text; emit({ text }); };
+        const step = await this.gemini.generate(key, model, request, onText, controller.signal);
+        if (step.status === 'cancelled') return { status: 'cancelled' };
+        result = { status: step.status, ...(step.finishReason ? { finishReason: step.finishReason } : {}) };
+        if (!step.calls.length) break;
+        if (round >= MAX_TOOL_ROUNDS) { result = { status: 'incomplete', finishReason: 'TOOL_ROUNDS' }; break; }
+        // Gemini needs its own content back unchanged (thought signatures), then the function results.
+        contents.push(step.content);
+        const responses: GeminiPart[] = [];
+        for (const call of step.calls) {
+          const done = await scope.call(call.name, call.args);
+          emit({ kind: 'tool', tool: call.name, files: done.files });
+          if (done.proposal) emit({ kind: 'proposal', proposal: done.proposal });
+          const id = call.id ? { id: call.id } : {};
+          responses.push({ functionResponse: { name: call.name, response: done.response, ...id } });
+        }
+        if (controller.signal.aborted) return { status: 'cancelled' };
+        contents.push({ role: 'user', parts: responses });
+      }
+      // Keep only complete exchanges (plain text) so the next turn alternates user/model.
+      if (answer && !controller.signal.aborted) this.history = trim([...conversation, { role: 'model', text: answer }]);
+      return { ...result, ...(scope.files.length ? { files: scope.files } : {}) };
     } catch (error: unknown) {
-      if (!(error instanceof GeminiApiError)) return { status: 'error', kind: 'storage' };
-      return { status: 'error', kind: error.kind, ...(error.quota ? { quota: error.quota } : {}) };
+      if (controller.signal.aborted) return { status: 'cancelled' };
+      const files = scope?.files.length ? { files: scope.files } : {};
+      if (error instanceof ContextError) return { status: 'error', kind: 'context', detail: error.code };
+      if (!(error instanceof GeminiApiError)) return { status: 'error', kind: 'storage', ...files };
+      return { status: 'error', kind: error.kind, ...(error.quota ? { quota: error.quota } : {}), ...files };
     } finally { if (this.active === controller) this.active = undefined; }
   }
 

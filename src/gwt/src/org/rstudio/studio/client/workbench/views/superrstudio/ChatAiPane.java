@@ -1,6 +1,7 @@
 // Copyright (C) 2026 SuperR contributors. SPDX-License-Identifier: AGPL-3.0-only
 package org.rstudio.studio.client.workbench.views.superrstudio;
 
+import com.google.gwt.core.client.JavaScriptObject;
 import com.google.gwt.core.client.Scheduler;
 import com.google.gwt.dom.client.Element;
 import com.google.gwt.dom.client.Style.Unit;
@@ -19,13 +20,20 @@ import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.TextArea;
 
 import org.rstudio.studio.client.RStudioGinjector;
+import org.rstudio.core.client.files.FileSystemItem;
 import org.rstudio.studio.client.application.Desktop;
+import org.rstudio.studio.client.workbench.views.source.SourceColumn;
+import org.rstudio.studio.client.workbench.views.source.SourceColumnManager;
+import org.rstudio.studio.client.workbench.views.source.editors.EditingTarget;
 import org.rstudio.studio.client.workbench.views.source.editors.text.DocDisplay;
+import org.rstudio.studio.client.workbench.views.source.editors.text.TextEditingTarget;
 
 /**
  * Chat IA sidebar. The Gemini API mode chats with the user's own Google AI
- * Studio key (text only: no project files, commands or edits); the agent
- * providers (Antigravity, Codex) fail closed until their isolation is verified.
+ * Studio key. The user picks the context: general chat (text only), the active
+ * file, or read-only access to the open RStudio project, which SuperR's main
+ * process enforces; nothing is written or run. The agent providers (Antigravity,
+ * Codex) fail closed until their isolation is verified.
  * The state shown comes from the provider's real responses: a saved key is
  * checked with Google before "connected" is shown, and quota or connection
  * failures are reported as such.
@@ -105,6 +113,31 @@ public class ChatAiPane extends DockLayoutPanel
       // composer
       FlowPanel composer = new FlowPanel();
       composer.addStyleName("superr-chat-composer");
+      FlowPanel contextRow = new FlowPanel();
+      contextRow.addStyleName("superr-chat-row superr-chat-nowrap");
+      context_ = new ListBox();
+      context_.addItem(text("Chat general", "General chat"), "general");
+      context_.addItem(text("Archivo actual", "Current file"), "file");
+      context_.addItem(text("Proyecto", "Project"), "project");
+      context_.addStyleName("superr-chat-select");
+      context_.getElement().setId("superr_chat_ai_context");
+      context_.setTitle(text("Qué puede ver Gemini", "What Gemini may see"));
+      context_.getElement().setAttribute("aria-label", text("Contexto", "Context"));
+      context_.addChangeHandler(e -> contextChanged(true));
+      contextRow.add(context_);
+      editorActions_ = new ListBox();
+      editorActions_.addItem(text("Acciones del editor…", "Editor actions…"), "");
+      editorActions_.addItem(text("Explicar selección", "Explain selection"), "explain-selection");
+      editorActions_.addItem(text("Explicar archivo", "Explain file"), "explain-file");
+      editorActions_.addItem(text("Revisar código", "Review code"), "review");
+      editorActions_.addItem(text("Enviar selección al chat", "Send selection to chat"), "quote");
+      editorActions_.addStyleName("superr-chat-select");
+      editorActions_.getElement().setId("superr_chat_ai_editor_actions");
+      editorActions_.getElement().setAttribute("aria-label", text("Acciones del editor", "Editor actions"));
+      editorActions_.addChangeHandler(e -> editorAction());
+      contextRow.add(editorActions_);
+      contextRow_ = contextRow;
+      composer.add(contextRow);
       prompt_ = new TextArea();
       prompt_.addStyleName("superr-chat-prompt");
       prompt_.setVisibleLines(2);
@@ -120,6 +153,7 @@ public class ChatAiPane extends DockLayoutPanel
          }
       });
       prompt_.addKeyUpHandler(e -> composerChanged());
+      onInput(prompt_.getElement());
       prompt_.addChangeHandler(e -> composerChanged());
       composer.add(prompt_);
       FlowPanel actions = new FlowPanel();
@@ -156,6 +190,7 @@ public class ChatAiPane extends DockLayoutPanel
          @Override public void insert(String code) { insertInEditor(code); }
          @Override public void openLink(String url) { openUrl(url); }
       }, SuperRStudioLanguage.spanish());
+      review_ = new ChatEditReview(text -> notice(text));
       renderTimer_ = new Timer()
       {
          @Override public void run() { renderAnswer(); }
@@ -164,6 +199,10 @@ public class ChatAiPane extends DockLayoutPanel
       for (int i = 0; i < providers_.getItemCount(); i++)
          if (providers_.getValue(i).equals(savedProvider)) providers_.setSelectedIndex(i);
       previousModel_ = load(MODEL_KEY);
+      String savedContext = load(CONTEXT_KEY);
+      for (int i = 0; i < context_.getItemCount(); i++)
+         if (context_.getValue(i).equals(savedContext)) context_.setSelectedIndex(i);
+      contextChanged(false);
       providers_.addChangeHandler(e -> providerChanged());
       listen();
       providerChanged();
@@ -260,6 +299,7 @@ public class ChatAiPane extends DockLayoutPanel
       models_.setVisible(api);
       newChat_.setVisible(api);
       hint_.setVisible(api);
+      contextRow_.setVisible(api);
       if (api)
       {
          setState(State.VERIFYING, "");
@@ -302,6 +342,8 @@ public class ChatAiPane extends DockLayoutPanel
       send_.setVisible(!generating);
       models_.setEnabled(!generating);
       providers_.setEnabled(!generating);
+      context_.setEnabled(!generating);
+      editorActions_.setEnabled(!generating);
       setup_.setVisible(api && (state == State.NOT_CONFIGURED || manageOpen_));
       agentSetup_.setVisible(!api && manageOpen_);
       saveKey_.setText(state == State.NOT_CONFIGURED ? text("Guardar clave", "Save key") : text("Cambiar clave", "Change key"));
@@ -349,7 +391,7 @@ public class ChatAiPane extends DockLayoutPanel
       area.getStyle().setProperty("height", "auto");
       int height = Math.max(40, Math.min(area.getScrollHeight() + 2, 170));
       area.getStyle().setHeight(height, Unit.PX);
-      int total = height + Math.max(actions_.getOffsetHeight(), 26) + 18;
+      int total = height + Math.max(actions_.getOffsetHeight(), 26) + Math.max(contextRow_.getOffsetHeight(), 26) + 22;
       if (total != composerHeight_)
       {
          composerHeight_ = total;
@@ -471,6 +513,7 @@ public class ChatAiPane extends DockLayoutPanel
       answer_ = null;
       renderTimer_.cancel();
       conversation_.clear();
+      review_.clear();
       showWelcome();
       newChat(GEMINI_API);
       if (currentState_ == State.GENERATING || wasBusy)
@@ -490,13 +533,14 @@ public class ChatAiPane extends DockLayoutPanel
       }
       busy_ = true;
       if (welcome_ != null) { welcome_.removeFromParent(); welcome_ = null; }
+      JavaScriptObject context = buildContext();
       turn_ = "t" + (++turnCount_);
       addUserMessage(message);
       answerText_ = new StringBuilder();
       answer_ = addModelMessage();
       prompt_.setText("");
       setState(State.GENERATING, text("Gemini está respondiendo con ", "Gemini is answering with ") + models_.getSelectedItemText() + "…");
-      send(GEMINI_API, message, models_.getSelectedValue(), turn_);
+      send(GEMINI_API, message, models_.getSelectedValue(), turn_, context);
    }
 
    private void addUserMessage(String message)
@@ -509,6 +553,13 @@ public class ChatAiPane extends DockLayoutPanel
       Label body = new Label(message);
       body.addStyleName("superr-chat-user-text");
       item.add(body);
+      String mode = context_.getSelectedValue();
+      Label scope = new Label("general".equals(mode) ? text("Chat general", "General chat") :
+            "file".equals(mode) ? text("Contexto: archivo actual", "Context: current file") :
+            text("Contexto: proyecto (solo lectura)", "Context: project (read-only)"));
+      scope.addStyleName("superr-chat-context");
+      item.add(scope);
+      userItem_ = item;
       conversation_.add(item);
       scroll_.scrollToBottom();
    }
@@ -527,6 +578,7 @@ public class ChatAiPane extends DockLayoutPanel
       typing.addStyleName("superr-chat-typing");
       body.add(typing);
       item.add(body);
+      modelItem_ = item;
       conversation_.add(item);
       scroll_.scrollToBottom();
       return body;
@@ -562,7 +614,7 @@ public class ChatAiPane extends DockLayoutPanel
    }
 
    private void onSendResult(String turn, String status, String kind, String finishReason,
-                             String quotaScope, String quotaLimit, int retryAfter)
+                             String quotaScope, String quotaLimit, int retryAfter, String detail)
    {
       if (!turn.equals(turn_)) return;
       busy_ = false;
@@ -581,12 +633,16 @@ public class ChatAiPane extends DockLayoutPanel
       }
       else if ("incomplete".equals(status))
       {
-         appendAnswerNote(text("Respuesta incompleta (", "Incomplete response (") + finishReason + ").");
-         setState(State.CONNECTED, text("Respuesta incompleta (", "Incomplete response (") + finishReason + ").");
+         String note = "TOOL_ROUNDS".equals(finishReason) ?
+               text("Respuesta incompleta: Gemini pidió más lecturas de las permitidas por mensaje. Pide algo más concreto.",
+                    "Incomplete response: Gemini asked for more reads than allowed per message. Ask something more specific.") :
+               text("Respuesta incompleta (", "Incomplete response (") + finishReason + ").";
+         appendAnswerNote(note);
+         setState(State.CONNECTED, note);
       }
       else
       {
-         String message = errorText(kind, quotaScope, quotaLimit, retryAfter);
+         String message = errorText(kind, "context".equals(kind) ? detail : quotaScope, quotaLimit, retryAfter);
          if (empty) setAnswerNote(message); else appendAnswerNote(message);
          if ("quota".equals(kind)) setState(State.QUOTA, message);
          else if ("connection".equals(kind) || "unavailable".equals(kind)) setState(State.DISCONNECTED, message);
@@ -594,8 +650,18 @@ public class ChatAiPane extends DockLayoutPanel
          else if ("model".equals(kind)) { setState(State.ERROR, message); loadModels(GEMINI_API); }
          else setState(State.ERROR, message);
       }
+      Button acceptAll = review_.finishTurn();
+      if (acceptAll != null && modelItem_ != null) modelItem_.add(acceptAll);
       answer_ = null;
       composerChanged();
+   }
+
+   /** A proposed edit (phase 3): shown under the answer for review; nothing is changed yet. */
+   private void onProposal(String turn, ChatEditReview.Proposal proposal)
+   {
+      if (!turn.equals(turn_) || modelItem_ == null) return;
+      modelItem_.add(review_.card(proposal));
+      scroll_.scrollToBottom();
    }
 
    private void setAnswerNote(String note)
@@ -691,11 +757,184 @@ public class ChatAiPane extends DockLayoutPanel
                "The Gemini service is unavailable or overloaded. Try again in a few minutes.");
          case "connection": return text("No se pudo conectar con Gemini. Revisa tu conexión a internet o el proxy.",
                "Could not connect to Gemini. Check your internet connection or proxy.");
+         case "context": return contextErrorText(quotaScope);
          case "busy": return text("Ya hay una respuesta en curso.", "A response is already in progress.");
          case "no_key": return text("Primero conecta Gemini con tu clave de API.", "Connect Gemini with your API key first.");
          case "storage": return text("No se pudo usar el almacenamiento cifrado de credenciales del sistema.",
                "Could not use the system's encrypted credential storage.");
          default: return text("Gemini rechazó la solicitud.", "Gemini rejected the request.");
+      }
+   }
+
+   // ---- context ------------------------------------------------------------
+
+   private void contextChanged(boolean user)
+   {
+      store(CONTEXT_KEY, context_.getSelectedValue());
+      String mode = context_.getSelectedValue();
+      String project = projectDir();
+      context_.setItemText(2, project == null ? text("Proyecto (ninguno abierto)", "Project (none open)") :
+            text("Proyecto: ", "Project: ") + FileSystemItem.createDir(project).getName());
+      if ("general".equals(mode))
+         hint_.setText(text("Solo se envía lo que escribes.", "Only what you type is sent."));
+      else if ("file".equals(mode))
+         hint_.setText(text("Se envía el documento activo (con cambios sin guardar).", "The active document is sent (with unsaved changes)."));
+      else
+         hint_.setText(text("Gemini puede pedir leer archivos del proyecto (solo lectura).", "Gemini may ask to read project files (read-only)."));
+      hint_.setTitle(hint_.getText());
+      if (user && !"general".equals(mode))
+         notice(text("Privacidad: el contenido de los archivos que se lean se envía a Google y, en el nivel gratuito, " +
+               "puede usarse para mejorar sus productos. SuperR solo lee; no modifica archivos ni ejecuta código.",
+               "Privacy: the content of files that are read is sent to Google and, on the free tier, may be used to " +
+               "improve its products. SuperR only reads; it does not change files or run code."));
+      if (user && "project".equals(mode) && project == null)
+         notice(text("No hay un proyecto RStudio abierto. Abre un proyecto (.Rproj) o usa «Archivo actual».",
+               "No RStudio project is open. Open a project (.Rproj) or use \"Current file\"."));
+   }
+
+   private static String projectDir()
+   {
+      FileSystemItem dir = RStudioGinjector.INSTANCE.getSession().getSessionInfo().getActiveProjectDir();
+      return dir == null ? null : dir.getPath();
+   }
+
+   /** What the IDE shows now; the main process decides what may be disclosed. */
+   private JavaScriptObject buildContext()
+   {
+      String mode = context_.getSelectedValue();
+      JavaScriptObject context = newContext(mode, "project".equals(mode) ? projectDir() : null);
+      if ("general".equals(mode)) return context;
+      SourceColumnManager columns = RStudioGinjector.INSTANCE.getSourceColumnManager();
+      columns.withTarget("", target -> {
+         DocDisplay display = target.getDocDisplay();
+         setActive(context, target.getPath(), target.getName().getValue(), display.getCode(),
+               target.dirtyState().getValue(), display.getSelectionValue());
+      }, null);
+      if ("project".equals(mode))
+      {
+         int count = 0;
+         for (SourceColumn column : columns.getColumnList())
+            for (EditingTarget editor : column.getEditors())
+               if (editor instanceof TextEditingTarget && editor.dirtyState().getValue() && editor.getPath() != null && count++ < 30)
+               {
+                  TextEditingTarget target = (TextEditingTarget) editor;
+                  addOpen(context, target.getPath(), target.getName().getValue(), target.getDocDisplay().getCode());
+               }
+      }
+      return context;
+   }
+
+   private static String selectionOrEmpty()
+   {
+      String[] selection = { "" };
+      RStudioGinjector.INSTANCE.getSourceColumnManager().withTarget("", target ->
+            selection[0] = target.getDocDisplay().getSelectionValue(), null);
+      return selection[0] == null ? "" : selection[0];
+   }
+
+   private void editorAction()
+   {
+      String action = editorActions_.getSelectedValue();
+      editorActions_.setSelectedIndex(0);
+      if (action.isEmpty() || !geminiApi()) return;
+      boolean hasEditor = hasActiveEditor();
+      if (!hasEditor)
+      {
+         notice(text("Abre un script o documento en el editor primero.", "Open a script or document in the editor first."));
+         return;
+      }
+      String selection = selectionOrEmpty();
+      if (("explain-selection".equals(action) || "quote".equals(action)) && selection.trim().isEmpty())
+      {
+         notice(text("Selecciona código en el editor primero.", "Select code in the editor first."));
+         return;
+      }
+      if ("quote".equals(action))
+      {
+         String current = prompt_.getText();
+         prompt_.setText((current.isEmpty() ? "" : current + "\n") + "```r\n" + selection + "\n```\n");
+         prompt_.setFocus(true);
+         composerChanged();
+         return;
+      }
+      if (!"file".equals(context_.getSelectedValue()) && !"project".equals(context_.getSelectedValue()))
+      {
+         context_.setSelectedIndex(1);
+         contextChanged(true);
+      }
+      prompt_.setText("explain-selection".equals(action) ?
+            text("Explicá el código seleccionado.", "Explain the selected code.") :
+            "explain-file".equals(action) ?
+            text("Explicá qué hace este archivo, paso a paso.", "Explain what this file does, step by step.") :
+            text("Revisá este código: errores potenciales, problemas con los datos y mejoras concretas.",
+                 "Review this code: potential errors, data problems and concrete improvements."));
+      composerChanged();
+      sendMessage();
+   }
+
+   private static boolean hasActiveEditor()
+   {
+      boolean[] found = { false };
+      RStudioGinjector.INSTANCE.getSourceColumnManager().withTarget("", target -> found[0] = true, null);
+      return found[0];
+   }
+
+   /** Shows under the user's message what was sent or read for this turn. */
+   private void onActivity(String turn, String kind, String tool, String files)
+   {
+      if (!turn.equals(turn_) || userItem_ == null) return;
+      String list = describeFiles(files);
+      String line;
+      if ("context".equals(kind))
+         line = text("Enviado a Google: ", "Sent to Google: ") + list;
+      else
+      {
+         String action;
+         switch (tool)
+         {
+            case "read_project_files": action = text("Leyó", "Read"); break;
+            case "search_project_files": action = text("Buscó en el proyecto", "Searched the project"); break;
+            case "list_project_files": action = text("Listó los archivos del proyecto", "Listed the project files"); break;
+            case "get_project_context": action = text("Consultó el resumen del proyecto", "Read the project summary"); break;
+            case "get_active_document": action = text("Leyó el documento activo", "Read the active document"); break;
+            case "get_selected_code": action = text("Leyó la selección", "Read the selection"); break;
+            case "propose_file_edit": action = text("Propuso un cambio (pendiente de tu revisión)", "Proposed a change (waiting for your review)"); break;
+            default: action = tool;
+         }
+         line = action + (list.isEmpty() ? "" : ": " + list);
+      }
+      Label label = new Label(line);
+      label.addStyleName("superr-chat-context superr-chat-activity");
+      userItem_.add(label);
+   }
+
+   private static String describeFiles(String files)
+   {
+      if (files == null || files.isEmpty()) return "";
+      StringBuilder out = new StringBuilder();
+      for (String entry : files.split("\n"))
+      {
+         String[] parts = entry.split("\\|", -1);
+         if (out.length() > 0) out.append(", ");
+         out.append(parts[0]);
+         if (parts.length > 1 && "editor-unsaved".equals(parts[1])) out.append(text(" (sin guardar)", " (unsaved)"));
+         if (parts.length > 2 && "1".equals(parts[2])) out.append(text(" (parcial)", " (partial)"));
+      }
+      return out.toString();
+   }
+
+   private static String contextErrorText(String code)
+   {
+      switch (code == null ? "" : code)
+      {
+         case "no_project": return text("No hay un proyecto RStudio abierto. Abre un proyecto (.Rproj) o usa «Archivo actual».",
+               "No RStudio project is open. Open a project (.Rproj) or use \"Current file\".");
+         case "home_folder": return text("SuperR no usa tu carpeta personal como proyecto. Abre un proyecto RStudio.",
+               "SuperR does not use your home folder as a project. Open an RStudio project.");
+         case "invalid_project": return text("La carpeta del proyecto no es válida (debe contener su archivo .Rproj).",
+               "The project folder is not valid (it must contain its .Rproj file).");
+         case "no_document": return text("No hay un documento abierto en el editor.", "No document is open in the editor.");
+         default: return text("El contexto enviado no es válido.", "The context sent is not valid.");
       }
    }
 
@@ -768,6 +1007,20 @@ public class ChatAiPane extends DockLayoutPanel
          "#superr_chat_ai_panel .superr-chat-who { font-size: 11px; font-weight: 600; opacity: 0.7; margin-bottom: 2px; }" +
          "#superr_chat_ai_panel .superr-chat-user-text { white-space: pre-wrap; background: rgba(47,111,214,0.10); border-radius: 8px; padding: 6px 8px; }" +
          "#superr_chat_ai_panel .superr-chat-answer { line-height: 1.45; overflow-wrap: anywhere; }" +
+         "#superr_chat_ai_panel .superr-chat-context { font-size: 11px; opacity: 0.75; margin-top: 2px; }" +
+         "#superr_chat_ai_panel .superr-edit-card { margin: 8px 0; padding: 6px 8px; border: 1px solid rgba(128,128,128,0.45); border-radius: 6px; }" +
+         "#superr_chat_ai_panel .superr-edit-card[data-state=applied] { border-color: #2da44e; }" +
+         "#superr_chat_ai_panel .superr-edit-card[data-state=rejected], #superr_chat_ai_panel .superr-edit-card[data-state=stale] { opacity: 0.7; }" +
+         "#superr_chat_ai_panel .superr-edit-title { font-weight: 600; font-size: 12px; }" +
+         "#superr_chat_ai_panel .superr-edit-summary { font-size: 12px; margin: 2px 0 4px 0; }" +
+         "#superr_chat_ai_panel .superr-edit-status { font-size: 11px; opacity: 0.8; margin-top: 2px; }" +
+         "#superr_chat_ai_panel .superr-edit-diff pre { margin: 4px 0; max-height: 280px; overflow: auto; font-family: 'Lucida Console', Consolas, monospace; font-size: 11px; border: 1px solid rgba(128,128,128,0.3); border-radius: 4px; }" +
+         "#superr_chat_ai_panel .superr-diff-hunk { color: #6a737d; background: rgba(128,128,128,0.12); padding: 0 4px; }" +
+         "#superr_chat_ai_panel .superr-diff-add { background: rgba(46,160,67,0.18); padding: 0 4px; white-space: pre; }" +
+         "#superr_chat_ai_panel .superr-diff-del { background: rgba(248,81,73,0.18); padding: 0 4px; white-space: pre; }" +
+         "#superr_chat_ai_panel .superr-diff-ctx { padding: 0 4px; white-space: pre; opacity: 0.85; }" +
+         "#superr_chat_ai_panel .superr-edit-accept, #superr_chat_ai_panel .superr-edit-accept-all { border-color: #2da44e; }" +
+         "#superr_chat_ai_panel .superr-chat-activity::before { content: '\u2192 '; }" +
          "#superr_chat_ai_panel .superr-chat-answer-note { font-size: 12px; font-style: italic; opacity: 0.8; margin-top: 4px; }" +
          "#superr_chat_ai_panel .superr-chat-typing { opacity: 0.6; }" +
          "#superr_chat_ai_panel .superr-md p { margin: 0 0 8px 0; }" +
@@ -809,6 +1062,13 @@ public class ChatAiPane extends DockLayoutPanel
 
    // ---- desktop bridge (JSNI) ----------------------------------------------
 
+   /** Pasted or programmatic text also updates Send and the composer height. */
+   private native void onInput(Element element) /*-{
+      var self = this;
+      element.addEventListener('input', function() {
+         self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::composerChanged()();
+      });
+   }-*/;
    private static native boolean isComposing(com.google.gwt.dom.client.NativeEvent event) /*-{
       return !!event.isComposing;
    }-*/;
@@ -825,8 +1085,15 @@ public class ChatAiPane extends DockLayoutPanel
       var self = this, bridge = $wnd.desktop;
       if (!bridge || !bridge.superrChatOnEvent) return;
       bridge.superrChatOnEvent(function(e) {
-         if (e && typeof e.turn === 'string' && typeof e.text === 'string')
+         if (!e || typeof e.turn !== 'string') return;
+         if (typeof e.text === 'string')
             self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onDelta(Ljava/lang/String;Ljava/lang/String;)(e.turn, e.text);
+         else if (e.kind === 'proposal' && e.proposal)
+            self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onProposal(Ljava/lang/String;Lorg/rstudio/studio/client/workbench/views/superrstudio/ChatEditReview$Proposal;)(e.turn, e.proposal);
+         else if (e.kind === 'context' || e.kind === 'tool') {
+            var files = (e.files || []).map(function(f) { return f.path + '|' + f.source + '|' + (f.truncated ? '1' : '0'); }).join('\n');
+            self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onActivity(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)(e.turn, e.kind, e.tool || '', files);
+         }
       });
    }-*/;
    private native void refresh(String provider) /*-{
@@ -879,16 +1146,30 @@ public class ChatAiPane extends DockLayoutPanel
       var bridge = $wnd.desktop;
       if (bridge && bridge.superrChatNew) bridge.superrChatNew(provider).then(function(){}, function(){});
    }-*/;
-   private native void send(String provider, String message, String model, String turn) /*-{
+   private native void send(String provider, String message, String model, String turn, JavaScriptObject context) /*-{
       var self = this, bridge = $wnd.desktop;
       if (!bridge || !bridge.superrChatSend) { self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendFailed(Ljava/lang/String;)(provider); return; }
-      bridge.superrChatSend(provider, message, model, turn).then(function(r) {
+      bridge.superrChatSend(provider, message, model, turn, context).then(function(r) {
          if (r && typeof r.status === 'string') {
             var q = r.quota || {};
-            self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendResult(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)(
-               turn, r.status, r.kind || '', r.finishReason || '', q.scope || '', q.limit || '', q.retryAfterSeconds || 0);
+            self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendResult(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)(
+               turn, r.status, r.kind || '', r.finishReason || '', q.scope || '', q.limit || '', q.retryAfterSeconds || 0, r.detail || '');
          }
       }, function() { self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendFailed(Ljava/lang/String;)(provider); });
+   }-*/;
+   private static native JavaScriptObject newContext(String mode, String root) /*-{
+      var context = { mode: mode, open: [] };
+      if (root) context.projectRoot = root;
+      return context;
+   }-*/;
+   private static native void setActive(JavaScriptObject context, String path, String name, String content, boolean dirty,
+                                        String selection) /*-{
+      context.active = { name: name || 'Untitled', content: content || '', dirty: !!dirty };
+      if (path) context.active.path = path;
+      if (selection) context.active.selection = selection;
+   }-*/;
+   private static native void addOpen(JavaScriptObject context, String path, String name, String content) /*-{
+      context.open.push({ path: path, name: name || '', content: content || '', dirty: true });
    }-*/;
    private native void cancel(String provider) /*-{
       var self = this, bridge = $wnd.desktop;
@@ -900,6 +1181,7 @@ public class ChatAiPane extends DockLayoutPanel
    private static final String GEMINI_API = "gemini-api";
    private static final String PROVIDER_KEY = "superr.chatIa.provider";
    private static final String MODEL_KEY = "superr.chatIa.geminiModel";
+   private static final String CONTEXT_KEY = "superr.chatIa.context";
    private static boolean stylesInjected_;
    private final FlowPanel header_;
    private final ScrollPanel headerScroll_;
@@ -922,6 +1204,12 @@ public class ChatAiPane extends DockLayoutPanel
    private final Button cancel_;
    private final FlowPanel composer_;
    private final FlowPanel actions_;
+   private final FlowPanel contextRow_;
+   private final ListBox context_;
+   private final ListBox editorActions_;
+   private FlowPanel userItem_;
+   private FlowPanel modelItem_;
+   private final ChatEditReview review_;
    private final FlowPanel conversation_;
    private final ScrollPanel scroll_;
    private final ChatMarkdown markdown_;

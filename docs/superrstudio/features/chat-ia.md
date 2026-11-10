@@ -231,6 +231,67 @@ Flash). Phase 1 rebuilt the panel's interface on the same bridge.
   (one real request with the owner's key) passed: the answer rendered with 5
   code blocks and no literal Markdown markers.
 
+## Project context (phase 2, 2026-11-10)
+
+Gemini can now see what the user authorises, chosen per message under the
+conversation:
+
+- *General chat*: only the typed text.
+- *Current file*: the active editor document, with unsaved changes and the
+  selection, attached to the message (one request).
+- *Project*: read-only access to the open RStudio project.
+
+SuperR decides what is read. The model has no file-system access of its own.
+
+- `superr-agent/project-context.ts` is provider-neutral. The renderer sends what
+  the IDE shows: the project folder, the active document with unsaved text and
+  selection, and other open documents with unsaved changes. The main process
+  expands the IDE's `~/...` paths, then validates. A project root must be a
+  real directory with an `.Rproj` file. It may not be a drive root, the OS home
+  folder, RStudio's `~` (Documents), or any folder that contains them; this also
+  holds across drives.
+- Files are read only through `ProjectReader`:
+  - allowed extensions only; names that look like secrets (`.env`,
+    `.Renviron`, `*credential*`, `*secret*`, keys) are excluded, and so are
+    `.git`, `renv`, `node_modules` and build output;
+  - links and junctions are rejected anywhere in the path, and paths are
+    canonical and must stay inside the project;
+  - size limits: 60 000 characters per file and 180 000 per call; data files
+    over 32 KB are read only from the start (new `readHead`);
+  - `.rds` and `.RData` are reported with their size and never read.
+- Unsaved editor text takes priority over the disk.
+- In project mode the system instruction carries a file index: names, sizes,
+  binary and unsaved flags, never content. The functions are
+  `get_project_context` (packages from `library`/`require`/`pkg::`),
+  `list_project_files`, `read_project_files` (up to 8 per call),
+  `search_project_files`, `get_active_document` and `get_selected_code`; the last
+  two refuse documents outside the project. Function rounds are limited to 4 per
+  message, and each costs one request of the user's quota. The instruction asks
+  the model to batch reads and never to claim it read files it did not receive.
+- The Gemini client keeps the model's parts as received (thought signatures)
+  for the next request, as Gemini 3 function calling requires.
+- The panel shows the context of each message and what was disclosed: "Sent to
+  Google: file (unsaved)", "Read: …". A privacy notice appears when a file or
+  project mode is chosen.
+- *Editor actions* (explain selection, explain file, review code, send
+  selection to the chat) use the active editor; the first three switch to
+  *Current file*. No new IDE commands were added, so upstream files stay
+  untouched.
+- **Evidence.**
+  - 47 component tests on real temporary projects (simulated Gemini). They
+    cover: roots (relative, drive root, home folder, ancestor of a home, no
+    `.Rproj`, empty project), traversal, junction, `.env`, `secrets.R`, absolute
+    paths, a large CSV, `.rds`, Unicode names, the unsaved buffer, the 8-path
+    limit, packages, search, the function loop with the signature, a quota
+    error during a read (files already read are reported) and the round limit.
+  - `-Scenario chat-project` runs the real desktop on a fixture project against
+    the simulated model, and passed.
+  - `-Scenario chat-real-project` sent one **real** question with the owner's
+    key. Gemini 3.6 Flash read `R/01-cargar.R`, `R/02-graficos.R` and
+    `análisis_ñandú.R`, explained each script and how they link (TropFishR
+    `lfqCreate`, `source()`, the ggplot2 histogram), and said it had not read the
+    data files.
+
 ## Evidence
 
 - 2026-11-10, **real desktop IPC** (not simulated): the panel

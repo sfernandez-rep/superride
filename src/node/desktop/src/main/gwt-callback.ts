@@ -35,7 +35,7 @@ import i18next from 'i18next';
 import path, { dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { FilePath, tempFilename } from '../core/file-path';
-import { normalizeSeparatorsNative } from '../ui/utils';
+import { createAliasedPath, normalizeSeparatorsNative } from '../ui/utils';
 import { logger } from '../core/logger';
 import { isCentOS } from '../core/system';
 import { resolveTemplateVar } from '../core/template-filter';
@@ -164,6 +164,8 @@ export class GwtCallback extends EventEmitter {
       // net.fetch follows the system proxy configuration
       gemini: new GeminiApi((input, init) => net.fetch(input as string, init), geminiTestBase()),
       onEvent: event => { if (!mainWindow.window.isDestroyed()) mainWindow.window.webContents.send('superr_chat_event', event); },
+      resolvePath: aliased => resolveAliasedPath(normalizeSeparatorsNative(aliased)),
+      aliasPath: absolute => createAliasedPath(absolute, userHomePathString()),
     });
     const authorize = (event: Electron.IpcMainInvokeEvent) => {
       if (process.env.SUPER_RSTUDIO_EXPERIMENTAL !== '1' || event.sender !== mainWindow.window.webContents ||
@@ -171,9 +173,8 @@ export class GwtCallback extends EventEmitter {
     };
     ipcMain.handle('superr_chat_status', (event, provider: unknown) => { authorize(event); return chat.status(provider); });
     ipcMain.handle('superr_chat_sign_in', (event, provider: unknown) => { authorize(event); return chat.signIn(provider); });
-    ipcMain.handle('superr_chat_send', (event, provider: unknown, message: unknown, model: unknown, turn: unknown) => {
-      authorize(event); return chat.send(provider, message, model, turn);
-    });
+    ipcMain.handle('superr_chat_send', (event, provider: unknown, message: unknown, model: unknown, turn: unknown,
+      context: unknown) => { authorize(event); return chat.send(provider, message, model, turn, context); });
     ipcMain.handle('superr_chat_cancel', (event, provider: unknown) => { authorize(event); return chat.cancel(provider); });
     ipcMain.handle('superr_chat_open_key_page', (event, provider: unknown, page: unknown) => {
       authorize(event); return chat.openKeyPage(provider, page);

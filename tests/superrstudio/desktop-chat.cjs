@@ -136,4 +136,4 @@ async function real(page)
    await browser.close();
    // test-gui-scatter.ps1 scans the profile for FAKE_KEY after the desktop quits
    // (files are locked while it runs)
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exit(1); }); // exit: an open CDP connection would keep node alive
