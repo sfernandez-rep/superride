@@ -2,6 +2,16 @@
 
 ## Current continuation: Chat IA, 2026-11-09
 
+Latest visual-only iteration: an experimental Chat IA toolbar button opens a
+resizable native GWT sidebar with Gemini/Codex selector, empty conversation,
+input and a connection-pending notice. It does not connect to any agent. The
+panel reuses MainSplitPanel; closing it restores the configured sidebar. The
+GWT draft build passed with `tools/superrstudio/dev-build.ps1 -Component gwt
+-Force`; the Windows desktop was checked with an isolated experimental profile:
+open/close, resize, selector, connection-pending notice, retained input, dark
+theme and restoration of the original sidebar passed. Agent integration remains
+outside this visual-only task.
+
 Current branch is `feature/chat-ia`, based on `develop` at `0498d1776c`.
 The repository is now `sfernandez-rep/superride`. The historical branch/version
 paragraphs below describe earlier checkpoints and are not current Git state.
@@ -19,7 +29,7 @@ helpers, a provider-neutral turn interface and a local conversation store.
 These components are unwired. Mock protocol,
 OAuth and security tests pass; real Codex and Antigravity server initializations
 pass without user authentication or prompts. No real user authentication or
-inference, UI-connected account storage, scheduled refresh, sidebar,
+inference, UI-connected account storage, scheduled refresh,
 UI-integrated history or file edits have been
 implemented. Conversation storage is plaintext, requires an explicit privacy
 decision before use. The store defaults to disabled and rejects stale saves via

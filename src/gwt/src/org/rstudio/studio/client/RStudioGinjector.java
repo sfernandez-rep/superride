@@ -397,6 +397,7 @@ public interface RStudioGinjector extends Ginjector
    HelpStrategy getHelpStrategy();
    ShortcutViewer getShortcutViewer();
    SourceColumnManager getSourceColumnManager();
+   org.rstudio.studio.client.workbench.ui.PaneManager getPaneManager();
    Satellite getSatellite();
    SatelliteManager getSatelliteManager();
    SourceWindowManager getSourceWindowManager();

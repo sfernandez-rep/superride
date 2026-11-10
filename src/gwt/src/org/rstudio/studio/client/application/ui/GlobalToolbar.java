@@ -44,6 +44,7 @@ import org.rstudio.studio.client.workbench.model.SessionInfo;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.views.chat.events.ChatPaneActiveEvent;
 import org.rstudio.studio.client.workbench.views.superrstudio.ThemeToggle;
+import org.rstudio.studio.client.RStudioGinjector;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.Scheduler;
@@ -342,7 +343,13 @@ public class GlobalToolbar extends Toolbar
 
       // SuperRStudio: one-click light/dark theme switch (experimental features only)
       if (sessionInfo.getSuperRStudioExperimental())
+      {
          addRightWidget(new ThemeToggle());
+         ToolbarButton chatAi = new ToolbarButton("Chat IA", "Chat IA",
+               (ImageResource)null, e -> RStudioGinjector.INSTANCE.getPaneManager().toggleSuperrChat());
+         chatAi.getElement().setId("superr_chat_ai_toggle");
+         addRightWidget(chatAi);
+      }
 
       // restricted mode indicator (managed by TrustPresenter)
       trustPresenter_.initializeForSession(sessionInfo);

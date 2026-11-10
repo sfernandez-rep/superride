@@ -61,6 +61,10 @@
       "area": "workbench UI",
       "markers": ["VisualPresenter", "VisualTab"]
     },
+    "src/gwt/src/org/rstudio/studio/client/RStudioGinjector.java": {
+      "area": "SuperR Chat IA panel",
+      "markers": ["getPaneManager()"]
+    },
     "src/gwt/src/org/rstudio/studio/client/application/StudioClientApplicationConstants_en.properties": {
       "area": "product identity",
       "markers": ["rStudioEditionName=SuperR{0}"]
@@ -87,7 +91,7 @@
     },
     "src/gwt/src/org/rstudio/studio/client/application/ui/GlobalToolbar.java": {
       "area": "workbench UI",
-      "markers": ["ThemeToggle", "getSuperRStudioExperimental"]
+      "markers": ["ThemeToggle", "getSuperRStudioExperimental", "toggleSuperrChat"]
     },
     "src/gwt/src/org/rstudio/studio/client/server/remote/RemoteServer.java": {
       "area": "session module RPC",
@@ -154,7 +158,7 @@
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/ui/PaneManager.java": {
       "area": "workbench UI",
-      "markers": ["visualTab_", "VISUAL_PANE"]
+      "markers": ["visualTab_", "VISUAL_PANE", "toggleSuperrChat"]
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/ui/WorkbenchScreen.java": {
       "area": "workbench commands",
@@ -195,6 +199,7 @@
     }
   },
   "superr_files": [
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatAiPane.java",
     "COPYING",
     "NOTICE",
     "package/superr/product.json",
