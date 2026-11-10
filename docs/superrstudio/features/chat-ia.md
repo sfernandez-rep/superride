@@ -1,6 +1,7 @@
 # Chat IA: implementation checkpoint
 
-Status 2026-11-09: **under development, not available in the IDE**. Do not
+Status 2026-11-10: **under development; the panel and its desktop bridge are
+wired, but no provider can chat**. Do not
 advertise a working Chat IA, sign-in, editor integration, or safe agent file
 access until the remaining work and real-provider acceptance pass.
 
@@ -82,6 +83,32 @@ process-lifecycle design is needed before relying on it.
 Antigravity's [plan mode](https://antigravity.google/docs/cli/modes) adds a
 planning instruction; it must not be treated as an OS access-control boundary.
 
+### Personal Google accounts in a third-party application (checked 2026-11-10)
+
+Google's pages disagree, and the stricter ones govern consumer accounts:
+
+- The [ACP guide](https://antigravity.google/docs/ide/extensions/acp/) says
+  "Any ACP client can launch Antigravity CLI" and documents `oauth-personal`
+  ("Log in with Google"). The [FAQ](https://antigravity.google/docs/faq/) says
+  personal `@gmail.com` accounts can use Antigravity on the free tier.
+- The [terms](https://antigravity.google/terms), section 6: "Using third party
+  software, tools, or services to access the Service (e.g. using OpenClaw with
+  Antigravity OAuth) is a breach of this Agreement. Such actions may be grounds
+  for suspension or termination of your Antigravity and/or Gemini CLI accounts."
+- The FAQ: "Wrapping `agy` inside third-party coding agents or applications ...
+  is not supported under consumer plans", and "To use a third-party coding
+  agent with Gemini, we recommend using a Gemini Enterprise or Google AI Studio
+  API key."
+
+SuperR is a third-party application that would launch `agy`. Therefore
+**SuperR does not offer the personal Google sign-in** (`oauth-personal`): the
+bridge refuses it and the panel says why. It was not attempted, and no Google
+credential was created, read or used. The documented alternative is the
+`gemini-api-key` ACP method with the owner's own Google AI Studio API key
+(`GEMINI_API_KEY` in the agent's environment). It is not implemented and needs
+the owner's decision: AI Studio's free tier has its own terms and data use, and
+the key needs protected storage (the existing credential vault).
+
 OpenAI documents its separate [Sign in with ChatGPT flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in),
 including dynamic registration, PKCE, ID-token verification, granted scopes,
 protected per-account storage and refresh. [Codex app-server](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server)
@@ -93,6 +120,22 @@ AGPL project without a separate license review. Implement against the documented
 protocol independently or find a compatible implementation.
 
 ## Evidence
+
+- 2026-11-10, **real desktop IPC** (not simulated): the panel
+  (`ChatAiPane`) calls four preload functions (`superrChatStatus`,
+  `SignIn`, `Send`, `Cancel`) that reach `ipcMain` handlers in
+  `gwt-callback.ts`. Only the main workbench frame, with
+  `SUPER_RSTUDIO_EXPERIMENTAL=1`, may call them. They delegate to
+  `superr-agent/chat-bridge.ts`, which validates the provider and the message
+  and fails closed. It starts no agent: a message is refused ("read-only
+  isolation not verified"), Stop reports no active turn, and Google sign-in
+  is refused (above). `test-gui-scatter.ps1 -Scenario chat`
+  (`tests/superrstudio/desktop-chat.cjs`) passed against the rebuilt
+  Electron bundle and GWT draft in an isolated profile. Codex's ChatGPT
+  sign-in path is wired to the existing account coordinator, but no real
+  sign-in was performed. The 28 agent component tests (including
+  `agent-chat-bridge.test.cjs`, which uses synthetic accounts) and the
+  strict and desktop TypeScript checks pass.
 
 - Simulated ACP and Codex child processes: handshake, streaming, cancellation,
   denied permission, malformed message and shutdown tests pass.

@@ -1,6 +1,23 @@
 # SuperR handoff
 
-## Current continuation: Chat IA, 2026-11-09
+## Current continuation: Chat IA, 2026-11-10
+
+Claude Code continued Codex's interrupted bridge work. The panel now talks
+to Electron over real IPC: four `superr_chat_*` handlers, main frame and
+experimental mode only, delegating to `superr-agent/chat-bridge.ts`. That
+bridge fails closed and starts no agent. The GUI scenario
+`test-gui-scatter.ps1 -Scenario chat` passes. To rebuild Electron, copy the
+changed `src/node/desktop/src` files into `src/node/desktop-build-AMD64/src`
+and run `electron-forge package` there with the pinned Node on `PATH`.
+
+**The personal Google sign-in for Gemini is not offered.** Antigravity's terms
+(section 6) and FAQ do not allow wrapping `agy` in third-party applications
+under consumer plans, and warn of account suspension. Google recommends an AI
+Studio API key instead. No Gemini conversation was attempted. Details and the
+API-key alternative, which awaits the owner's decision, are in
+[chat-ia.md](docs/superrstudio/features/chat-ia.md).
+
+### Earlier, 2026-11-09
 
 Latest visual-only iteration: an experimental Chat IA toolbar button opens a
 resizable native GWT sidebar with Gemini/Codex selector, empty conversation,
