@@ -1,9 +1,18 @@
-# Chat IA: implementation checkpoint
+# Chat IA
 
-Status 2026-11-10: **under development; the panel and its desktop bridge are
-wired. Only the text-only Gemini API mode, with the user's own key, can chat**. Do not
-advertise a working Chat IA, sign-in, editor integration, or safe agent file
-access until the remaining work and real-provider acceptance pass.
+Status 2026-11-10: **complete for the next preview (experimental, SuperR
+Desktop).** It uses Gemini through the Gemini API, with the user's own Google
+AI Studio key. The user chooses the context: general chat, the current file,
+or read-only access to the open project. Gemini can propose edits, which the
+user reviews and applies in the editor. The Codex and Antigravity agents stay
+closed.
+
+- Release text: [CHAT-IA-PREVIEW-NOTES.md](../release/CHAT-IA-PREVIEW-NOTES.md).
+- Merging and checks: [chat-ia-integration.md](chat-ia-integration.md).
+- Limits: the end of the phase 3 section.
+
+The sections below record, in order, the investigation and each phase. The
+early ones describe the agent components as they were then.
 
 ## Architecture and source evidence
 
@@ -346,6 +355,31 @@ user applies them, in the editor.
     `theme_minimal()`. Accepted in the editor, the result passed `parse()` in R,
     and the file on disk was unchanged.
 
+### Consolidation before integration (2026-11-10)
+
+Three findings from the final validation:
+
+- **Final text in the reply.** Electron does not order a `webContents.send`
+  event against the reply of an `ipcMain.handle`. The last streamed fragments
+  could therefore arrive after the turn had ended, which showed "(Gemini
+  returned no text)" and could cut off an answer's end. The reply now carries
+  the whole answer as well as the turn's proposals (`text`, `proposals`). The
+  panel keeps the more complete text and shows each proposal once.
+- **No window access at construction.** The Chat IA IPC no longer touches
+  `mainWindow.window` when `GwtCallback` is constructed. Cleanup happens on
+  `app` `will-quit`. The upstream `DesktopCallback` unit test constructs
+  `GwtCallback` with a stub that has no window, and failed before this change.
+- **New checks.** The `disabled` desktop scenario now checks that Chat IA's
+  button is absent and its IPC refused. `chat-edit` now saves an accepted
+  change and checks that the file on disk equals the accepted text.
+- **Line endings on save.** The save check found that a file written with LF is
+  saved with CRLF on Windows. This is RStudio's own save: its "Line ending
+  format" preference (`line_ending_conversion`, default `native`) applies to
+  every save. The test confirmed that a manual edit of another LF file, saved
+  the same way, is converted too. Chat IA applies its text with the document's
+  own line endings and does not save; to keep a file's endings, choose
+  *Passthrough* in Tools › Global Options › Code › Saving.
+
 ### Remaining work and limits
 
 - Desktop only. The renderer's `window.desktop` bridge exists only in SuperR
@@ -359,7 +393,9 @@ user applies them, in the editor.
 - **Editor commands.** The editor actions live in the panel. No IDE commands or
   context-menu items were added, which keeps upstream files untouched; adding
   them needs `Commands.cmd.xml`.
-- **Binary R data** (`.rds`, `.RData`) is never read. A safe summary (for
+- **Binary R data** (`.rds`, `.RData`) is never read.
+- **Line endings on save.** Saving follows RStudio's line-ending preference
+  (default `native`: CRLF on Windows), as for any edit. A safe summary (for
   example `str()` run by the user) is not automated.
 - **History.** It stays in memory only. Persistent history (the experimental
   conversation store) still needs a consent and deletion UI.
@@ -422,14 +458,11 @@ $env:TS_NODE_TRANSPILE_ONLY = '1'
 & D:\Git\rstudio-tools\dependencies\common\node\22.22.2\node.exe --test --require ts-node/register tests\superrstudio\agent-transport.test.cjs tests\superrstudio\agent-project-reader.test.cjs tests\superrstudio\agent-text-proposal.test.cjs tests\superrstudio\agent-oidc.test.cjs tests\superrstudio\agent-chatgpt-auth.test.cjs tests\superrstudio\agent-vault.test.cjs tests\superrstudio\agent-registration.test.cjs tests\superrstudio\agent-accounts.test.cjs tests\superrstudio\agent-staged-workspace.test.cjs tests\superrstudio\agent-antigravity-policy.test.cjs
 ```
 
-## Next work
+## Next work (after the preview)
 
-Establish verified agent isolation including inherited permissions, sensitive
-files, outside paths, child processes, cancellation and cleanup on Windows and
-Linux. Complete SIWC account-selection UI, expiry scheduling, stale-lock
-recovery and OS-protected storage integration. Connect a provider-neutral session/approval coordinator to
-the actual sidebar, project context and source editor; show diffs, preserve dirty
-buffers and provide undo. Persist per-project/provider histories locally without
-credentials. Add real GUI and provider tests only with explicit user sign-in.
-The owner's full task also requires settings, Markdown, model selection, history,
-file activity, context actions, and the complete end-to-end flow.
+- The limits listed at the end of the phase 3 section.
+- Agent providers (Codex, Antigravity) only after verified isolation: inherited
+  permissions, sensitive files, outside paths, child processes, cancellation and
+  cleanup on Windows and Linux. Codex also needs the SIWC account UI, expiry
+  scheduling and stale-lock recovery.
+- Persistent per-project history, which needs a consent and deletion UI.

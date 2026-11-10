@@ -1,49 +1,78 @@
 # SuperR handoff
 
-## Current continuation: Chat IA, 2026-11-10
+## Chat IA: ready to integrate (2026-11-10)
 
-Claude Code continued Codex's interrupted bridge work. The panel now talks
-to Electron over real IPC: four `superr_chat_*` handlers, main frame and
-experimental mode only, delegating to `superr-agent/chat-bridge.ts`. That
-bridge fails closed and starts no agent. The GUI scenario
-`test-gui-scatter.ps1 -Scenario chat` passes. To rebuild Electron, copy the
-changed `src/node/desktop/src` files into `src/node/desktop-build-AMD64/src`
-and run `electron-forge package` there with the pinned Node on `PATH`.
+`feature/chat-ia` is complete for the next preview, validated and pushed.
+- **Validated code:** `7f7c2ee33f`.
+- **Branch tip:** this documentation commit, the one that follows it.
+- **Clean:** no other branch, merge or release was touched.
 
-**The personal Google sign-in for Gemini is not offered.** Antigravity's terms
-(section 6) and FAQ do not allow wrapping `agy` in third-party applications
-under consumer plans, and warn of account suspension. Google recommends an AI
-Studio API key instead. No Gemini conversation was attempted. Details and the
-API-key alternative, which awaits the owner's decision, are in
+**Codex integrates it with `feature/auto-updater`.** Follow
+[chat-ia-integration.md](docs/superrstudio/features/chat-ia-integration.md).
+It covers the five expected conflicts, the `GwtCallback` constructor rule, the
+build steps and the checks.
+
+**Release text:**
+[CHAT-IA-PREVIEW-NOTES.md](docs/superrstudio/release/CHAT-IA-PREVIEW-NOTES.md).
+**Design, evidence and limits:**
 [chat-ia.md](docs/superrstudio/features/chat-ia.md).
 
-**Phases 1-3 done (see chat-ia.md).** Phase 3: Gemini proposes exact-text edits,
-SuperR shows diffs, and the user accepts them (editor, undoable, all or nothing,
-stale checks) or rejects them. A real fix of `R/03-errores.R` was accepted and
-parses. Desktop scenarios: `chat`, `chat-ui`, `chat-project`, `chat-edit`
-(simulated model), and `chat-real`, `chat-real-project`, `chat-real-edit` (the
-owner's key, profile `gui-chat-real`; they use a few requests each). Remaining
-work is listed at the end of the phase 3 section.
-**Phase 2 done (read-only project context: general / current file / project;
-real project analysis verified; see chat-ia.md).**
-**Phase 1 done (panel redesign, real states, Markdown, code actions, quota
-details; see chat-ia.md).** The owner's three-phase plan continues with
-phase 2: project context through read-only tools; then phase 3: reviewed
-edits. The owner's key is saved in profile `gui-chat-real`. Use
-`-Scenario chat-ui` (simulated) for interface work and keep real requests
-rare: the owner's free tier allows 5 per minute and 20 per day for Gemini
-3.6 Flash.
+### What it does
 
-**Gemini API mode (owner decision, same day).** The panel defaults to
-*Gemini API (free)*: the owner's own Google AI Studio key, checked and then
-stored encrypted (Electron `safeStorage`), a free-tier text model, and
-streamed text-only answers. It reads no project files, runs no tools and
-edits nothing. Antigravity and Codex stay closed. The real invalid-key path
-is verified, and no key leaks to the profile. **A conversation with a real key
-is pending the owner's key**: launch `dev-run.ps1 -Experimental -ProfileName
-gui-chat-real`, save the key in the panel and ask the question, or run
-`test-gui-scatter.ps1 -Scenario chat-real`. See the Gemini API section of
-chat-ia.md, including the API terms to reconsider before distribution.
+Chat IA is experimental and desktop only. It uses Gemini through the Gemini
+API with the owner's own Google AI Studio key, stored encrypted. It offers:
+
+- streaming answers with Markdown, Copy, and Insert in editor;
+- real connection and quota states;
+- three contexts: general chat, the current file (unsaved text included), or
+  read-only project access through checked functions;
+- Gemini edit proposals shown as diffs, which the user accepts in the editor
+  (undoable, stale-checked, all or nothing) or rejects.
+
+### Final validation (2026-11-10)
+
+- **Component tests:** 47 pass. Strict and desktop TypeScript and ESLint report
+  no errors.
+- **Upstream desktop unit tests:** 496 pass. The one failure, `findComponents`,
+  is environmental and also fails on `main`.
+- **Desktop scenarios with the simulated Gemini (no quota):** `chat`,
+  `chat-ui`, `chat-project` and `chat-edit` pass.
+- **Desktop regression:** `disabled`, `ggplot2`, `lfq`, `sheet`, `es`,
+  `visual` (3 phases) and `theme` (3 phases) pass.
+- **Package build:** `package-superr.ps1 -Quick` passed. The packaged Electron
+  bundle and the optimised GWT contain Chat IA.
+- **On that build:** `disabled`, `chat` and `chat-real` (one real request) pass.
+- **Real tests with the owner's key:** `chat-real`, `chat-real-project` and
+  `chat-real-edit` passed earlier the same day, a few requests each.
+
+### Not runnable on this host
+
+- The `deps` scenario needs an R whose own library has no ggplot2.
+- `-Scenario chat-real*` uses the owner's key in profile `gui-chat-real`.
+  Keep those runs rare: the free tier allows 5 requests per minute and 20 per
+  day.
+
+### Building
+
+- To rebuild Electron during development, copy the changed
+  `src/node/desktop/src` files to `src/node/desktop-build-AMD64/src` and run
+  `electron-forge package` there with the pinned Node on `PATH`.
+- `www/` now holds the optimised client from the package build. The next
+  `dev-build.ps1 -Component gwt -Force` rebuilds the draft.
+
+### Personal Google sign-in
+
+The personal Google sign-in through Antigravity is not offered. Antigravity's
+terms and FAQ do not allow it in third-party apps on consumer plans. See
+chat-ia.md.
+
+### Chat IA history (2026-11-09 to 2026-11-10)
+
+- Claude Code finished Codex's interrupted IPC bridge.
+- The owner chose the Gemini API with their own key.
+- Phases 1 to 3 followed: panel, project context, reviewed edits.
+- A consolidation pass then fixed two IPC races (the final text and the
+  proposals now also travel in the reply) and the `GwtCallback` construction.
 
 ### Earlier, 2026-11-09
 
