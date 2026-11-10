@@ -4,7 +4,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const {verifyManifest, verifyArtifact} = require('../../src/node/desktop/src/main/superr-updater/manifest.cjs');
+const {spawnSync} = require('node:child_process');
+const {verifyManifest, verifyArtifact, downloadArtifact} = require('../../src/node/desktop/src/main/superr-updater/manifest.cjs');
 const {publicKey, privateKey} = crypto.generateKeyPairSync('ed25519');
 const keys = {test: publicKey.export({type:'spki', format:'pem'})};
 const now = Date.now();
@@ -28,6 +29,22 @@ test('trusted signature, channel, expiration and downgrade rules are enforced', 
  assert.throws(() => verify({...item, artifact:'../evil.exe'}), /Invalid/);
 });
 
+test('download requires a signed manifest and removes partial or redirected data', async () => {
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'superr-updater-'));
+ try {
+   const manifest=verify(item);
+   const file=await downloadArtifact(manifest, dir, async () => new Response(payload));
+   assert.deepEqual(await fs.readFile(file),payload);
+   await assert.rejects(downloadArtifact({...manifest},dir,async () => new Response(payload)), /Unverified/);
+   await assert.rejects(downloadArtifact(manifest,dir,async () => new Response('partial')), /integrity/);
+   await assert.rejects(downloadArtifact(manifest,dir,async () => new Response(null,{status:302,headers:{location:'https://evil.invalid/a'}})), /Untrusted/);
+   assert.equal((await fs.readdir(dir)).length, 1);
+   const aborted=new AbortController(); aborted.abort();
+   await assert.rejects(downloadArtifact(manifest,dir,async (_,opts) => {opts.signal.throwIfAborted();},aborted.signal));
+   assert.equal((await fs.readdir(dir)).length, 1);
+ } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});
+
 test('artifact size and hash must match the verified manifest', async () => {
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'superr-updater-'));
  const file=path.join(dir,'file');
@@ -39,5 +56,19 @@ test('artifact size and hash must match the verified manifest', async () => {
    await assert.rejects(verifyArtifact(file,verify(item)), /integrity/);
    await fs.writeFile(file, 'short');
    await assert.rejects(verifyArtifact(file,verify(item)), /Invalid/);
+ } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});
+
+test('release signing tool signs with an external test key without overwriting', async () => {
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'superr-sign-'));
+ try {
+   const manifest=path.join(dir,'manifest.json'), key=path.join(dir,'key.pem'), signature=path.join(dir,'manifest.sig');
+   await fs.writeFile(manifest,JSON.stringify(item));
+   await fs.writeFile(key,privateKey.export({type:'pkcs8',format:'pem'}));
+   const script=path.join(__dirname,'../../tools/superrstudio/sign-update-manifest.cjs');
+   const run=() => spawnSync(process.execPath,[script,manifest,signature],{env:{...process.env,SUPERR_UPDATE_SIGNING_KEY_FILE:key}});
+   assert.equal(run().status,0);
+   assert.equal(crypto.verify(null,await fs.readFile(manifest),publicKey,await fs.readFile(signature)),true);
+   assert.notEqual(run().status,0);
  } finally { await fs.rm(dir,{recursive:true,force:true}); }
 });
