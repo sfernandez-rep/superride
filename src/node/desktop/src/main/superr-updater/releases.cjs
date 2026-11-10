@@ -54,7 +54,8 @@ function selectRelease(releases, currentVersion, channel) {
 
 async function checkForUpdates(currentVersion, channel, request = fetch, signal) {
   if (!parseVersion(currentVersion) || !['stable', 'preview'].includes(channel)) throw new Error('Invalid update query');
-  const response = await request(RELEASES_API, {headers: {Accept: 'application/vnd.github+json'}, redirect: 'error', signal});
+  const response = await request(RELEASES_API, {headers: {Accept: 'application/vnd.github+json'}, redirect: 'error',
+    signal: signal || AbortSignal.timeout(15000)});
   if (!response.ok) throw new Error(`Release service error: ${response.status}`);
   // Cap the response before parsing, including when no content length is supplied.
   if (!response.body) throw new Error('Empty release response');

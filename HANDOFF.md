@@ -18,10 +18,14 @@ version/channel/expiry/architecture and installer size/hash; tests use only
 synthetic keys. Verified downloads stream only from GitHub release hosts into
 an isolated directory, enforce size/hash and remove incomplete files. A
 standalone signing command accepts an Ed25519 key only from outside the worktree.
-No production key, download or installer execution is wired to the IDE.
-Seven component tests pass with Node 22.22.2. Next: IDE integration, provision
-signing through a protected release workflow, and isolated update validation.
-No public release or installed copy was changed.
+The protected release workflow can optionally produce signed manifests from a
+matching tag; production trust keys are still empty. Eight component tests pass
+on Windows and Ubuntu 24.04 WSL using Node 22.22.2; the official GitHub release
+query also returned the published preview. The Help menu and opt-in preferences
+are being integrated and compiled in this worktree; installer execution remains
+unimplemented. The first isolated native/Electron build is in progress under
+`build/updater-windows`, not in the Chat IA worktree. No public release or
+installed copy was changed.
 
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
 request #1 into `main`, RStudio 2026.10.1 prepared, data table window on

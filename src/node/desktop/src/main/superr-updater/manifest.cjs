@@ -11,8 +11,7 @@ const {parseVersion, compareVersions} = require('./releases.cjs');
 const TRUSTED_KEYS = Object.freeze({});
 const verifiedManifests = new WeakSet();
 
-function verifyManifest(bytes, signature, keyId, currentVersion, channel, options = {}) {
-  const keys = options.trustedKeys || TRUSTED_KEYS;
+function verifyWithKeys(bytes, signature, keyId, currentVersion, channel, keys, now) {
   if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > 16384 ||
       typeof keyId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(keyId) ||
       !Object.hasOwn(keys, keyId) || !Buffer.isBuffer(signature) || signature.length !== 64)
@@ -24,8 +23,7 @@ function verifyManifest(bytes, signature, keyId, currentVersion, channel, option
   let data;
   try { data = JSON.parse(new TextDecoder('utf-8', {fatal:true}).decode(bytes)); }
   catch { throw new Error('Invalid update manifest'); }
-  const now = options.now ?? Date.now();
-  if (!data || typeof data !== 'object' || Array.isArray(data) || data.schema !== 1 ||
+  if (!data || typeof data !== 'object' || Array.isArray(data) || data.schema !== 1 || data.keyId !== keyId ||
       !['stable', 'preview'].includes(channel) || !parseVersion(currentVersion) ||
       typeof data.version !== 'string' || !parseVersion(data.version) ||
       compareVersions(data.version, currentVersion) <= 0 ||
@@ -40,6 +38,12 @@ function verifyManifest(bytes, signature, keyId, currentVersion, channel, option
   const manifest = Object.freeze({version:data.version, channel:data.channel, artifact:data.artifact, size:data.size, sha256:data.sha256});
   verifiedManifests.add(manifest);
   return manifest;
+}
+
+// Production verification never accepts trust anchors from the renderer,
+// network, configuration files or release metadata.
+function verifyManifest(bytes, signature, keyId, currentVersion, channel) {
+  return verifyWithKeys(bytes, signature, keyId, currentVersion, channel, TRUSTED_KEYS, Date.now());
 }
 
 /** Check a downloaded file against an already verified manifest, without executing it. */
@@ -87,6 +91,7 @@ async function downloadArtifact(manifest, privateRoot, request = fetch, signal) 
       if (![301,302,303,307,308].includes(response.status)) break;
       const location = response.headers.get('location');
       if (!location || i === 3) throw new Error('Invalid download redirect');
+      if (response.body) await response.body.cancel();
       url = new URL(location, url).href;
     }
     if (!response || !response.ok || !response.body) throw new Error('Update download failed');
@@ -126,4 +131,4 @@ async function downloadArtifact(manifest, privateRoot, request = fetch, signal) 
     }
   }
 }
-module.exports = {verifyManifest, verifyArtifact, downloadArtifact};
+module.exports = {verifyManifest, verifyArtifact, downloadArtifact, _verifyWithKeysForTests: verifyWithKeys};

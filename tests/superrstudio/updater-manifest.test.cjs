@@ -5,24 +5,24 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
-const {verifyManifest, verifyArtifact, downloadArtifact} = require('../../src/node/desktop/src/main/superr-updater/manifest.cjs');
+const {verifyManifest, verifyArtifact, downloadArtifact, _verifyWithKeysForTests} = require('../../src/node/desktop/src/main/superr-updater/manifest.cjs');
 const {publicKey, privateKey} = crypto.generateKeyPairSync('ed25519');
 const keys = {test: publicKey.export({type:'spki', format:'pem'})};
 const now = Date.now();
 const payload = Buffer.from('test installer');
-const item = {schema:1, version:'0.2.0-preview.1', channel:'preview', platform:'windows', arch:'x64',
+const item = {schema:1, keyId:'test', version:'0.2.0-preview.1', channel:'preview', platform:'windows', arch:'x64',
  artifact:'SuperR-0.2.0-preview.1-Windows-x64.exe', size:payload.length,
  sha256:crypto.createHash('sha256').update(payload).digest('hex'), issued:now-1000, expires:now+10000};
 function signed(value = item) { const bytes=Buffer.from(JSON.stringify(value)); return [bytes, crypto.sign(null,bytes,privateKey)]; }
 const verify = (value, current='0.1.0', channel='preview') => {
- const [bytes, sig] = signed(value); return verifyManifest(bytes,sig,'test',current,channel,{trustedKeys:keys,now});
+ const [bytes, sig] = signed(value); return _verifyWithKeysForTests(bytes,sig,'test',current,channel,keys,now);
 };
 
 test('trusted signature, channel, expiration and downgrade rules are enforced', () => {
  const [bytes,sig]=signed();
  assert.throws(() => verifyManifest(bytes,sig,'test','0.1.0','preview'), /Untrusted/);
  assert.equal(verify(item).version, item.version);
- assert.throws(() => verifyManifest(bytes,Buffer.alloc(64),'test','0.1.0','preview',{trustedKeys:keys,now}), /signature/);
+ assert.throws(() => _verifyWithKeysForTests(bytes,Buffer.alloc(64),'test','0.1.0','preview',keys,now), /signature/);
  assert.throws(() => verify(item,'0.2.0','preview'), /Invalid/);
  assert.throws(() => verify(item,'0.1.0','stable'), /Invalid/);
  assert.throws(() => verify({...item, expires:now-1}), /expired/);
@@ -70,5 +70,23 @@ test('release signing tool signs with an external test key without overwriting',
    assert.equal(run().status,0);
    assert.equal(crypto.verify(null,await fs.readFile(manifest),publicKey,await fs.readFile(signature)),true);
    assert.notEqual(run().status,0);
+ } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});
+
+test('release manifest binds version, filename, size and artifact hash', async () => {
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'superr-manifest-'));
+ try {
+   const artifact=path.join(dir,'SuperR-0.2.0-preview.1-Windows-x64.exe');
+   const output=path.join(dir,'manifest.json');
+   await fs.writeFile(artifact,payload);
+   const script=path.join(__dirname,'../../tools/superrstudio/create-update-manifest.cjs');
+   const env={...process.env,SUPERR_UPDATE_KEY_ID:'test'};
+   const result=spawnSync(process.execPath,[script,'0.2.0-preview.1',artifact,output],{env});
+   assert.equal(result.status,0);
+   const manifest=JSON.parse(await fs.readFile(output,'utf8'));
+   assert.equal(manifest.channel,'preview');
+   assert.equal(manifest.size,payload.length);
+   assert.equal(manifest.sha256,item.sha256);
+   assert.notEqual(spawnSync(process.execPath,[script,'0.2.0',artifact,path.join(dir,'wrong.json')],{env}).status,0);
  } finally { await fs.rm(dir,{recursive:true,force:true}); }
 });
