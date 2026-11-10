@@ -17,6 +17,17 @@ Studio API key instead. No Gemini conversation was attempted. Details and the
 API-key alternative, which awaits the owner's decision, are in
 [chat-ia.md](docs/superrstudio/features/chat-ia.md).
 
+**Gemini API mode (owner decision, same day).** The panel defaults to
+*Gemini API (free)*: the owner's own Google AI Studio key, checked and then
+stored encrypted (Electron `safeStorage`), a free-tier text model, and
+streamed text-only answers. It reads no project files, runs no tools and
+edits nothing. Antigravity and Codex stay closed. The real invalid-key path
+is verified, and no key leaks to the profile. **A conversation with a real key
+is pending the owner's key**: launch `dev-run.ps1 -Experimental -ProfileName
+gui-chat-real`, save the key in the panel and ask the question, or run
+`test-gui-scatter.ps1 -Scenario chat-real`. See the Gemini API section of
+chat-ia.md, including the API terms to reconsider before distribution.
+
 ### Earlier, 2026-11-09
 
 Latest visual-only iteration: an experimental Chat IA toolbar button opens a

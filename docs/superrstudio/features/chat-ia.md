@@ -1,7 +1,7 @@
 # Chat IA: implementation checkpoint
 
 Status 2026-11-10: **under development; the panel and its desktop bridge are
-wired, but no provider can chat**. Do not
+wired. Only the text-only Gemini API mode, with the user's own key, can chat**. Do not
 advertise a working Chat IA, sign-in, editor integration, or safe agent file
 access until the remaining work and real-provider acceptance pass.
 
@@ -118,6 +118,72 @@ Free entitlement is claimed. Its [example devkit](https://github.com/openai/sign
 is under a noncommercial license: do not copy or vendor that code into this
 AGPL project without a separate license review. Implement against the documented
 protocol independently or find a compatible implementation.
+
+
+## Gemini API mode (owner decision 2026-11-10)
+
+The owner chose Gemini through their own free Google AI Studio API key, called
+directly. It does not use Antigravity, so Antigravity's consumer-login
+restriction and its tool-isolation problem do not apply. The ACP adapter is kept,
+unchanged and closed.
+
+- `superr-agent/gemini-api.ts` calls the REST API
+  (`streamGenerateContent?alt=sse` and `models`). It sends only the typed
+  conversation, held in memory and dropped on *New conversation*, on removing
+  the key, or on quit. There are no tools, project files or system prompt. The
+  key goes in the `x-goog-api-key` header, never in a URL. Requests use
+  Electron `net.fetch`, so they follow the system proxy.
+- The key is checked with `models.list` before it is saved. It is stored with
+  the existing `CredentialVault` (new `saveSecret`/`loadSecret`) under
+  `userData/superr-chat/gemini-api`, encrypted by Electron `safeStorage`
+  (Windows DPAPI). It never goes back to the renderer.
+- The model must be one of the text models that Google's pricing page lists
+  with a free tier (2026-11-10): `gemini-3.6-flash`, `gemini-3.8-flash`,
+  `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite`. The panel offers only
+  those that the key's `models.list` shows; the bridge refuses any other model.
+  This keeps paid-only models out, but whether a request is billed depends on the
+  key's project. SuperR never asks for a card or links billing, and the panel
+  tells the user to create the key in a project without billing.
+- Errors are mapped from Google's `google.rpc.Status` body (format checked with
+  a made-up key) to messages for:
+  - an invalid key;
+  - quota or rate limit (429);
+  - free-tier verification;
+  - permission;
+  - prepaid billing;
+  - region;
+  - model;
+  - safety block;
+  - overload (5xx);
+  - connection failure.
+- The panel's privacy notice repeats Google's terms for unpaid services: content
+  may be used to improve Google products, human reviewers may read it, and
+  users should not send sensitive data.
+- Further terms the owner should know:
+  - Gemini API terms: users must be 18 or older;
+  - the API is "for developers building with Google AI models for professional
+    or business purposes, not for consumer use";
+  - only paid services may be offered to users in the EEA, Switzerland or the
+    UK.
+
+  Reconsider these before distributing this mode beyond the owner's own use.
+
+Evidence (2026-11-10):
+
+- *Simulated:* 35 component tests, including `agent-gemini-api.test.cjs` with a
+  fake `fetch`. They cover:
+  - fragmented SSE, skipped thoughts, the header, and the key never in the URL;
+  - model filtering and paging;
+  - every error kind, errors inside the stream and blocked prompts;
+  - cancel, the busy check, history alternation and *New conversation*;
+  - encrypted storage, with no key in the file.
+- *Real:* `test-gui-scatter.ps1 -Scenario chat` in a fresh desktop profile.
+  A made-up key typed into the panel was rejected by Google itself
+  (`API_KEY_INVALID`), and the panel showed "The API key is not valid…". After
+  quit, the key was found nowhere in the profile, logs included.
+- *Not yet run:* a conversation with a real key. The owner enters the key;
+  then run `test-gui-scatter.ps1 -Scenario chat-real` (profile
+  `gui-chat-real`).
 
 ## Evidence
 
