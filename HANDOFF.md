@@ -2,6 +2,33 @@
 
 ## Updater worktree, 2026-11-10
 
+Continuation: `UpdateDownload` now obtains release metadata, verifies the
+signature and streams a size/hash-checked installer with progress and cancel;
+the GWT dialog and narrowly scoped Electron IPC are connected. Production has
+no pinned key and fails before network download. Synthetic-key tests exercise
+download, cancellation, bad signatures and corrupted data. The real desktop
+IPC was checked to reject a production download without a trusted key; a real
+signed release/download was not tested. The direct NSIS previous-uninstaller
+path now aborts on nonzero exit; a registry-free same-mode NSIS fixture passed
+for success and failure, not a two-version SuperR upgrade. The legacy elevated
+`ExecShellWait` fallback does not capture the uninstaller exit code and still
+needs a safe verification strategy. `RunAsNode` is disabled
+in the packaged Electron fuses, so an Electron-as-Node helper is unavailable.
+Windows Sandbox is not installed (optional feature state 2); the existing
+product installer writes shared SuperR registry keys, and packaging defaults to
+shared `C:\rsbuild`. No real installation, restart, rollback or two-SuperR-build
+test was attempted; these remain required before enabling production updates.
+Validation this continuation: `dev-build.ps1 -Component gwt -Force` and
+`npx electron-forge package` passed; Node updater suites passed 13 tests on
+Windows (including the isolated NSIS fixture) and 12 on Ubuntu 24.04 WSL.
+`check-baseline.py` and `check-integration.py` passed. An isolated Windows
+desktop was launched and its real download IPC rejected a missing trust key,
+invalid inputs and an idle cancel; it was then closed. Download progress and
+the new GWT dialog were not visually validated with a real signed release.
+Next: isolate real A/B NSIS installations without touching shared product
+registry, establish a safe legacy elevation result and restart helper, then
+test recovery before enabling install or configuring production trust.
+
 `D:\Git\SuperRStudio-updater`, branch `feature/auto-updater`, based on
 `0498d1776c`; the separate Chat IA worktree must not be edited or built here.
 The NSIS installer supports per-user/all-users modes and invokes an older
@@ -11,7 +38,7 @@ isolated installed-version test. Existing packages disable the Posit updater.
 unauthenticated release detection and semantic version/channel selection for
 the official `sfernandez-rep/superride` repository. Run
 `node --test tests/superrstudio/updater-releases.test.cjs` (3 pass with Node
-22.22.2); baseline and integration checks pass. It is not wired into the IDE.
+22.22.2); baseline and integration checks pass. It is wired into the IDE.
 No trusted update signing key is configured; no executable may be installed
 automatically. `manifest.cjs` checks Ed25519 signatures over the exact bytes,
 version/channel/expiry/architecture and installer size/hash; tests use only
