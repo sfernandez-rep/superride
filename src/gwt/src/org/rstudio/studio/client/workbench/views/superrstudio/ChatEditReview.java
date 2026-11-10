@@ -63,9 +63,14 @@ public class ChatEditReview
       host_ = host;
    }
 
-   /** A card for the proposal; it is also remembered for "Accept all" of its turn. */
+   /**
+    * A card for the proposal, or null if it is already shown (a proposal arrives
+    * both as an event and in the turn's final result). It is remembered for
+    * "Accept all" of its turn.
+    */
    public FlowPanel card(Proposal proposal)
    {
+      if (!shown_.add(proposal.getId())) return null;
       Entry entry = new Entry(proposal);
       FlowPanel card = new FlowPanel();
       card.addStyleName("superr-edit-card");
@@ -124,6 +129,8 @@ public class ChatEditReview
    }
 
    public void clear() { turn_.clear(); }
+
+   private final java.util.Set<String> shown_ = new java.util.HashSet<>();
 
    // ---- applying -----------------------------------------------------------
 

@@ -207,6 +207,7 @@
     "tests/superrstudio/desktop-chat.cjs",
     "tests/superrstudio/desktop-chat-ui.cjs",
     "tests/superrstudio/desktop-chat-project.cjs",
+    "tests/superrstudio/desktop-chat-edit.cjs",
     "tests/superrstudio/fixtures/make-chat-project.cjs",
     "tests/superrstudio/agent-project-context.test.cjs",
     "tests/superrstudio/agent-edit-proposal.test.cjs",

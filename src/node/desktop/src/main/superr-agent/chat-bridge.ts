@@ -20,7 +20,9 @@ export interface ChatStatus {
 export type ChatErrorKind = GeminiErrorKind | 'busy' | 'no_key' | 'storage' | 'context';
 export interface KeyResult { ok: boolean; kind?: ChatErrorKind; models?: GeminiModel[] }
 export interface SendResult { status: 'completed' | 'cancelled' | 'incomplete' | 'error'; kind?: ChatErrorKind;
-  finishReason?: string; quota?: QuotaInfo; detail?: string; files?: DisclosedFile[] }
+  finishReason?: string; quota?: QuotaInfo; detail?: string; files?: DisclosedFile[];
+  /** Every proposal of this turn again: events and the reply travel separately, so the panel may get either first. */
+  proposals?: EditProposal[] }
 /** Streamed text, or a report of what was disclosed: attached context or a function SuperR ran. */
 export interface ChatEvent { provider: 'gemini-api'; turn: string; text?: string; kind?: 'context' | 'tool' | 'proposal';
   tool?: string; files?: DisclosedFile[]; proposal?: EditProposal }
@@ -178,6 +180,7 @@ export class ChatBridge {
       contents[contents.length - 1] = { role: 'user', parts: [{ text: attachment + message }] };
       const request = { contents, systemInstruction: await scope.instruction(), functions: scope.tools() };
       let answer = '';
+      const proposals: EditProposal[] = [];
       let result: SendResult = { status: 'completed' };
       for (let round = 0; ; round++) {
         const onText = (text: string) => { answer += text; emit({ text }); };
@@ -192,7 +195,7 @@ export class ChatBridge {
         for (const call of step.calls) {
           const done = await scope.call(call.name, call.args);
           emit({ kind: 'tool', tool: call.name, files: done.files });
-          if (done.proposal) emit({ kind: 'proposal', proposal: done.proposal });
+          if (done.proposal) { proposals.push(done.proposal); emit({ kind: 'proposal', proposal: done.proposal }); }
           const id = call.id ? { id: call.id } : {};
           responses.push({ functionResponse: { name: call.name, response: done.response, ...id } });
         }
@@ -201,7 +204,8 @@ export class ChatBridge {
       }
       // Keep only complete exchanges (plain text) so the next turn alternates user/model.
       if (answer && !controller.signal.aborted) this.history = trim([...conversation, { role: 'model', text: answer }]);
-      return { ...result, ...(scope.files.length ? { files: scope.files } : {}) };
+      return { ...result, ...(scope.files.length ? { files: scope.files } : {}),
+        ...(proposals.length ? { proposals } : {}) };
     } catch (error: unknown) {
       if (controller.signal.aborted) return { status: 'cancelled' };
       const files = scope?.files.length ? { files: scope.files } : {};

@@ -292,6 +292,80 @@ SuperR decides what is read. The model has no file-system access of its own.
     `lfqCreate`, `source()`, the ggplot2 histogram), and said it had not read the
     data files.
 
+## Reviewed edits (phase 3, 2026-11-10)
+
+Gemini can propose changes to scripts. SuperR shows them as diffs, and only the
+user applies them, in the editor.
+
+- `propose_file_edit` is offered in current-file mode (the attached document
+  only) and project mode (`.R`, `.Rmd` and `.qmd` inside the project). Its
+  arguments are a path, a one-line summary, and exact-text edits; each
+  `old_text` must occur exactly once in the current text.
+- `superr-agent/edit-proposal.ts` checks the edits:
+  - it applies them with the existing `previewTextEdit`, which refuses
+    overlaps and split surrogate pairs;
+  - it matches a CRLF document in CRLF;
+  - it computes an LCS line diff in hunks with 3 lines of context.
+
+  The base is the unsaved editor text, else the active document, else the file
+  on disk, read through `ProjectReader` with the same path rules as reads.
+  Nothing is written. The model is told the proposal has *not* been applied.
+  At most 10 proposals per message.
+- Proposals reach the panel as events and again in the turn's reply; the
+  panel shows each id once. `ChatEditReview.java` shows a card per proposal:
+  file, +/− counts, summary, diff, and *Accept* / *Reject*. A turn with
+  several proposals also gets *Accept all*.
+- **Accepting** opens or finds the document in the editor (`openFile`,
+  `ensureTextEditorActive`) and checks it still equals the proposal's base. If
+  not, the proposal is marked stale and nothing changes. With several
+  proposals, every document is checked before any is changed (all or nothing),
+  and a failure restores those already changed. The replacement is one
+  `replaceRange` on the document, so it can be undone with Ctrl+Z. The document
+  stays unsaved; RStudio's save keeps its encoding and line-ending settings.
+- **Revert** restores the original while the document still equals the applied
+  text; otherwise it points to Ctrl+Z.
+- Nothing runs commands, installs packages or writes files.
+- **Evidence.**
+  - Unit tests:
+    - exact-match counts, overlaps, CRLF and Unicode;
+    - hunks and merging, and a line-ending-only change with no hunks;
+    - proposals from the unsaved buffer or the disk;
+    - refusals for outside paths, a junction, data files and secret-looking
+      names;
+    - file-mode limits, and the bridge publishing a proposal while the file
+      stays unwritten.
+  - `-Scenario chat-edit` runs the real desktop with the simulated model. It
+    covers: reject; accept (unsaved, undo and redo); Revert; an unsaved base; a
+    stale proposal after an editor change; a stale proposal after a disk
+    change; two files all or nothing; a path outside the project refused; and
+    current-file mode. No file on disk was written.
+  - `-Scenario chat-real-edit` was **real**, with the owner's key. Asked to
+    fix `R/03-errores.R` (an unclosed `mean(` and `binwdth`), Gemini 3.6 Flash
+    read the scripts and proposed one change (+15 −3): both fixes, plus a
+    clearer histogram with `geom_vline` at the mean, labels and
+    `theme_minimal()`. Accepted in the editor, the result passed `parse()` in R,
+    and the file on disk was unchanged.
+
+### Remaining work and limits
+
+- Desktop only. The renderer's `window.desktop` bridge exists only in SuperR
+  Desktop, and the panel needs experimental mode.
+- **Quota.** Each function round is one request. With the owner's free tier
+  (5 per minute and 20 per day for Gemini 3.6 Flash, project-specific),
+  analyses with several rounds use the daily quota quickly.
+- **Larger projects.** Only the first 300 files are listed in the index.
+  Larger projects rely on `list_project_files` or `search_project_files`, and
+  no summaries are built.
+- **Editor commands.** The editor actions live in the panel. No IDE commands or
+  context-menu items were added, which keeps upstream files untouched; adding
+  them needs `Commands.cmd.xml`.
+- **Binary R data** (`.rds`, `.RData`) is never read. A safe summary (for
+  example `str()` run by the user) is not automated.
+- **History.** It stays in memory only. Persistent history (the experimental
+  conversation store) still needs a consent and deletion UI.
+- **New and deleted files.** A proposal can only change existing scripts.
+- **Codex and Antigravity** stay closed until agent isolation is verified.
+
 ## Evidence
 
 - 2026-11-10, **real desktop IPC** (not simulated): the panel

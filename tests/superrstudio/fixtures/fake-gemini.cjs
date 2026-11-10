@@ -20,6 +20,12 @@
 // the second request gets a 429. A message carrying SuperR's attached document
 // is answered with the document name, whether it had unsaved changes and its
 // first line.
+//
+// Edits (phase 3): a message with "corregí"/"cambiá" proposes, through
+// propose_file_edit, binwidth = 1 in R/02-graficos.R; with "ambos" also a
+// change to R/01-cargar.R; with "fuera" a change to ../fuera.R (refused by
+// SuperR). In current-file mode it proposes darkorange instead of steelblue
+// in the attached document. The answer then reports what SuperR returned.
 const http = require('node:http');
 
 const port = Number(process.argv[2] || 19395);
@@ -70,6 +76,14 @@ http.createServer((req, res) => {
       if (/cuota|quota/.test(asked))
         return json(res, 429, { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'quota', details: [
           { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '20' }] }] } });
+      const proposals = lastParts.filter(part => part.functionResponse.name === 'propose_file_edit');
+      if (proposals.length) {
+        const lines = proposals.map(part => { const r = part.functionResponse.response;
+          return r.status === 'proposed' ? `- ${r.path}: propuesto (+${r.added_lines} -${r.removed_lines})` : `- rechazado por SuperR: ${r.error}`; });
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        res.end(chunk(`Propuse ${proposals.length} cambio(s) para que los revises:\n\n${lines.join('\n')}\n`, true));
+        return;
+      }
       const files = lastParts.flatMap(part => part.functionResponse.response.files ?? []);
       const lines = files.map(f => f.content !== undefined ? `- **${f.path}**: ${f.content.split(/\r?\n/)[0]}` :
         `- ${f.path}: ${f.error ? 'no legible' : 'sin contenido'}`);
@@ -78,6 +92,22 @@ http.createServer((req, res) => {
       return;
     }
     const last = lastParts[0].text.toLowerCase();
+    const declared = (request.tools?.[0]?.functionDeclarations ?? []).map(f => f.name);
+    if (declared.includes('propose_file_edit') && /corregí|corregi|cambiá|cambia/.test(last)) {
+      const call = (path, old_text, new_text, summary) => ({ functionCall: { name: 'propose_file_edit',
+        args: { path, summary, edits: [{ old_text, new_text }] } }, thoughtSignature: 'fake-signature' });
+      let calls;
+      const attached = /^\[superr attached the active editor document "([^"]+)"/i.exec(lastParts[0].text);
+      if (attached) calls = [call(attached[1], 'fill = "steelblue"', 'fill = "darkorange"', 'Color naranja para las barras')];
+      else if (/fuera/.test(last)) calls = [call('../fuera.R', 'secreto_fuera', 'x', 'fuera del proyecto')];
+      else {
+        calls = [call('R/02-graficos.R', 'binwidth = 2', 'binwidth = 1', 'Barras de 1 cm para ver más detalle')];
+        if (/ambos/.test(last)) calls.push(call('R/01-cargar.R', 'bin_size = 2', 'bin_size = 1', 'Intervalos de 1 cm en la frecuencia de tallas'));
+      }
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end(`data: ${JSON.stringify({ candidates: [{ content: { role: 'model', parts: calls }, finishReason: 'STOP' }] })}\r\n\r\n`);
+      return;
+    }
     if (request.tools && /analiz/.test(last)) {
       const index = request.systemInstruction?.parts[0]?.text ?? '';
       const scripts = [...index.matchAll(/^(\S+\.R) \(/gm)].map(m => m[1]).slice(0, 4);

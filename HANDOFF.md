@@ -17,10 +17,15 @@ Studio API key instead. No Gemini conversation was attempted. Details and the
 API-key alternative, which awaits the owner's decision, are in
 [chat-ia.md](docs/superrstudio/features/chat-ia.md).
 
+**Phases 1-3 done (see chat-ia.md).** Phase 3: Gemini proposes exact-text edits,
+SuperR shows diffs, and the user accepts them (editor, undoable, all or nothing,
+stale checks) or rejects them. A real fix of `R/03-errores.R` was accepted and
+parses. Desktop scenarios: `chat`, `chat-ui`, `chat-project`, `chat-edit`
+(simulated model), and `chat-real`, `chat-real-project`, `chat-real-edit` (the
+owner's key, profile `gui-chat-real`; they use a few requests each). Remaining
+work is listed at the end of the phase 3 section.
 **Phase 2 done (read-only project context: general / current file / project;
-real project analysis verified; see chat-ia.md).** Phase 3 (reviewed edits:
-`propose_file_edit`, `edit-proposal.ts`, `ChatEditReview.java`) is implemented
-and has unit tests; its desktop test and a real test come next.
+real project analysis verified; see chat-ia.md).**
 **Phase 1 done (panel redesign, real states, Markdown, code actions, quota
 details; see chat-ia.md).** The owner's three-phase plan continues with
 phase 2: project context through read-only tools; then phase 3: reviewed

@@ -241,6 +241,7 @@ test('bridge: a proposal is published to the panel and the model is told it is n
     const result = await bridge.send('gemini-api', 'Mejorá el histograma', 'gemini-3.6-flash', 'e1', { mode: 'project', projectRoot: root });
     assert.equal(result.status, 'completed');
     const proposal = events.find(e => e.kind === 'proposal').proposal;
+    assert.deepEqual(result.proposals.map(p => p.id), [proposal.id], 'the reply does not repeat the proposals of the turn');
     assert.equal(proposal.path, 'R/02-graficos.R');
     assert.match(proposal.idePath, /pesquerias\/R\/02-graficos\.R$/);
     assert.match(proposal.proposed, /geom_histogram\(bins = 30\)/);

@@ -35,6 +35,15 @@ write('R/02-graficos.R', [
   'print(p)',
   '',
 ].join('\n'));
+// known errors for the edit tests: an unclosed call and a misspelt ggplot2 argument
+write('R/03-errores.R', [
+  '# 03-errores.R: talla media y gráfico (con errores conocidos)',
+  'library(ggplot2)',
+  'media <- mean(tallas$talla_cm, na.rm = TRUE',
+  'g <- ggplot(tallas, aes(x = talla_cm)) + geom_histogram(binwdth = 2)',
+  'print(g)',
+  '',
+].join('\n'));
 write('análisis_ñandú.R', '# análisis_ñandú.R: resumen con acentos\nresumen <- summary(tallas$talla_cm)\nprint(resumen)\n');
 write('datos/tallas.csv', 'fecha,talla,peso\n' +
   Array.from({ length: 8000 }, (_, i) => `2024-0${1 + (i % 9)}-15,${100 + (i % 400)},${(i % 50) / 10}`).join('\n') + '\n');

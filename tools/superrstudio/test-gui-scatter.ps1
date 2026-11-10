@@ -49,6 +49,13 @@
                  one real project analysis with the owner's key (profile
                  gui-chat-real; uses a few requests of the free quota; not in
                  the default set)
+     chat-edit   Chat IA reviewed edits against the SIMULATED Gemini API on the
+                 fixture project: reject, accept (editor, undo), Revert, unsaved
+                 base, stale proposal, disk change, two files all-or-nothing,
+                 outside path, current-file mode (tests\superrstudio\desktop-chat-edit.cjs)
+     chat-real-edit
+                 one real edit proposal with the owner's key: fix R/03-errores.R,
+                 accept it and parse the result in R (profile gui-chat-real)
      chat-real   a real Gemini API conversation; the owner first saves their own
                  AI Studio key in profile gui-chat-real through the panel
                  (not in the default set)
@@ -70,7 +77,7 @@ $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 foreach ($name in $Scenario)
 {
    if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es', 'visual-migrate', 'visual-restart', 'visual-off',
-                    'theme-first', 'theme-restart', 'theme-off', 'deps', 'sheet', 'chat', 'chat-ui', 'chat-real', 'chat-project', 'chat-real-project')
+                    'theme-first', 'theme-restart', 'theme-off', 'deps', 'sheet', 'chat', 'chat-ui', 'chat-real', 'chat-project', 'chat-real-project', 'chat-edit', 'chat-real-edit')
    { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
@@ -82,17 +89,17 @@ $results = [ordered]@{}
 foreach ($name in $Scenario)
 {
    $profileName = if ($name -like 'visual-*') { 'gui-visual' } elseif ($name -like 'theme-*') { 'gui-theme' }
-                  elseif ($name -eq 'chat-real-project') { 'gui-chat-real' } else { "gui-$name" }
+                  elseif ($name -in 'chat-real-project', 'chat-real-edit') { 'gui-chat-real' } else { "gui-$name" }
    # the theme sequence starts from a fresh profile (preferences and the
    # desktop's local storage, where the remembered themes live)
    if ($name -eq 'theme-first') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
    # Chat IA: a fresh profile has no saved key; gui-chat-real keeps the owner's
    # encrypted key between runs
-   if ($name -in 'chat', 'chat-ui', 'chat-project') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
+   if ($name -in 'chat', 'chat-ui', 'chat-project', 'chat-edit') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
    $fakeGemini = $null
    $env:SUPER_RSTUDIO_GEMINI_TEST_BASE = $null
    $env:RS_INITIAL_PROJECT = $null
-   if ($name -in 'chat-project', 'chat-real-project')
+   if ($name -in 'chat-project', 'chat-real-project', 'chat-edit', 'chat-real-edit')
    {
       # the desktop starts in the test project (RS_INITIAL_PROJECT, as when a .Rproj is opened)
       $work = Join-Path $SrsProfilesDir "$profileName\work"
@@ -101,7 +108,7 @@ foreach ($name in $Scenario)
       $env:SUPER_RSTUDIO_TEST_RPROJ = $rproj
       $env:RS_INITIAL_PROJECT = $rproj
    }
-   if ($name -in 'chat-ui', 'chat-project')
+   if ($name -in 'chat-ui', 'chat-project', 'chat-edit')
    {
       $fakeGemini = Start-Process -FilePath $Node -ArgumentList "`"$(Join-Path $SrsRoot 'tests\superrstudio\fixtures\fake-gemini.cjs')`" 19395" `
          -PassThru -WindowStyle Hidden
@@ -165,7 +172,7 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      $test = switch -Wildcard ($name) { 'chat-ui' { 'desktop-chat-ui.cjs'; break } 'chat*project' { 'desktop-chat-project.cjs'; break } 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'sheet' { 'desktop-sheet.cjs' } 'chat*' { 'desktop-chat.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
+      $test = switch -Wildcard ($name) { 'chat-ui' { 'desktop-chat-ui.cjs'; break } 'chat*project' { 'desktop-chat-project.cjs'; break } 'chat*edit' { 'desktop-chat-edit.cjs'; break } 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'sheet' { 'desktop-sheet.cjs' } 'chat*' { 'desktop-chat.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
                                          default { 'desktop-scatter.cjs' } }
       $argument = if ($name -like 'visual-*') { $name.Substring(7) } elseif ($name -like 'theme-*') { $name.Substring(6) } else { $name }
       & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $argument | Out-Host

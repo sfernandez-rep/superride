@@ -660,7 +660,9 @@ public class ChatAiPane extends DockLayoutPanel
    private void onProposal(String turn, ChatEditReview.Proposal proposal)
    {
       if (!turn.equals(turn_) || modelItem_ == null) return;
-      modelItem_.add(review_.card(proposal));
+      FlowPanel card = review_.card(proposal);
+      if (card == null) return;
+      modelItem_.add(card);
       scroll_.scrollToBottom();
    }
 
@@ -1151,6 +1153,10 @@ public class ChatAiPane extends DockLayoutPanel
       if (!bridge || !bridge.superrChatSend) { self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendFailed(Ljava/lang/String;)(provider); return; }
       bridge.superrChatSend(provider, message, model, turn, context).then(function(r) {
          if (r && typeof r.status === 'string') {
+            // proposals also come in the reply, in case their events arrive after it
+            (r.proposals || []).forEach(function(p) {
+               self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onProposal(Ljava/lang/String;Lorg/rstudio/studio/client/workbench/views/superrstudio/ChatEditReview$Proposal;)(turn, p);
+            });
             var q = r.quota || {};
             self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendResult(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)(
                turn, r.status, r.kind || '', r.finishReason || '', q.scope || '', q.limit || '', q.retryAfterSeconds || 0, r.detail || '');
