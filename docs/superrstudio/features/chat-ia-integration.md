@@ -9,8 +9,9 @@ text is in
 ## Branch state
 
 - Branch `feature/chat-ia`, based on `develop` at `0498d1776c` (= `main`).
-  The validated code is `7f7c2ee33f`; the commit after it adds only this
-  documentation. The state is recorded in [HANDOFF.md](../../../HANDOFF.md)
+  The validated code is `272494bfbb`; the commit after it adds only
+  documentation. GitHub `SuperR checks` passes on Windows and Ubuntu for
+  `272494bfbb`. The state is recorded in [HANDOFF.md](../../../HANDOFF.md)
   ("Chat IA: ready to integrate").
 - No change to `main`, `develop`, `feature/auto-updater` or any release.
 - No Commands.cmd.xml, user-preference schema, C++ or R change. Everything is

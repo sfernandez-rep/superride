@@ -357,7 +357,7 @@ user applies them, in the editor.
 
 ### Consolidation before integration (2026-11-10)
 
-Three findings from the final validation:
+Findings from the final validation:
 
 - **Final text in the reply.** Electron does not order a `webContents.send`
   event against the reply of an `ipcMain.handle`. The last streamed fragments
@@ -372,6 +372,12 @@ Three findings from the final validation:
 - **New checks.** The `disabled` desktop scenario now checks that Chat IA's
   button is absent and its IPC refused. `chat-edit` now saves an accepted
   change and checks that the file on disk equals the accepted text.
+- **Canonical document paths.** The CI Windows runner reaches its temporary
+  folder through an 8.3 short name, so open documents did not match the
+  canonical project root. Their unsaved text was ignored, and proposals fell
+  back to the disk. This went unnoticed because this host has no short names.
+  Document paths are now compared through `realpath`. A test that reaches the
+  project through a junction reproduces the problem.
 - **Line endings on save.** The save check found that a file written with LF is
   saved with CRLF on Windows. This is RStudio's own save: its "Line ending
   format" preference (`line_ending_conversion`, default `native`) applies to

@@ -3,7 +3,8 @@
 ## Chat IA: ready to integrate (2026-11-10)
 
 `feature/chat-ia` is complete for the next preview, validated and pushed.
-- **Validated code:** `7f7c2ee33f`.
+- **Validated code:** `272494bfbb`; the GitHub `SuperR checks` run passes
+  on Windows and Ubuntu.
 - **Branch tip:** this documentation commit, the one that follows it.
 - **Clean:** no other branch, merge or release was touched.
 
@@ -31,8 +32,8 @@ API with the owner's own Google AI Studio key, stored encrypted. It offers:
 
 ### Final validation (2026-11-10)
 
-- **Component tests:** 47 pass. Strict and desktop TypeScript and ESLint report
-  no errors.
+- **Component tests:** 47 pass, locally and on CI (Windows and Ubuntu).
+  Strict and desktop TypeScript and ESLint report no errors.
 - **Upstream desktop unit tests:** 496 pass. The one failure, `findComponents`,
   is environmental and also fails on `main`.
 - **Desktop scenarios with the simulated Gemini (no quota):** `chat`,
@@ -71,8 +72,13 @@ chat-ia.md.
 - Claude Code finished Codex's interrupted IPC bridge.
 - The owner chose the Gemini API with their own key.
 - Phases 1 to 3 followed: panel, project context, reviewed edits.
-- A consolidation pass then fixed two IPC races (the final text and the
-  proposals now also travel in the reply) and the `GwtCallback` construction.
+- A consolidation pass then fixed:
+  - two IPC races: the final text and the proposals now also travel in the
+    reply;
+  - the `GwtCallback` construction;
+  - document paths compared in canonical form. This was the failure of the CI
+    Windows runner, which uses 8.3 short names; it had failed since the phase
+    2 commit.
 
 ### Earlier, 2026-11-09
 
