@@ -185,6 +185,52 @@ Evidence (2026-11-10):
   then run `test-gui-scatter.ps1 -Scenario chat-real` (profile
   `gui-chat-real`).
 
+## Panel redesign (phase 1, 2026-11-10)
+
+The owner's first real conversation through the panel worked (Gemini 3.6
+Flash). Phase 1 rebuilt the panel's interface on the same bridge.
+
+- **Layout.** A compact two-row header: title, state, *New conversation*,
+  *Manage connection* and close on the first row; provider and model on the
+  second. The key setup is a collapsible section, shown when no key is saved
+  or on demand ("Change key"). Below the header is a notice line, then the
+  conversation, then a composer that grows with its text. Reflow happens on
+  resize, and wide and narrow sidebars are tested.
+- **Real states.** The panel shows: not configured, checking, connected,
+  generating, error, quota exhausted, offline, or unavailable (agents). A saved
+  key shows "Gemini connected" only after Google accepts it again
+  (`models.list`, which costs no generation quota). Network failures and
+  overload show as offline, and an invalid saved key as an error. Codex and
+  Antigravity show their own states.
+- **Markdown.** `ChatMarkdown.java` builds DOM nodes from text nodes only, never
+  innerHTML, so HTML in an answer stays text. It supports headings, bold,
+  italic, inline and fenced code, nested and ordered lists, tables, quotes and
+  rules. Links open externally and only for http, https or mailto. Code blocks
+  show the language, R highlighting, and *Copy* and *Insert in editor*. Insert
+  goes through the active editor's `insertCode`, so Ctrl+Z undoes it. During
+  streaming only the current answer is re-rendered, at most every 60 ms.
+- **Composer.** Enter sends and Shift+Enter adds a new line (IME composition is
+  respected). Send is disabled when empty, busy or not connected. *Stop*
+  replaces *Send* only while an answer is generated. The draft survives closing
+  and reopening the panel.
+- **Models and quota.** The free-tier list is kept, filtered by the key's
+  `models.list`. The choice is remembered (desktop local storage) and a
+  vanished model is reported, never silently replaced. A 429 shows only what
+  Google returned (`QuotaFailure` scope and `quotaValue`, `RetryInfo` delay).
+  *View my project's limits* opens Google AI Studio's own rate-limit page. No
+  counters are estimated.
+- **New conversation** cancels a running answer (it ends as cancelled and is not
+  kept in history), clears the view and history, and keeps the key, provider
+  and state.
+- **Tests.** `test-gui-scatter.ps1 -Scenario chat-ui` drives the real desktop
+  against `tests/superrstudio/fixtures/fake-gemini.cjs`, a **simulated** Gemini
+  API that uses no quota. The desktop accepts `SUPER_RSTUDIO_GEMINI_TEST_BASE`
+  only as `http://127.0.0.1:<port>/v1beta`. The test covers states, Markdown,
+  copy, insert and undo, Stop, New conversation, a 429, a retired model, the
+  draft, and light, dark, wide and narrow screenshots. `-Scenario chat-real`
+  (one real request with the owner's key) passed: the answer rendered with 5
+  code blocks and no literal Markdown markers.
+
 ## Evidence
 
 - 2026-11-10, **real desktop IPC** (not simulated): the panel

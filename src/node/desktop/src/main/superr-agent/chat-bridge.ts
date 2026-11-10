@@ -3,8 +3,9 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { ChatGptAccounts } from './chatgpt-accounts';
-import { AI_STUDIO_KEY_PAGE, GEMINI_FREE_MODELS, GeminiApi, GeminiApiError, GeminiErrorKind, GeminiMessage,
-  GeminiModel } from './gemini-api';
+import { AI_STUDIO_KEY_PAGE, AI_STUDIO_LIMITS_PAGE, GEMINI_FREE_MODELS, GeminiApi, GeminiApiError, GeminiErrorKind,
+  GeminiMessage,
+  GeminiModel, QuotaInfo } from './gemini-api';
 
 export type ChatProvider = 'gemini-api' | 'gemini' | 'codex';
 export interface ChatStatus {
@@ -18,7 +19,7 @@ export interface ChatStatus {
 export type ChatErrorKind = GeminiErrorKind | 'busy' | 'no_key' | 'storage';
 export interface KeyResult { ok: boolean; kind?: ChatErrorKind; models?: GeminiModel[] }
 export interface SendResult { status: 'completed' | 'cancelled' | 'incomplete' | 'error'; kind?: ChatErrorKind;
-  finishReason?: string }
+  finishReason?: string; quota?: QuotaInfo }
 export interface ChatEvent { provider: 'gemini-api'; turn: string; text: string }
 export interface SecretStore {
   loadSecret(id: string): Promise<string | null>;
@@ -88,10 +89,10 @@ export class ChatBridge {
     } finally { this.signingIn = false; }
   }
 
-  /** Opens Google AI Studio's own key page; the URL is fixed here, never supplied by the renderer. */
-  async openKeyPage(provider: unknown): Promise<void> {
+  /** Opens a Google AI Studio page; the URLs are fixed here, never supplied by the renderer. */
+  async openKeyPage(provider: unknown, page?: unknown): Promise<void> {
     this.geminiApi(provider);
-    await this.openExternal(AI_STUDIO_KEY_PAGE);
+    await this.openExternal(page === 'limits' ? AI_STUDIO_LIMITS_PAGE : AI_STUDIO_KEY_PAGE);
   }
 
   /** Checks the key with Google, then stores it encrypted. The key is never returned. */
@@ -123,9 +124,10 @@ export class ChatBridge {
     catch (error: unknown) { return { ok: false, kind: kindOf(error) }; }
   }
 
+  /** Stops a running answer (it ends as cancelled) and forgets the conversation; the key stays. */
   async newChat(provider: unknown): Promise<void> {
     this.geminiApi(provider);
-    if (this.active) throw new Error('A response is in progress');
+    this.active?.abort();
     this.history = [];
   }
 
@@ -148,10 +150,12 @@ export class ChatBridge {
         if (!controller.signal.aborted) this.options.onEvent?.({ provider: 'gemini-api', turn, text });
       }, controller.signal);
       // Keep only complete exchanges so the next turn alternates user/model.
-      if (result.status !== 'cancelled' && answer) this.history = trim([...conversation, { role: 'model', text: answer }]);
+      if (result.status !== 'cancelled' && answer && !controller.signal.aborted)
+        this.history = trim([...conversation, { role: 'model', text: answer }]);
       return result;
     } catch (error: unknown) {
-      return { status: 'error', kind: error instanceof GeminiApiError ? error.kind : 'storage' };
+      if (!(error instanceof GeminiApiError)) return { status: 'error', kind: 'storage' };
+      return { status: 'error', kind: error.kind, ...(error.quota ? { quota: error.quota } : {}) };
     } finally { if (this.active === controller) this.active = undefined; }
   }
 

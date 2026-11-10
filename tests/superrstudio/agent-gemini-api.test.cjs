@@ -185,3 +185,48 @@ test('bridge: a second message while streaming is refused and Stop cancels the t
   await bridge.cancel('gemini-api');
   assert.deepEqual(await first, { status: 'cancelled' });
 });
+
+test('a 429 carries only what Google reported: scope, limit and retry delay', async () => {
+  const body = { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota.', details: [
+    { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{
+      quotaMetric: 'generativelanguage.googleapis.com/generate_content_free_tier_requests',
+      quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '20' }] },
+    { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '41.5s' } ] } };
+  const error = classifyError(429, body);
+  assert.equal(error.kind, 'quota');
+  assert.deepEqual(error.quota, { scope: 'day', limit: '20', retryAfterSeconds: 42 });
+  assert.deepEqual(classifyError(429, { error: { code: 429 } }).quota, {});
+  const perMinute = classifyError(429, { error: { details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure',
+    violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: 'lots' }] }] } });
+  assert.deepEqual(perMinute.quota, { scope: 'minute' });
+  const secrets = { loadSecret: async () => KEY, saveSecret: async () => {}, remove: async () => {} };
+  const bridge = new ChatBridge(async () => ({}), async () => {}, { secrets: async () => secrets,
+    gemini: new GeminiApi(async () => json(429, body)) });
+  assert.deepEqual(await bridge.send('gemini-api', 'Hola', 'gemini-3.6-flash', 'q'),
+    { status: 'error', kind: 'quota', quota: { scope: 'day', limit: '20', retryAfterSeconds: 42 } });
+});
+
+test('New conversation cancels a running answer and the old exchange is not kept', async () => {
+  let release, bodies = [];
+  const gemini = new GeminiApi(async (url, init) => { bodies.push(JSON.parse(init.body)); return new Response(new ReadableStream({ start(c) {
+    c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(answer[0])}\n\n`));
+    release = () => c.close();
+    init.signal.addEventListener('abort', () => c.error(new DOMException('aborted', 'AbortError')));
+  } })); });
+  const secrets = { loadSecret: async () => KEY, saveSecret: async () => {}, remove: async () => {} };
+  const opened = [];
+  const bridge = new ChatBridge(async () => ({}), async url => { opened.push(url); }, { secrets: async () => secrets, gemini });
+  const first = bridge.send('gemini-api', 'Primera', 'gemini-3.6-flash', 'a');
+  while (!release) await new Promise(r => setImmediate(r));
+  await bridge.newChat('gemini-api');
+  assert.deepEqual(await first, { status: 'cancelled' });
+  release = undefined;
+  const second = bridge.send('gemini-api', 'Segunda', 'gemini-3.6-flash', 'b');
+  while (!release) await new Promise(r => setImmediate(r));
+  release();
+  await second;
+  assert.deepEqual(bodies[1].contents.map(c => c.parts[0].text), ['Segunda']);
+  await bridge.openKeyPage('gemini-api', 'limits');
+  await bridge.openKeyPage('gemini-api', 'https://evil.example');
+  assert.deepEqual(opened, ['https://aistudio.google.com/rate-limit', 'https://aistudio.google.com/apikey']);
+});

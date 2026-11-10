@@ -35,6 +35,10 @@
                  Gemini API key setup, a made-up key rejected by Google (real
                  request), no key in the profile or logs, Antigravity sign-in not
                  offered, Codex refused (tests\superrstudio\desktop-chat.cjs)
+     chat-ui     the Chat IA interface against the SIMULATED Gemini API
+                 (tests\superrstudio\fixtures\fake-gemini.cjs, no Google quota):
+                 states, Markdown, code actions, Stop, New conversation, 429,
+                 draft, themes and widths (tests\superrstudio\desktop-chat-ui.cjs)
      chat-real   a real Gemini API conversation; the owner first saves their own
                  AI Studio key in profile gui-chat-real through the panel
                  (not in the default set)
@@ -56,7 +60,7 @@ $Scenario = @($Scenario | ForEach-Object { $_ -split ',' } | Where-Object { $_ }
 foreach ($name in $Scenario)
 {
    if ($name -notin 'ggplot2', 'no-ggplot2', 'disabled', 'lfq', 'es', 'visual-migrate', 'visual-restart', 'visual-off',
-                    'theme-first', 'theme-restart', 'theme-off', 'deps', 'sheet', 'chat', 'chat-real')
+                    'theme-first', 'theme-restart', 'theme-off', 'deps', 'sheet', 'chat', 'chat-ui', 'chat-real')
    { throw "Unknown scenario: $name" }
 }
 $env:NODE_PATH = Join-Path $SrsCache 'ui-client\node_modules'
@@ -73,7 +77,15 @@ foreach ($name in $Scenario)
    if ($name -eq 'theme-first') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
    # Chat IA: a fresh profile has no saved key; gui-chat-real keeps the owner's
    # encrypted key between runs
-   if ($name -eq 'chat') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
+   if ($name -in 'chat', 'chat-ui') { Remove-Item -Recurse -Force (Join-Path $SrsProfilesDir $profileName) -ErrorAction SilentlyContinue }
+   $fakeGemini = $null
+   $env:SUPER_RSTUDIO_GEMINI_TEST_BASE = $null
+   if ($name -eq 'chat-ui')
+   {
+      $fakeGemini = Start-Process -FilePath $Node -ArgumentList "`"$(Join-Path $SrsRoot 'tests\superrstudio\fixtures\fake-gemini.cjs')`" 19395" `
+         -PassThru -WindowStyle Hidden
+      $env:SUPER_RSTUDIO_GEMINI_TEST_BASE = 'http://127.0.0.1:19395/v1beta'
+   }
    $env:SUPER_RSTUDIO_TEST_PROFILE = Join-Path $SrsProfilesDir $profileName
    $run = @{ ProfileName = $profileName; DebugPort = $Port; Automation = $true }
    if ($name -notin 'disabled', 'visual-off', 'theme-off') { $run.Experimental = $true }
@@ -120,7 +132,8 @@ foreach ($name in $Scenario)
    }
 
    Write-SrsStep "Scenario $name"
-   & (Join-Path $PSScriptRoot 'dev-run.ps1') @run
+   try { & (Join-Path $PSScriptRoot 'dev-run.ps1') @run }
+   finally { $env:SUPER_RSTUDIO_GEMINI_TEST_BASE = $null }
    $desktopPid = (Get-Content (Join-Path $SrsProfilesDir "$profileName\pid.json") -Raw | ConvertFrom-Json).pid
    try
    {
@@ -131,7 +144,7 @@ foreach ($name in $Scenario)
          catch { Start-Sleep -Seconds 2 }
       }
       if (-not $up) { throw "Desktop did not open debugging port $Port" }
-      $test = switch -Wildcard ($name) { 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'sheet' { 'desktop-sheet.cjs' } 'chat*' { 'desktop-chat.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
+      $test = switch -Wildcard ($name) { 'chat-ui' { 'desktop-chat-ui.cjs'; break } 'lfq' { 'desktop-lfq.cjs' } 'deps' { 'desktop-deps.cjs' } 'sheet' { 'desktop-sheet.cjs' } 'chat*' { 'desktop-chat.cjs' } 'es' { 'desktop-es.cjs' } 'visual-*' { 'desktop-visual.cjs' } 'theme-*' { 'desktop-theme.cjs' }
                                          default { 'desktop-scatter.cjs' } }
       $argument = if ($name -like 'visual-*') { $name.Substring(7) } elseif ($name -like 'theme-*') { $name.Substring(6) } else { $name }
       & $Node (Join-Path $SrsRoot "tests\superrstudio\$test") $argument | Out-Host
@@ -143,6 +156,7 @@ foreach ($name in $Scenario)
       & $Node (Join-Path $PSScriptRoot 'dev-quit.cjs') $Port | Out-Host
       Wait-Process -Id $desktopPid -Timeout 60 -ErrorAction SilentlyContinue
       if (Get-Process -Id $desktopPid -ErrorAction SilentlyContinue) { $results[$name] += ' (desktop did not quit)' }
+      if ($fakeGemini) { Stop-Process -Id $fakeGemini.Id -ErrorAction SilentlyContinue }
       if ($name -eq 'chat')
       {
          # after quit, with every log and storage file flushed: the made-up key

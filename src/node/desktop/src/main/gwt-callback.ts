@@ -147,6 +147,12 @@ export class GwtCallback extends EventEmitter {
     this.owners.add(mainWindow);
 
     // SuperR Chat IA: only the main workbench may invoke these narrow actions.
+    // Automated GUI tests may point the Gemini client at a local fake server,
+    // and only at the loopback address.
+    const geminiTestBase = () => {
+      const base = process.env.SUPER_RSTUDIO_GEMINI_TEST_BASE ?? '';
+      return /^http:\/\/127\.0\.0\.1:\d{2,5}\/v1beta$/.test(base) ? base : undefined;
+    };
     let accounts: Promise<ChatGptAccounts> | undefined;
     const getAccounts = () => accounts ??= ChatGptAccounts.open(path.join(app.getPath('userData'), 'superr-chat'), electronCredentialCodec());
     // The Gemini API key is stored encrypted (Electron safeStorage) and stays in this process.
@@ -156,7 +162,7 @@ export class GwtCallback extends EventEmitter {
     const chat = new ChatBridge(getAccounts, url => shell.openExternal(url), {
       secrets: getVault,
       // net.fetch follows the system proxy configuration
-      gemini: new GeminiApi((input, init) => net.fetch(input as string, init)),
+      gemini: new GeminiApi((input, init) => net.fetch(input as string, init), geminiTestBase()),
       onEvent: event => { if (!mainWindow.window.isDestroyed()) mainWindow.window.webContents.send('superr_chat_event', event); },
     });
     const authorize = (event: Electron.IpcMainInvokeEvent) => {
@@ -169,7 +175,9 @@ export class GwtCallback extends EventEmitter {
       authorize(event); return chat.send(provider, message, model, turn);
     });
     ipcMain.handle('superr_chat_cancel', (event, provider: unknown) => { authorize(event); return chat.cancel(provider); });
-    ipcMain.handle('superr_chat_open_key_page', (event, provider: unknown) => { authorize(event); return chat.openKeyPage(provider); });
+    ipcMain.handle('superr_chat_open_key_page', (event, provider: unknown, page: unknown) => {
+      authorize(event); return chat.openKeyPage(provider, page);
+    });
     ipcMain.handle('superr_chat_set_key', (event, provider: unknown, key: unknown) => { authorize(event); return chat.setKey(provider, key); });
     ipcMain.handle('superr_chat_forget_key', (event, provider: unknown) => { authorize(event); return chat.forgetKey(provider); });
     ipcMain.handle('superr_chat_models', (event, provider: unknown) => { authorize(event); return chat.models(provider); });

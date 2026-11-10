@@ -27,17 +27,22 @@ const statusText = page => page.locator('#superr_chat_ai_status').innerText();
 const waitStatus = (page, pattern, timeout = 30000) => page.waitForFunction(
    source => new RegExp(source, 'i').test(document.querySelector('#superr_chat_ai_status')?.textContent || ''),
    pattern.source, {timeout});
+const waitState = (page, pattern, timeout = 30000) => page.waitForFunction(
+   source => new RegExp(source, 'i').test(document.querySelector('#superr_chat_ai_state')?.textContent || ''),
+   pattern.source, {timeout});
 
 async function basic(page)
 {
-   await waitStatus(page, /no está conectado|not connected/);
+   await waitState(page, /Sin configurar|Not configured/);
    assert.ok(await page.locator('#superr_chat_ai_gemini_setup').isVisible(), 'key setup not shown');
    assert.match(await page.locator('#superr_chat_ai_privacy').innerText(), /mejorar sus productos|improve its products/);
    assert.equal(await page.locator('#superr_chat_ai_key').getAttribute('type'), 'password');
 
    await page.locator('#superr_chat_ai_prompt').fill(QUESTION);
-   await page.locator('#superr_chat_ai_send').click();
-   await waitStatus(page, /Primero conecta|Connect Gemini with your API key first/);
+   assert.equal(await page.locator('#superr_chat_ai_send').isDisabled(), true, 'Send enabled without a key');
+   const noKey = await page.evaluate(() => window.desktop.superrChatSend('gemini-api', 'x', 'gemini-3.6-flash', 't0'));
+   assert.deepEqual(noKey, { status: 'error', kind: 'no_key' });
+   await page.locator('#superr_chat_ai_prompt').fill('');
 
    // real request to Google with a made-up key
    await page.locator('#superr_chat_ai_key').fill(FAKE_KEY);
@@ -61,35 +66,45 @@ async function basic(page)
 
    await page.locator('#superr_chat_ai_provider').selectOption('gemini');
    await waitStatus(page, /not verified|sin verificar/);
-   await page.locator('#superr_chat_ai_sign_in').click();
-   await waitStatus(page, /terms|términos/);
+   await page.locator('#superr_chat_ai_manage').click();
+   assert.match(await page.locator('#superr_chat_ai_agent_setup').innerText(), /terms|términos/);
+   const google = await page.evaluate(async () => {
+      try { await window.desktop.superrChatSignIn('gemini'); return 'accepted'; } catch (e) { return String(e); }
+   });
+   assert.match(google, /not offered/);
 
    await page.locator('#superr_chat_ai_provider').selectOption('codex');
-   await waitStatus(page, /Signed out|Sin iniciar sesión|Account connected|Cuenta conectada/);
+   await waitStatus(page, /Signed out|Sin iniciar sesión|signed out|sin iniciar sesión|Account connected|account connected|Cuenta conectada|cuenta conectada/);
    await page.locator('#superr_chat_ai_prompt').fill('Hello');
-   await page.locator('#superr_chat_ai_send').click();
-   await waitStatus(page, /not verified|sin verificar/);
-   await page.locator('#superr_chat_ai_cancel').click();
-   await waitStatus(page, /No response|No hay ninguna/);
+   assert.equal(await page.locator('#superr_chat_ai_send').isDisabled(), true, 'Send enabled for Codex');
+   const refused = await page.evaluate(async () => {
+      try { await window.desktop.superrChatSend('codex', 'Hello', '', ''); return 'accepted'; } catch (e) { return String(e); }
+   });
+   assert.match(refused, /isolation/);
+   const noTurn = await page.evaluate(async () => {
+      try { await window.desktop.superrChatCancel('codex'); return 'accepted'; } catch (e) { return String(e); }
+   });
+   assert.match(noTurn, /No active/);
+   await page.locator('#superr_chat_ai_prompt').fill('');
    console.log('PASS real desktop IPC: Gemini API setup, missing key, real invalid-key error, ' +
       'free-model guard, Antigravity sign-in not offered, Codex refused, no active turn');
 }
 
 async function real(page)
 {
-   await waitStatus(page, /Gemini conectado|Gemini connected/, 60000);
+   await waitState(page, /Gemini conectado|Gemini connected/, 60000);
    await page.waitForFunction(() => document.querySelector('#superr_chat_ai_model')?.options.length > 0, null, {timeout: 60000});
    console.log('model:', await page.locator('#superr_chat_ai_model').inputValue());
    await page.locator('#superr_chat_ai_prompt').fill(QUESTION);
    const started = Date.now();
-   await page.locator('#superr_chat_ai_send').click();
+   await page.locator('#superr_chat_ai_prompt').press('Enter');
    const answer = page.locator('[id^="superr_chat_ai_answer_"]').last();
    await page.waitForFunction(() => {
       const nodes = document.querySelectorAll('[id^="superr_chat_ai_answer_"]');
-      return nodes.length && nodes[nodes.length - 1].textContent.length > 0;
+      return nodes.length && nodes[nodes.length - 1].textContent.replace('…', '').trim().length > 0;
    }, null, {timeout: 120000});
    const firstText = Date.now() - started;
-   await waitStatus(page, /Respuesta recibida|Response received|agotada|used up|no es válida|not valid|no se pudo|could not|bloque|blocked|saturado|overloaded/, 180000);
+   await waitState(page, /Gemini conectado|Gemini connected|Cuota|Quota|Error|Sin conexión|Offline/, 180000);
    const status = await statusText(page);
    const text = await answer.innerText();
    await page.screenshot({path: path.join(evidence, 'chat-gemini-api-real.png')});
@@ -97,6 +112,10 @@ async function real(page)
    console.log(`first text after ${firstText} ms; answer (${text.length} characters):\n${text}`);
    assert.match(status, /Respuesta recibida|Response received/);
    assert.match(text, /mean/);
+   const rendered = await answer.evaluate(n => ({ raw: /\*\*|###|```/.test(n.textContent),
+      code: n.querySelectorAll('.superr-md-code').length, strong: n.querySelectorAll('strong').length }));
+   console.log('rendered:', JSON.stringify(rendered));
+   assert.equal(rendered.raw, false, 'Markdown markers shown literally');
    console.log('PASS real Gemini API conversation');
 }
 
