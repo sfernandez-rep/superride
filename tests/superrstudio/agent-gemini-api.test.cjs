@@ -154,7 +154,8 @@ test('bridge: key check before storing, streamed turns with history, cancel, and
     assert.equal(JSON.stringify(status).includes(KEY), false);
     await assert.rejects(bridge.send('gemini-api', 'Hola', 'gemini-4-argon', 't1'), /Invalid model/);
     await assert.rejects(bridge.send('gemini-api', 'Hola', 'gemini-3.6-flash', 'bad turn'), /Invalid turn/);
-    assert.deepEqual(await bridge.send('gemini-api', 'Hola', 'gemini-3.6-flash', 't1'), { status: 'completed', finishReason: 'STOP' });
+    assert.deepEqual(await bridge.send('gemini-api', 'Hola', 'gemini-3.6-flash', 't1'),
+      { status: 'completed', finishReason: 'STOP', text: 'mean() calcula la media aritm\u00e9tica.' });
     assert.equal(events.map(e => e.text).join(''), 'mean() calcula la media aritmética.');
     assert.ok(events.every(e => e.turn === 't1' && e.provider === 'gemini-api'));
     await bridge.send('gemini-api', 'Gracias', 'gemini-3.6-flash', 't2');

@@ -614,11 +614,14 @@ public class ChatAiPane extends DockLayoutPanel
    }
 
    private void onSendResult(String turn, String status, String kind, String finishReason,
-                             String quotaScope, String quotaLimit, int retryAfter, String detail)
+                             String quotaScope, String quotaLimit, int retryAfter, String detail, String text)
    {
       if (!turn.equals(turn_)) return;
       busy_ = false;
       renderTimer_.cancel();
+      // the reply carries the whole answer: streamed fragments may still be on their way
+      if (answerText_ != null && text != null && text.length() > answerText_.length())
+         answerText_ = new StringBuilder(text);
       renderAnswer();
       boolean empty = answerText_ == null || answerText_.length() == 0;
       if ("completed".equals(status))
@@ -1158,8 +1161,9 @@ public class ChatAiPane extends DockLayoutPanel
                self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onProposal(Ljava/lang/String;Lorg/rstudio/studio/client/workbench/views/superrstudio/ChatEditReview$Proposal;)(turn, p);
             });
             var q = r.quota || {};
-            self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendResult(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)(
-               turn, r.status, r.kind || '', r.finishReason || '', q.scope || '', q.limit || '', q.retryAfterSeconds || 0, r.detail || '');
+            self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendResult(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)(
+               turn, r.status, r.kind || '', r.finishReason || '', q.scope || '', q.limit || '', q.retryAfterSeconds || 0, r.detail || '',
+               typeof r.text === 'string' ? r.text : '');
          }
       }, function() { self.@org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane::onSendFailed(Ljava/lang/String;)(provider); });
    }-*/;

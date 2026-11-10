@@ -159,8 +159,15 @@ async function closeDialog(page)
       if (await button.isVisible()) throw new Error('scatter button visible while the feature is disabled');
       if (await page.locator('#rstudio_superrstudio_lfq').isVisible())
          throw new Error('length-frequency button visible while the feature is disabled');
+      // Chat IA: no toolbar button, and the main process refuses its IPC
+      if (await page.locator('#superr_chat_ai_toggle').count())
+         throw new Error('Chat IA button present while the feature is disabled');
+      const chat = await page.evaluate(async () => {
+         try { await window.desktop.superrChatStatus('gemini-api'); return 'answered'; } catch (e) { return String(e); }
+      });
+      if (!/unavailable/.test(chat)) throw new Error(`Chat IA IPC answered while the feature is disabled: ${chat}`);
       await shot(page, '1-disabled');
-      log('PASS feature disabled by default (button hidden)');
+      log('PASS feature disabled by default (buttons hidden, Chat IA absent and its IPC refused)');
       log('DESKTOP_SCATTER_DISABLED_PASS');
       return;
    }

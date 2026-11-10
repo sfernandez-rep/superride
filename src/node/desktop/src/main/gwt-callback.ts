@@ -183,10 +183,9 @@ export class GwtCallback extends EventEmitter {
     ipcMain.handle('superr_chat_forget_key', (event, provider: unknown) => { authorize(event); return chat.forgetKey(provider); });
     ipcMain.handle('superr_chat_models', (event, provider: unknown) => { authorize(event); return chat.models(provider); });
     ipcMain.handle('superr_chat_new', (event, provider: unknown) => { authorize(event); return chat.newChat(provider); });
-    mainWindow.window.once('closed', () => {
-      for (const channel of ['superr_chat_status', 'superr_chat_sign_in', 'superr_chat_send', 'superr_chat_cancel',
-        'superr_chat_open_key_page', 'superr_chat_set_key', 'superr_chat_forget_key', 'superr_chat_models', 'superr_chat_new'])
-        ipcMain.removeHandler(channel);
+    // Like the other handlers here, these live as long as the process (one
+    // GwtCallback per process); the main window is only read when a call arrives.
+    app.once('will-quit', () => {
       chat.shutdown();
       void accounts?.then(value => value.shutdown()).catch(() => {});
     });

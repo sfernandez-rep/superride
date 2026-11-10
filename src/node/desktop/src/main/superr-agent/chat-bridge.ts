@@ -22,7 +22,9 @@ export interface KeyResult { ok: boolean; kind?: ChatErrorKind; models?: GeminiM
 export interface SendResult { status: 'completed' | 'cancelled' | 'incomplete' | 'error'; kind?: ChatErrorKind;
   finishReason?: string; quota?: QuotaInfo; detail?: string; files?: DisclosedFile[];
   /** Every proposal of this turn again: events and the reply travel separately, so the panel may get either first. */
-  proposals?: EditProposal[] }
+  proposals?: EditProposal[];
+  /** The whole answer again, for the same reason: the last streamed fragments may arrive after the reply. */
+  text?: string }
 /** Streamed text, or a report of what was disclosed: attached context or a function SuperR ran. */
 export interface ChatEvent { provider: 'gemini-api'; turn: string; text?: string; kind?: 'context' | 'tool' | 'proposal';
   tool?: string; files?: DisclosedFile[]; proposal?: EditProposal }
@@ -205,7 +207,7 @@ export class ChatBridge {
       // Keep only complete exchanges (plain text) so the next turn alternates user/model.
       if (answer && !controller.signal.aborted) this.history = trim([...conversation, { role: 'model', text: answer }]);
       return { ...result, ...(scope.files.length ? { files: scope.files } : {}),
-        ...(proposals.length ? { proposals } : {}) };
+        ...(proposals.length ? { proposals } : {}), ...(answer ? { text: answer } : {}) };
     } catch (error: unknown) {
       if (controller.signal.aborted) return { status: 'cancelled' };
       const files = scope?.files.length ? { files: scope.files } : {};

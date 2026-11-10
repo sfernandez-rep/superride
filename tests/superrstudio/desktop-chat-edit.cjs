@@ -186,10 +186,33 @@ async function simulated(page)
    await lastCard(page).locator('.superr-edit-accept').click();
    await page.waitForFunction(() => [...document.querySelectorAll('.superr-edit-card')].pop().dataset.state === 'applied', null, {timeout: 30000});
    assert.match(await editorText(page), /darkorange/);
-   await closeAll(page);
    assert.equal(disk('R/02-graficos.R'), original02);
    assert.equal(disk('R/01-cargar.R'), original01);
    log('PASS current-file proposal applied to the open document; no file on disk was written');
+
+   // saving is the user's step: the accepted text reaches the disk through the editor's own save
+   const saveUntil = async (file, marker) => {
+      await page.evaluate(() => window.rstudio.commands.saveSourceDoc());
+      for (let i = 0; i < 40 && !disk(file).includes(marker); i++) await new Promise(r => setTimeout(r, 500));
+      return disk(file);
+   };
+   const lf = text => text.replace(/\r\n/g, '\n');
+   const eol = text => text.includes('\r\n') ? 'CRLF' : 'LF';
+   const saved = await saveUntil('R/02-graficos.R', 'darkorange');
+   assert.equal(lf(saved), lf(original02).replace('fill = "steelblue"', 'fill = "darkorange"'), 'the saved file differs from the accepted text');
+   // control: a manual edit of another LF file, saved the same way, gets the same line endings
+   // (RStudio's "Line ending format" preference, "native" by default, decides; Chat IA does not)
+   await openScript(page, 'R/01-cargar.R');
+   await page.evaluate(() => {
+      const editor = window.rstudio.documents.activeEditor();
+      editor.setValue(editor.getValue().replace('bin_size = 2', 'bin_size = 3'), 1);
+   });
+   const manual = await saveUntil('R/01-cargar.R', 'bin_size = 3');
+   assert.equal(eol(saved), eol(manual), 'an accepted change was saved with other line endings than a manual edit');
+   fs.writeFileSync(path.join(root, 'R', '02-graficos.R'), original02);
+   fs.writeFileSync(path.join(root, 'R', '01-cargar.R'), original01);
+   await closeAll(page);
+   log(`PASS saving after accepting writes the accepted text; line endings as for a manual edit (${eol(saved)}, from ${eol(original02)})`);
 }
 
 async function real(page)
