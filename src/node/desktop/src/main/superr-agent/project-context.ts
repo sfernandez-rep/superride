@@ -104,6 +104,15 @@ async function checkedRoot(root: string, extraHomes: readonly string[]): Promise
   return real;
 }
 
+/** The document with its path in canonical form (its folder's, if the file itself does not exist). */
+async function canonicalDocument(document: ContextDocument): Promise<ContextDocument> {
+  if (!document.path || !path.isAbsolute(document.path)) return document;
+  const file = document.path;
+  const real = await fs.realpath(file).catch(() =>
+    fs.realpath(path.dirname(file)).then(dir => path.join(dir, path.basename(file))).catch(() => file));
+  return { ...document, path: real };
+}
+
 function cut(text: string, max: number): { text: string; truncated: boolean } {
   if (text.length <= max) return { text, truncated: false };
   const end = text.lastIndexOf('\n', max);
@@ -132,6 +141,10 @@ export class ProjectContext {
     if (context.mode === 'project') {
       if (!context.projectRoot) throw new ContextError('no_project');
       reader = await ProjectReader.open(await checkedRoot(context.projectRoot, options.homes ?? []));
+      // The project root is canonical; compare documents in the same form (links,
+      // junctions and Windows 8.3 short names would otherwise hide unsaved text).
+      context = { ...context, ...(context.active ? { active: await canonicalDocument(context.active) } : {}),
+        ...(context.open ? { open: await Promise.all(context.open.map(canonicalDocument)) } : {}) };
     }
     const result = new ProjectContext(context, reader, reader ? path.basename(reader.root) : '', options);
     if (reader)

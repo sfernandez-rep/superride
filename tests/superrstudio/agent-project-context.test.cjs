@@ -96,6 +96,16 @@ test('the index and reads stay inside the project and prefer unsaved editor chan
     assert.match((await scope.call('get_active_document', {})).response.content, /sin guardar/);
     assert.match((await scope.call('run_r_code', {})).response.error, /Unknown function/);
 
+    // the editor may name a document by another path to the same file (a link, a
+    // junction, or a Windows 8.3 short name as on CI runners): unsaved text still wins
+    const alias = path.join(temp, 'alias');
+    await fs.symlink(root, alias, process.platform === 'win32' ? 'junction' : 'dir');
+    const aliased = doc(alias, 'R/02-graficos.R', '# por otro camino\n', true);
+    const viaAlias = await ProjectContext.open({ mode: 'project', projectRoot: root, active: aliased, open: [aliased] });
+    assert.match(await viaAlias.instruction(), /R\/02-graficos\.R \(\d+ bytes, unsaved changes in the editor\)/);
+    assert.match((await viaAlias.call('read_project_files', { paths: ['R/02-graficos.R'] })).response.files[0].content, /por otro camino/);
+    assert.equal((await viaAlias.call('get_active_document', {})).response.path, 'R/02-graficos.R');
+
     const outside = await ProjectContext.open({ mode: 'project', projectRoot: root,
       active: { path: path.join(temp, 'fuera.R'), name: 'fuera.R', content: 'privado <- TRUE', dirty: false } });
     assert.match((await outside.call('get_active_document', {})).response.error, /inside the authorised project/);
