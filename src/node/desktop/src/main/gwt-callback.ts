@@ -35,7 +35,7 @@ import i18next from 'i18next';
 import path, { dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { FilePath, tempFilename } from '../core/file-path';
-import { normalizeSeparatorsNative } from '../ui/utils';
+import { createAliasedPath, normalizeSeparatorsNative } from '../ui/utils';
 import { logger } from '../core/logger';
 import { isCentOS } from '../core/system';
 import { resolveTemplateVar } from '../core/template-filter';
@@ -65,6 +65,12 @@ import { showPersistentSplashScreen } from './splash-screen';
 import { harvestRendererTiming, startupCheckpoint } from './startup-timing';
 import { showWhatsNewWindow } from './whats-new-window';
 import { toReleaseSlug, isValidSlug, resolveReleaseName, resolveWhatsNewContentPath } from './whats-new-utils';
+import { ChatBridge } from './superr-agent/chat-bridge';
+import { ChatGptAccounts } from './superr-agent/chatgpt-accounts';
+import { electronCredentialCodec } from './superr-agent/electron-credential-codec';
+import { CredentialVault } from './superr-agent/credential-vault';
+import { GeminiApi } from './superr-agent/gemini-api';
+import { net } from 'electron';
 
 export enum PendingQuit {
   PendingQuitNone,
@@ -139,6 +145,50 @@ export class GwtCallback extends EventEmitter {
   constructor(public mainWindow: MainWindow) {
     super();
     this.owners.add(mainWindow);
+
+    // SuperR Chat IA: only the main workbench may invoke these narrow actions.
+    // Automated GUI tests may point the Gemini client at a local fake server,
+    // and only at the loopback address.
+    const geminiTestBase = () => {
+      const base = process.env.SUPER_RSTUDIO_GEMINI_TEST_BASE ?? '';
+      return /^http:\/\/127\.0\.0\.1:\d{2,5}\/v1beta$/.test(base) ? base : undefined;
+    };
+    let accounts: Promise<ChatGptAccounts> | undefined;
+    const getAccounts = () => accounts ??= ChatGptAccounts.open(path.join(app.getPath('userData'), 'superr-chat'), electronCredentialCodec());
+    // The Gemini API key is stored encrypted (Electron safeStorage) and stays in this process.
+    let vault: Promise<CredentialVault> | undefined;
+    const getVault = () => vault ??= CredentialVault.open(path.join(app.getPath('userData'), 'superr-chat', 'gemini-api'),
+      electronCredentialCodec());
+    const chat = new ChatBridge(getAccounts, url => shell.openExternal(url), {
+      secrets: getVault,
+      // net.fetch follows the system proxy configuration
+      gemini: new GeminiApi((input, init) => net.fetch(input as string, init), geminiTestBase()),
+      onEvent: event => { if (!mainWindow.window.isDestroyed()) mainWindow.window.webContents.send('superr_chat_event', event); },
+      resolvePath: aliased => resolveAliasedPath(normalizeSeparatorsNative(aliased)),
+      aliasPath: absolute => createAliasedPath(absolute, userHomePathString()),
+    });
+    const authorize = (event: Electron.IpcMainInvokeEvent) => {
+      if (process.env.SUPER_RSTUDIO_EXPERIMENTAL !== '1' || event.sender !== mainWindow.window.webContents ||
+          event.senderFrame !== mainWindow.window.webContents.mainFrame) throw new Error('Chat IA is unavailable');
+    };
+    ipcMain.handle('superr_chat_status', (event, provider: unknown) => { authorize(event); return chat.status(provider); });
+    ipcMain.handle('superr_chat_sign_in', (event, provider: unknown) => { authorize(event); return chat.signIn(provider); });
+    ipcMain.handle('superr_chat_send', (event, provider: unknown, message: unknown, model: unknown, turn: unknown,
+      context: unknown) => { authorize(event); return chat.send(provider, message, model, turn, context); });
+    ipcMain.handle('superr_chat_cancel', (event, provider: unknown) => { authorize(event); return chat.cancel(provider); });
+    ipcMain.handle('superr_chat_open_key_page', (event, provider: unknown, page: unknown) => {
+      authorize(event); return chat.openKeyPage(provider, page);
+    });
+    ipcMain.handle('superr_chat_set_key', (event, provider: unknown, key: unknown) => { authorize(event); return chat.setKey(provider, key); });
+    ipcMain.handle('superr_chat_forget_key', (event, provider: unknown) => { authorize(event); return chat.forgetKey(provider); });
+    ipcMain.handle('superr_chat_models', (event, provider: unknown) => { authorize(event); return chat.models(provider); });
+    ipcMain.handle('superr_chat_new', (event, provider: unknown) => { authorize(event); return chat.newChat(provider); });
+    // Like the other handlers here, these live as long as the process (one
+    // GwtCallback per process); the main window is only read when a call arrives.
+    app.once('will-quit', () => {
+      chat.shutdown();
+      void accounts?.then(value => value.shutdown()).catch(() => {});
+    });
 
     if (process.platform === 'linux') {
       try {

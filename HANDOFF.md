@@ -1,5 +1,137 @@
 # SuperR handoff
 
+## Chat IA: ready to integrate (2026-11-10)
+
+`feature/chat-ia` is complete for the next preview, validated and pushed.
+- **Validated code:** `272494bfbb`; the GitHub `SuperR checks` run passes
+  on Windows and Ubuntu.
+- **Branch tip:** this documentation commit, the one that follows it.
+- **Clean:** no other branch, merge or release was touched.
+
+**Codex integrates it with `feature/auto-updater`.** Follow
+[chat-ia-integration.md](docs/superrstudio/features/chat-ia-integration.md).
+It covers the five expected conflicts, the `GwtCallback` constructor rule, the
+build steps and the checks.
+
+**Release text:**
+[CHAT-IA-PREVIEW-NOTES.md](docs/superrstudio/release/CHAT-IA-PREVIEW-NOTES.md).
+**Design, evidence and limits:**
+[chat-ia.md](docs/superrstudio/features/chat-ia.md).
+
+### What it does
+
+Chat IA is experimental and desktop only. It uses Gemini through the Gemini
+API with the owner's own Google AI Studio key, stored encrypted. It offers:
+
+- streaming answers with Markdown, Copy, and Insert in editor;
+- real connection and quota states;
+- three contexts: general chat, the current file (unsaved text included), or
+  read-only project access through checked functions;
+- Gemini edit proposals shown as diffs, which the user accepts in the editor
+  (undoable, stale-checked, all or nothing) or rejects.
+
+### Final validation (2026-11-10)
+
+- **Component tests:** 47 pass, locally and on CI (Windows and Ubuntu).
+  Strict and desktop TypeScript and ESLint report no errors.
+- **Upstream desktop unit tests:** 496 pass. The one failure, `findComponents`,
+  is environmental and also fails on `main`.
+- **Desktop scenarios with the simulated Gemini (no quota):** `chat`,
+  `chat-ui`, `chat-project` and `chat-edit` pass.
+- **Desktop regression:** `disabled`, `ggplot2`, `lfq`, `sheet`, `es`,
+  `visual` (3 phases) and `theme` (3 phases) pass.
+- **Package build:** `package-superr.ps1 -Quick` passed. The packaged Electron
+  bundle and the optimised GWT contain Chat IA.
+- **On that build:** `disabled`, `chat` and `chat-real` (one real request) pass.
+- **Real tests with the owner's key:** `chat-real`, `chat-real-project` and
+  `chat-real-edit` passed earlier the same day, a few requests each.
+
+### Not runnable on this host
+
+- The `deps` scenario needs an R whose own library has no ggplot2.
+- `-Scenario chat-real*` uses the owner's key in profile `gui-chat-real`.
+  Keep those runs rare: the free tier allows 5 requests per minute and 20 per
+  day.
+
+### Building
+
+- To rebuild Electron during development, copy the changed
+  `src/node/desktop/src` files to `src/node/desktop-build-AMD64/src` and run
+  `electron-forge package` there with the pinned Node on `PATH`.
+- `www/` now holds the optimised client from the package build. The next
+  `dev-build.ps1 -Component gwt -Force` rebuilds the draft.
+
+### Personal Google sign-in
+
+The personal Google sign-in through Antigravity is not offered. Antigravity's
+terms and FAQ do not allow it in third-party apps on consumer plans. See
+chat-ia.md.
+
+### Chat IA history (2026-11-09 to 2026-11-10)
+
+- Claude Code finished Codex's interrupted IPC bridge.
+- The owner chose the Gemini API with their own key.
+- Phases 1 to 3 followed: panel, project context, reviewed edits.
+- A consolidation pass then fixed:
+  - two IPC races: the final text and the proposals now also travel in the
+    reply;
+  - the `GwtCallback` construction;
+  - document paths compared in canonical form. This was the failure of the CI
+    Windows runner, which uses 8.3 short names; it had failed since the phase
+    2 commit.
+
+### Earlier, 2026-11-09
+
+Latest visual-only iteration: an experimental Chat IA toolbar button opens a
+resizable native GWT sidebar with Gemini/Codex selector, empty conversation,
+input and a connection-pending notice. It does not connect to any agent. The
+panel reuses MainSplitPanel; closing it restores the configured sidebar. The
+GWT draft build passed with `tools/superrstudio/dev-build.ps1 -Component gwt
+-Force`; the Windows desktop was checked with an isolated experimental profile:
+open/close, resize, selector, connection-pending notice, retained input, dark
+theme and restoration of the original sidebar passed. Agent integration remains
+outside this visual-only task.
+
+Current branch is `feature/chat-ia`, based on `develop` at `0498d1776c`.
+The repository is now `sfernandez-rep/superride`. The historical branch/version
+paragraphs below describe earlier checkpoints and are not current Git state.
+The owner requested a complete native SuperR sidebar with Antigravity ACP and
+Codex, own-account authorization, project context and approved script edits.
+The full request is in the conversation; see [chat-ia.md](docs/superrstudio/features/chat-ia.md)
+for checked provider restrictions, source locations, tests and remaining work.
+
+Work so far is **infrastructure only**, not a usable IDE feature: local JSON-RPC
+transport, experimental ACP/Codex adapters, a bounded project reader, an
+explicitly populated temporary workspace and managed Antigravity policy, an
+in-memory edit preview, independently implemented SIWC OAuth/identity checks,
+encrypted credentials, registration/account coordination and refresh/revoke
+helpers, a provider-neutral turn interface and a local conversation store.
+These components are unwired. Mock protocol,
+OAuth and security tests pass; real Codex and Antigravity server initializations
+pass without user authentication or prompts. No real user authentication or
+inference, UI-connected account storage, scheduled refresh,
+UI-integrated history or file edits have been
+implemented. Conversation storage is plaintext, requires an explicit privacy
+decision before use. The store defaults to disabled and rejects stale saves via
+revision checks; no informed-consent or history-management UI exists yet.
+Antigravity can preapprove writes via its own settings: do not wire
+these adapters to the UI until the safety boundary is enforced and tested.
+Continuation 2026-11-09: staged-workspace review now creates in-memory previews
+for changed, explicitly staged files and marks disk conflicts. It aborts on a
+missing or linked staged file. It does not yet handle new or deleted files,
+editor buffers, race-free path confinement or actual application of changes.
+The native panel and end-to-end integration remain the immediate priority.
+All 25 component tests pass on Windows and Ubuntu 24.04 WSL after these changes.
+Strict TypeScript and
+baseline/integration checks pass. `tools/superrstudio/dev-build.ps1 -Component
+all` passed the incremental Windows native and GWT build (it does not rebuild
+the Electron shell). `test-gui-scatter.ps1 -Scenario ggplot2` passed with an
+isolated desktop profile, including launch and clean quit. This is a regression
+test for the existing plot editor, not Chat IA. No Chat IA GUI or real account
+turn has been tested.
+The OpenAI SIWC example devkit has a noncommercial license; do not vendor it into
+this AGPL repository. Continue at the concrete next steps in the feature record.
+
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
 request #1 into `main`, RStudio 2026.10.1 prepared, data table window on
 `feature/data-entry`), America/Montevideo, by

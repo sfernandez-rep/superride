@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import org.rstudio.studio.client.workbench.views.superrstudio.ChatAiPane;
 
 import org.rstudio.core.client.CommandWithArg;
 import org.rstudio.core.client.Debug;
@@ -1229,6 +1230,13 @@ public class PaneManager
 
    public void showSidebar(boolean showSidebar)
    {
+      // SuperR: normal sidebar changes take precedence over the temporary chat pane.
+      if (superrChatOpen_)
+      {
+         panel_.removeSidebarWidget();
+         sidebar_ = null;
+         superrChatOpen_ = false;
+      }
       boolean visibilityChanging = (showSidebar && sidebar_ == null) ||
                                    (!showSidebar && sidebar_ != null);
 
@@ -1288,6 +1296,28 @@ public class PaneManager
 
       if (isChatInSidebar())
          eventBus_.fireEvent(new ChatPaneActiveEvent(isChatActivatedInSidebar()));
+   }
+
+   /** Toggle the SuperR chat in the existing resizable sidebar, preserving its contents. */
+   public void toggleSuperrChat()
+   {
+      if (superrChatOpen_)
+      {
+         panel_.removeSidebarWidget();
+         sidebar_ = null;
+         superrChatOpen_ = false;
+         if (getCurrentConfig().getSidebarVisible())
+            showSidebar(true);
+         return;
+      }
+      if (sidebar_ != null)
+         showSidebar(false);
+      if (superrChat_ == null)
+         superrChat_ = new ChatAiPane(() -> toggleSuperrChat());
+      endZoomBeforeRelayout();
+      sidebar_ = superrChat_;
+      superrChatOpen_ = true;
+      panel_.setSidebarWidget(sidebar_, "right");
    }
 
    /**
@@ -3342,6 +3372,8 @@ public class PaneManager
    private SelectedTabStateValue sidebarTabStateValue_;
    private WorkbenchTab sidebarSelectedTab_;
    private Widget sidebar_;
+   private ChatAiPane superrChat_;
+   private boolean superrChatOpen_ = false;
    private PaneConfig previousPaneConfig_;
 
    // Zoom-related members ----

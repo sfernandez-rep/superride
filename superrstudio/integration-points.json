@@ -1,6 +1,8 @@
 {
   "comment": "Every upstream RStudio file that SuperR modifies, with text that must survive an upstream merge. Checked by tools/superrstudio/check-integration.py against the pinned upstream commit (superrstudio/upstream.json): a modified upstream file missing here, a listed file identical to upstream, or a missing marker fails. See docs/superrstudio/upstream/sync-process.md.",
   "files": {
+    "src/node/desktop/src/main/gwt-callback.ts": { "area": "SuperR Chat IA IPC", "markers": ["superr_chat_status"] },
+    "src/node/desktop/src/renderer/desktop-bridge.ts": { "area": "SuperR Chat IA IPC", "markers": ["superrChatStatus"] },
     ".gitignore": {
       "area": "repository",
       "markers": ["SuperR installers and release staging", "/dist/"]
@@ -61,6 +63,10 @@
       "area": "workbench UI",
       "markers": ["VisualPresenter", "VisualTab"]
     },
+    "src/gwt/src/org/rstudio/studio/client/RStudioGinjector.java": {
+      "area": "SuperR Chat IA panel",
+      "markers": ["getPaneManager()"]
+    },
     "src/gwt/src/org/rstudio/studio/client/application/StudioClientApplicationConstants_en.properties": {
       "area": "product identity",
       "markers": ["rStudioEditionName=SuperR{0}"]
@@ -87,7 +93,7 @@
     },
     "src/gwt/src/org/rstudio/studio/client/application/ui/GlobalToolbar.java": {
       "area": "workbench UI",
-      "markers": ["ThemeToggle", "getSuperRStudioExperimental"]
+      "markers": ["ThemeToggle", "getSuperRStudioExperimental", "toggleSuperrChat"]
     },
     "src/gwt/src/org/rstudio/studio/client/server/remote/RemoteServer.java": {
       "area": "session module RPC",
@@ -154,7 +160,7 @@
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/ui/PaneManager.java": {
       "area": "workbench UI",
-      "markers": ["visualTab_", "VISUAL_PANE"]
+      "markers": ["visualTab_", "VISUAL_PANE", "toggleSuperrChat"]
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/ui/WorkbenchScreen.java": {
       "area": "workbench commands",
@@ -195,6 +201,22 @@
     }
   },
   "superr_files": [
+    "src/node/desktop/src/main/superr-agent/chat-bridge.ts",
+    "src/node/desktop/src/main/superr-agent/gemini-api.ts",
+    "tests/superrstudio/agent-gemini-api.test.cjs",
+    "tests/superrstudio/desktop-chat.cjs",
+    "tests/superrstudio/desktop-chat-ui.cjs",
+    "tests/superrstudio/desktop-chat-project.cjs",
+    "tests/superrstudio/desktop-chat-edit.cjs",
+    "tests/superrstudio/fixtures/make-chat-project.cjs",
+    "tests/superrstudio/agent-project-context.test.cjs",
+    "tests/superrstudio/agent-edit-proposal.test.cjs",
+    "src/node/desktop/src/main/superr-agent/project-context.ts",
+    "src/node/desktop/src/main/superr-agent/edit-proposal.ts",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatEditReview.java",
+    "tests/superrstudio/fixtures/fake-gemini.cjs",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatMarkdown.java",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatAiPane.java",
     "COPYING",
     "NOTICE",
     "package/superr/product.json",
@@ -203,6 +225,22 @@
     "assets/branding/source/logo-master.png",
     "assets/branding/generated/superr.ico",
     "src/node/desktop/src/main/superr-identity.ts",
+    "src/node/desktop/src/main/superr-agent/acp-client.ts",
+    "src/node/desktop/src/main/superr-agent/agent-provider.ts",
+    "src/node/desktop/src/main/superr-agent/conversation-store.ts",
+    "src/node/desktop/src/main/superr-agent/antigravity-policy.ts",
+    "src/node/desktop/src/main/superr-agent/codex-client.ts",
+    "src/node/desktop/src/main/superr-agent/json-rpc-process.ts",
+    "src/node/desktop/src/main/superr-agent/child-environment.ts",
+    "src/node/desktop/src/main/superr-agent/project-reader.ts",
+    "src/node/desktop/src/main/superr-agent/staged-workspace.ts",
+    "src/node/desktop/src/main/superr-agent/text-proposal.ts",
+    "src/node/desktop/src/main/superr-agent/oidc-identity.ts",
+    "src/node/desktop/src/main/superr-agent/chatgpt-auth.ts",
+    "src/node/desktop/src/main/superr-agent/credential-vault.ts",
+    "src/node/desktop/src/main/superr-agent/electron-credential-codec.ts",
+    "src/node/desktop/src/main/superr-agent/registration-store.ts",
+    "src/node/desktop/src/main/superr-agent/chatgpt-accounts.ts",
     "src/cpp/session/modules/SessionSuperRStudio.cpp",
     "src/cpp/session/modules/SessionSuperRStudio.hpp",
     "src/cpp/session/modules/SessionSuperRStudio.R",
