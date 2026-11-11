@@ -1,0 +1,73 @@
+# Runs only in the isolated GitHub-hosted Windows runner, not on a developer PC.
+name: SuperR candidate installer validation
+on:
+  push:
+    branches: [feature/release-chat-updater]
+    paths:
+      - '.github/workflows/superr-installer-validation.yml'
+      - 'tests/superrstudio/release-installer-smoke.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.22.2'
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+      - name: Download draft candidate and verify exact bytes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download superr-v0.2.0-preview.1 --repo sfernandez-rep/superride --pattern 'SuperR-0.2.0-preview.1-Windows-x64.exe' --dir "$env:RUNNER_TEMP"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $installer = Join-Path $env:RUNNER_TEMP 'SuperR-0.2.0-preview.1-Windows-x64.exe'
+          $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne 'bd880643cb4896cab5e1ae4d1cfd4ad6b6506d474a5b4f1a5ce1830c8bc4d4b4') { throw "Installer hash mismatch: $actual" }
+          Write-Host "Verified SHA-256: $actual"
+      - name: Install, launch and uninstall in the disposable runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $env:RUNNER_TEMP 'SuperR-0.2.0-preview.1-Windows-x64.exe'
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\SuperR'
+          $exe = Join-Path $dir 'SuperR.exe'
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SuperR'
+          if ((Test-Path $dir) -or (Test-Path $key)) { throw 'Runner is not clean' }
+          $settings = Join-Path $env:APPDATA 'SuperR'
+          New-Item -ItemType Directory -Force $settings | Out-Null
+          Set-Content -LiteralPath (Join-Path $settings 'installer-test-sentinel.txt') -Value 'keep me' -Encoding ascii
+          $install = Start-Process -FilePath $installer -ArgumentList '/S','/currentuser' -Wait -PassThru -WindowStyle Hidden
+          if ($install.ExitCode -ne 0 -or -not (Test-Path $exe) -or -not (Test-Path $key)) { throw "Installation failed: $($install.ExitCode)" }
+          if ((Get-Content (Join-Path $settings 'installer-test-sentinel.txt') -Raw).Trim() -ne 'keep me') { throw 'Installation changed settings' }
+          npm install --prefix "$env:RUNNER_TEMP\smoke-node" --ignore-scripts --no-audit --no-fund playwright@1.61.1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:NODE_PATH = "$env:RUNNER_TEMP\smoke-node\node_modules"
+          $env:SUPER_RSTUDIO_EXPERIMENTAL = '1'
+          $env:RSTUDIO_WHICH_R = (Get-Command R.exe).Source
+          $app = Start-Process -FilePath $exe -ArgumentList '--remote-debugging-port=19446','--automation-agent' -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 90 -and -not $ready; $i++) {
+              try { Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:19446/json/version' -TimeoutSec 2 | Out-Null; $ready = $true } catch { Start-Sleep -Seconds 2 }
+            }
+            if (-not $ready) { throw 'Desktop debugging endpoint did not open' }
+            node tests/superrstudio/release-installer-smoke.cjs
+            if ($LASTEXITCODE) { throw "Installed desktop test failed: $LASTEXITCODE" }
+            node tools/superrstudio/dev-quit.cjs 19446
+            if ($LASTEXITCODE) { throw 'Could not request a normal quit' }
+            if (-not $app.WaitForExit(60000)) { throw 'Desktop did not exit normally' }
+          } finally {
+            if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue }
+          }
+          $uninstaller = Join-Path $dir 'Uninstall.exe'
+          if (-not (Test-Path $uninstaller)) { throw 'Missing uninstaller' }
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S','/currentuser' -Wait -PassThru -WindowStyle Hidden
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path $exe) -or (Test-Path $key)) { throw "Uninstallation failed: $($uninstall.ExitCode)" }
+          if ((Get-Content (Join-Path $settings 'installer-test-sentinel.txt') -Raw).Trim() -ne 'keep me') { throw 'Uninstall removed user settings' }
+          Write-Host 'PASS real install, desktop launch and uninstall; settings preserved'

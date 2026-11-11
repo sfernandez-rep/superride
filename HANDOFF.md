@@ -1,5 +1,24 @@
 # SuperR handoff
 
+## Candidate validation continuation, 2026-11-11
+
+Draft release id 441233957 targets build commit `402a847ffc`; its uploaded
+installer's GitHub SHA-256 matches the local candidate
+`bd880643cb4896cab5e1ae4d1cfd4ad6b6506d474a5b4f1a5ce1830c8bc4d4b4`.
+The new `superr-installer-validation.yml` uses a disposable hosted Windows
+runner to download those exact bytes, install, launch the IDE, inspect the
+Chat IA/updater IPC, uninstall and check preservation of a settings sentinel.
+Its outcome must be checked before publication; creating the workflow is not a
+passed installation test. The release remains a draft until all gates pass.
+
+`npm ls --omit=dev`: `source-map-js@1.2.1` via Vue compiler and
+`fast-uri@3.1.7` via electron-store/conf/ajv. Inspection of all desktop
+webpack source maps found `fast-uri` in the main bundle and no source-map-js
+module in any of those bundles; neither exists as a separate packaged module.
+This is evidence of build-only source-map-js, not a blanket proof of no other
+exposure. Patched versions are source-map-js 1.2.2 and fast-uri 3.1.9; changing
+the bundled latter requires rebuilding and testing a different installer.
+
 ## Integrated preview build, 2026-11-11
 
 Release candidate source: `402a847ffc23c324c153bba3608cdb873207a489` on
