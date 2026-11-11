@@ -1,5 +1,27 @@
 # SuperR handoff
 
+## Preview 0.2.0-preview.1 published, 2026-11-11
+
+Published pre-release: https://github.com/sfernandez-rep/superride/releases/tag/superr-v0.2.0-preview.1
+The tag and release target are `402a847ffc23c324c153bba3608cdb873207a489`.
+The published Windows installer SHA-256 is
+`bd880643cb4896cab5e1ae4d1cfd4ad6b6506d474a5b4f1a5ce1830c8bc4d4b4`;
+GitHub's asset digest, local digest and runner digest agree. Hosted Windows
+Actions run 42959326242 passed a real per-user install, installed workbench
+launch, Chat IA panel and updater fail-closed IPC, normal quit, uninstall and
+settings preservation. The test uses simulated/no Gemini conversation. The
+first runner lacked access to drafts; the second launched successfully but
+checked removal too early; the passing run waits for NSIS's child process.
+The candidate's CI run 42948936534 passed, and 42958791549 passed on retry
+after an unrelated temporary-file permission failure.
+
+The release includes SECURITY-REVIEW.md documenting the source-map-js build
+dependency and bundled fast-uri exposure review. Patched compatible versions
+exist, but the published candidate was not changed or rebuilt; update and test
+those dependencies in a future build. The full development dependency audit
+still needs review. There is no Authenticode signature, no pinned updater
+production key and no automatic installer/restart. `main` was not changed.
+
 ## Candidate validation continuation, 2026-11-11
 
 Draft release id 441233957 targets build commit `402a847ffc`; its uploaded
