@@ -70,6 +70,9 @@ jobs:
           $uninstaller = Join-Path $dir 'Uninstall.exe'
           if (-not (Test-Path $uninstaller)) { throw 'Missing uninstaller' }
           $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S','/currentuser' -Wait -PassThru -WindowStyle Hidden
-          if ($uninstall.ExitCode -ne 0 -or (Test-Path $exe) -or (Test-Path $key)) { throw "Uninstallation failed: $($uninstall.ExitCode)" }
+          # NSIS can detach the real uninstaller; mirror test-packaged.ps1's
+          # bounded wait before deciding whether it actually removed the app.
+          for ($i = 0; $i -lt 120 -and ((Test-Path $exe) -or (Test-Path $key)); $i++) { Start-Sleep -Seconds 1 }
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path $exe) -or (Test-Path $key)) { throw "Uninstallation failed: exit=$($uninstall.ExitCode), exe=$(Test-Path $exe), registry=$(Test-Path $key)" }
           if ((Get-Content (Join-Path $settings 'installer-test-sentinel.txt') -Raw).Trim() -ne 'keep me') { throw 'Uninstall removed user settings' }
           Write-Host 'PASS real install, desktop launch and uninstall; settings preserved'
