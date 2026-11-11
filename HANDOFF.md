@@ -131,6 +131,75 @@ test for the existing plot editor, not Chat IA. No Chat IA GUI or real account
 turn has been tested.
 The OpenAI SIWC example devkit has a noncommercial license; do not vendor it into
 this AGPL repository. Continue at the concrete next steps in the feature record.
+## Updater worktree, 2026-11-10
+
+Release continuation: removed the cross-mode `ExecShellWait` fallback, which
+could not report the uninstaller exit code. Launch failure now stops the
+installation; an older all-users installation requiring elevation must be
+removed explicitly before switching mode. The NSIS fixture exercises a failed
+cross-mode launch and verifies that its sentinel remains. It is not a real
+product upgrade. Automatic installation and restart remain unimplemented.
+
+Remote `feature/chat-ia` was `44ae6c82740701c5483a6f942dc0f9dca04f7909`;
+GitHub Actions run 42763754940 failed in Windows agent tests: project-context
+tests at `agent-project-context.test.cjs:66` and `:200` failed. Linux agent
+tests and R contract tests passed in that run. No final confirmation from its
+owner and no clean Windows CI were available; do not integrate that snapshot
+as final. No self-hosted Actions runner was listed; the existing full-build
+workflow requires one. Only `superr-v0.1.1-preview.1` existed remotely among
+SuperR tags at inspection. Do not publish a preview until the stated gates pass.
+
+Continuation: `UpdateDownload` now obtains release metadata, verifies the
+signature and streams a size/hash-checked installer with progress and cancel;
+the GWT dialog and narrowly scoped Electron IPC are connected. Production has
+no pinned key and fails before network download. Synthetic-key tests exercise
+download, cancellation, bad signatures and corrupted data. The real desktop
+IPC was checked to reject a production download without a trusted key; a real
+signed release/download was not tested. The direct NSIS previous-uninstaller
+path now aborts on nonzero exit; a registry-free same-mode NSIS fixture passed
+for success and failure, not a two-version SuperR upgrade. The legacy elevated
+fallback has since been removed as described above. `RunAsNode` is disabled
+in the packaged Electron fuses, so an Electron-as-Node helper is unavailable.
+Windows Sandbox is not installed (optional feature state 2); the existing
+product installer writes shared SuperR registry keys, and packaging defaults to
+shared `C:\rsbuild`. No real installation, restart, rollback or two-SuperR-build
+test was attempted; these remain required before enabling production updates.
+Validation this continuation: `dev-build.ps1 -Component gwt -Force` and
+`npx electron-forge package` passed; Node updater suites passed 13 tests on
+Windows (including the isolated NSIS fixture) and 12 on Ubuntu 24.04 WSL.
+`check-baseline.py` and `check-integration.py` passed. An isolated Windows
+desktop was launched and its real download IPC rejected a missing trust key,
+invalid inputs and an idle cancel; it was then closed. Download progress and
+the new GWT dialog were not visually validated with a real signed release.
+Next: isolate real A/B NSIS installations without touching shared product
+registry, establish a safe legacy elevation result and restart helper, then
+test recovery before enabling install or configuring production trust.
+
+`D:\Git\SuperRStudio-updater`, branch `feature/auto-updater`, based on
+`0498d1776c`; the separate Chat IA worktree must not be edited or built here.
+The NSIS installer supports per-user/all-users modes and invokes an older
+uninstaller during upgrade; do not assume in-place upgrade is safe without an
+isolated installed-version test. Existing packages disable the Posit updater.
+`src/node/desktop/src/main/superr-updater/releases.cjs` implements bounded,
+unauthenticated release detection and semantic version/channel selection for
+the official `sfernandez-rep/superride` repository. Run
+`node --test tests/superrstudio/updater-releases.test.cjs` (3 pass with Node
+22.22.2); baseline and integration checks pass. It is wired into the IDE.
+No trusted update signing key is configured; no executable may be installed
+automatically. `manifest.cjs` checks Ed25519 signatures over the exact bytes,
+version/channel/expiry/architecture and installer size/hash; tests use only
+synthetic keys. Verified downloads stream only from GitHub release hosts into
+an isolated directory, enforce size/hash and remove incomplete files. A
+standalone signing command accepts an Ed25519 key only from outside the worktree.
+The protected release workflow can optionally produce signed manifests from a
+matching tag; production trust keys are still empty. Nine component tests pass
+on Windows and Ubuntu 24.04 WSL using Node 22.22.2; the official GitHub release
+query also returned the published preview. The Help menu and opt-in preferences
+are integrated; Windows desktop tests verified the real IPC, native channel
+dialog, preference changes and restart persistence in an isolated profile.
+Installer execution remains unimplemented. Native, Electron and final GWT
+builds passed under this worktree; Electron was rebuilt after pagination changes.
+No public release or installed copy was changed.
 
 Updated 2026-10-30 (sixth session: upstream synchronization process, pull
 request #1 into `main`, RStudio 2026.10.1 prepared, data table window on

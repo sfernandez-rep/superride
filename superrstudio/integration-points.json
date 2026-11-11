@@ -1,8 +1,9 @@
 {
   "comment": "Every upstream RStudio file that SuperR modifies, with text that must survive an upstream merge. Checked by tools/superrstudio/check-integration.py against the pinned upstream commit (superrstudio/upstream.json): a modified upstream file missing here, a listed file identical to upstream, or a missing marker fails. See docs/superrstudio/upstream/sync-process.md.",
   "files": {
-    "src/node/desktop/src/main/gwt-callback.ts": { "area": "SuperR Chat IA IPC", "markers": ["superr_chat_status"] },
-    "src/node/desktop/src/renderer/desktop-bridge.ts": { "area": "SuperR Chat IA IPC", "markers": ["superrChatStatus"] },
+    "src/node/desktop/src/main/gwt-callback.ts": { "area": "SuperR Chat IA and updater IPC", "markers": ["superr_chat_status", "superr_check_for_updates"] },
+    "src/node/desktop/src/renderer/desktop-bridge.ts": { "area": "SuperR Chat IA and updater IPC", "markers": ["superrChatStatus", "superrCheckForUpdates"] },
+    "src/gwt/src/org/rstudio/studio/client/application/ui/impl/DesktopApplicationHeader.java": {"area":"SuperR update detection", "markers":["superrChooseUpdateChannel"]},
     ".gitignore": {
       "area": "repository",
       "markers": ["SuperR installers and release staging", "/dist/"]
@@ -26,7 +27,7 @@
     },
     "package/win32/cmake/modules/NSIS.template.in": {
       "area": "installer identity, side by side",
-      "markers": ["@CPACK_SUPERR_DISPLAY_VERSION@", "SUPERR CHANGE"],
+      "markers": ["@CPACK_SUPERR_DISPLAY_VERSION@", "SUPERR CHANGE", "SUPERR UPDATE SAFETY"],
       "note": "Upstream changes to the installer template need a packaged-app test run (test-packaged.ps1)."
     },
     "src/cpp/r/R/AppCommands.R": {
@@ -147,7 +148,7 @@
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/prefs/views/GeneralPreferencesPane.java": {
       "area": "preferences",
-      "markers": ["UI_LANGUAGE_ES", "spanishLabel()"]
+      "markers": ["UI_LANGUAGE_ES", "spanishLabel()", "SuperRUpdatePrefs"]
     },
     "src/gwt/src/org/rstudio/studio/client/workbench/prefs/views/PaneLayoutPreferencesPane.java": {
       "area": "workbench UI",
@@ -180,7 +181,7 @@
     },
     "src/node/desktop/CMakeLists.txt": {
       "area": "installer identity",
-      "markers": ["superr-product.cmake", "SUPERR_productName"]
+      "markers": ["superr-product.cmake", "SUPERR_productName", "SUPERR_UPDATER_SOURCES"]
     },
     "src/node/desktop/forge.config.js": {
       "area": "installer identity",
@@ -217,6 +218,14 @@
     "tests/superrstudio/fixtures/fake-gemini.cjs",
     "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatMarkdown.java",
     "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/ChatAiPane.java",
+    "tools/superrstudio/generate-update-key.cjs",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/SuperRUpdateDownload.java",
+    "src/gwt/src/org/rstudio/studio/client/workbench/views/superrstudio/SuperRUpdatePrefs.java",
+    "src/node/desktop/src/main/superr-updater/releases.cjs",
+    "src/node/desktop/src/main/superr-updater/manifest.cjs",
+    "src/node/desktop/src/main/superr-updater/download.cjs",
+    "tools/superrstudio/sign-update-manifest.cjs",
+    "tools/superrstudio/create-update-manifest.cjs",
     "COPYING",
     "NOTICE",
     "package/superr/product.json",

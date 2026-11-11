@@ -65,6 +65,10 @@ import org.rstudio.studio.client.workbench.views.console.events.SendToConsoleEve
 import org.rstudio.studio.client.workbench.views.files.events.ShowFolderEvent;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ace.AceEditorNative;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ace.Selection;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRProduct;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRStudioLanguage;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRUpdatePrefs;
+import org.rstudio.studio.client.workbench.views.superrstudio.SuperRUpdateDownload;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JsArrayString;
@@ -152,10 +156,15 @@ public class DesktopApplicationHeader implements ApplicationHeader,
                Desktop.getFrame().onWorkbenchInitialized(
                      StringUtil.notNull(sessionInfo.getScratchDir()));
 
-               if (sessionInfo.getDisableCheckForUpdates())
+               if (sessionInfo.getDisableCheckForUpdates() && !sessionInfo.getSuperRStudioExperimental())
                   commands.checkForUpdates().remove();
 
-               if (!sessionInfo.getDisableCheckForUpdates() &&
+               if (sessionInfo.getSuperRStudioExperimental())
+                  SuperRUpdatePrefs.load(() -> {
+                     if (SuperRUpdatePrefs.automatic()) superrCheckUpdates(SuperRUpdatePrefs.channel(), false);
+                  });
+
+               if (!sessionInfo.getSuperRStudioExperimental() && !sessionInfo.getDisableCheckForUpdates() &&
                    pUIPrefs_.get().checkForUpdates().getValue())
                {
                   checkForUpdates(false);
@@ -426,8 +435,71 @@ public class DesktopApplicationHeader implements ApplicationHeader,
    @Handler
    void onCheckForUpdates()
    {
+      if (session_.getSessionInfo().getSuperRStudioExperimental())
+      {
+         superrChooseUpdateChannel();
+         return;
+      }
       checkForUpdates(true);
    }
+
+   // SuperR: use GitHub releases for our own versions, never Posit's updater.
+   private void superrChooseUpdateChannel()
+   {
+      ArrayList<String> labels = new ArrayList<>();
+      ArrayList<String> ids = new ArrayList<>();
+      ArrayList<Operation> actions = new ArrayList<>();
+      labels.add("Stable"); ids.add("superr_update_stable"); actions.add(() -> superrCheckUpdates("stable", true));
+      labels.add("Preview"); ids.add("superr_update_preview"); actions.add(() -> superrCheckUpdates("preview", true));
+      labels.add(superrText("Cancelar", "Cancel")); ids.add("superr_update_cancel"); actions.add(null);
+      globalDisplay_.showGenericDialog(GlobalDisplay.MSG_QUESTION,
+            superrText("Buscar actualizaciones de SuperR", "Check for SuperR updates"),
+            superrText("Versión instalada: ", "Installed version: ") + SuperRProduct.DISPLAY_VERSION +
+                  superrText(". Selecciona un canal.", ". Select a channel."), labels, ids, actions, 0);
+   }
+
+   private native void superrCheckUpdates(String channel, boolean manual) /*-{
+      var self = this, desktop = $wnd.desktop;
+      if (!desktop || !desktop.superrCheckForUpdates) {
+         self.@org.rstudio.studio.client.application.ui.impl.DesktopApplicationHeader::superrUpdateError(Z)(manual); return;
+      }
+      desktop.superrCheckForUpdates(@org.rstudio.studio.client.workbench.views.superrstudio.SuperRProduct::DISPLAY_VERSION, channel)
+         .then(function(result) {
+            self.@org.rstudio.studio.client.application.ui.impl.DesktopApplicationHeader::superrUpdateResult(Ljava/lang/String;ZLjava/lang/String;)(result ? result.version : "", manual, channel);
+         }, function() { self.@org.rstudio.studio.client.application.ui.impl.DesktopApplicationHeader::superrUpdateError(Z)(manual); });
+   }-*/;
+
+   private void superrUpdateResult(String version, boolean manual, String channel)
+   {
+      if (version.isEmpty())
+      {
+         if (manual) globalDisplay_.showMessage(GlobalDisplay.MSG_INFO, "SuperR", superrText("No hay una versión más reciente en este canal.", "There is no newer version in this channel."));
+      }
+      else if (!manual)
+         globalDisplay_.showWarningBar(false, superrText("Nueva versión de SuperR: ", "New SuperR version: ") + version +
+               superrText(". Abre Ayuda > Buscar actualizaciones para verla.", ". Open Help > Check for Updates to view it."));
+      else
+      {
+         ArrayList<String> labels = new ArrayList<>();
+         ArrayList<String> ids = new ArrayList<>();
+         ArrayList<Operation> actions = new ArrayList<>();
+         labels.add(superrText("Descargar", "Download")); ids.add("superr_update_download");
+         actions.add(() -> new SuperRUpdateDownload(version, channel));
+         labels.add(superrText("Notas de versión", "Release notes")); ids.add("superr_update_notes");
+         actions.add(() -> Desktop.getFrame().browseUrl(SuperRProduct.HOMEPAGE + "/releases/tag/" + version));
+         labels.add(superrText("Cancelar", "Cancel")); ids.add("superr_update_result_cancel"); actions.add(null);
+         globalDisplay_.showGenericDialog(GlobalDisplay.MSG_QUESTION, "SuperR",
+               superrText("Nueva versión: ", "New version: ") + version, labels, ids, actions, 0);
+      }
+   }
+
+   private void superrUpdateError(boolean manual)
+   {
+      if (manual) globalDisplay_.showErrorMessage("SuperR", superrText("No se pudieron consultar las versiones. Comprueba la conexión.",
+            "Could not check releases. Check your connection."));
+   }
+
+   private String superrText(String es, String en) { return SuperRStudioLanguage.spanish() ? es : en; }
 
    public int getPreferredHeight()
    {

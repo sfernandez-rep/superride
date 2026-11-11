@@ -27,6 +27,10 @@ on:
         description: 'Also create a DRAFT pre-release (requires approval in the superr-release environment)'
         type: boolean
         default: false
+      sign_update_manifest:
+        description: 'Prepare a signed update manifest for a protected SuperR release tag'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -75,7 +79,8 @@ jobs:
         shell: powershell
         run: |
           $product = Get-Content package/superr/product.json -Raw | ConvertFrom-Json
-          $version = "$($product.version)-$($product.prerelease)"
+          $version = "$($product.version)"
+          if ($product.prerelease) { $version += "-$($product.prerelease)" }
           $installer = "$($product.productName)-$version-Windows-x64.exe"
           $out = "dist/release"
           New-Item -ItemType Directory -Force $out | Out-Null
@@ -99,6 +104,47 @@ jobs:
         with:
           name: SuperR-${{ steps.meta.outputs.version }}-Windows-x64
           path: dist/release/
+          if-no-files-found: error
+          retention-days: 30
+
+  signed-update-manifest:
+    needs: build
+    if: ${{ inputs.sign_update_manifest && startsWith(github.ref, 'refs/tags/superr-v') }}
+    runs-on: ubuntu-24.04
+    environment: superr-release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: SuperR-${{ needs.build.outputs.version }}-Windows-x64
+          path: release
+      - name: Create and sign manifest for the exact release tag
+        env:
+          SUPERR_BUILD_VERSION: ${{ needs.build.outputs.version }}
+          SUPERR_INSTALLER: ${{ needs.build.outputs.installer }}
+          SUPERR_UPDATE_KEY_ID: ${{ vars.SUPERR_UPDATE_KEY_ID }}
+          SUPERR_PRIVATE_KEY: ${{ secrets.SUPERR_UPDATE_SIGNING_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "superr-v$SUPERR_BUILD_VERSION"
+          test -n "$SUPERR_PRIVATE_KEY"
+          test -n "$SUPERR_UPDATE_KEY_ID"
+          private_key=$(mktemp "$RUNNER_TEMP/superr-key.XXXXXX")
+          trap 'rm -f "$private_key"' EXIT
+          chmod 600 "$private_key"
+          printf '%s' "$SUPERR_PRIVATE_KEY" > "$private_key"
+          unset SUPERR_PRIVATE_KEY
+          node tools/superrstudio/create-update-manifest.cjs "$SUPERR_BUILD_VERSION" "release/$SUPERR_INSTALLER" release/update-manifest.json
+          SUPERR_UPDATE_SIGNING_KEY_FILE="$private_key" node tools/superrstudio/sign-update-manifest.cjs release/update-manifest.json release/update-manifest.sig
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: SuperR-${{ needs.build.outputs.version }}-signed-update-manifest
+          path: |
+            release/update-manifest.json
+            release/update-manifest.sig
           if-no-files-found: error
           retention-days: 30
 

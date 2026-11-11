@@ -71,6 +71,20 @@ import { electronCredentialCodec } from './superr-agent/electron-credential-code
 import { CredentialVault } from './superr-agent/credential-vault';
 import { GeminiApi } from './superr-agent/gemini-api';
 import { net } from 'electron';
+import ElectronStore from 'electron-store';
+
+// SuperR update detection only: signed installation is intentionally unavailable
+// until a publisher key has been provisioned.
+const { checkForUpdates: checkSuperrUpdates } = require('./superr-updater/releases.cjs') as {
+  checkForUpdates: (version: string, channel: string) => Promise<{version: string; notes: string} | null>;
+};
+const { UpdateDownload } = require('./superr-updater/download.cjs') as {
+  UpdateDownload: new (version: string, directory: string) => {
+    start: (tag: unknown, channel: unknown, progress: (value: unknown) => void) => Promise<{version: string}>;
+    cancel: () => boolean; shutdown: () => void;
+  };
+};
+const superrProduct = require('../../../../../package/superr/product.json') as {version: string; prerelease?: string};
 
 export enum PendingQuit {
   PendingQuitNone,
@@ -188,6 +202,53 @@ export class GwtCallback extends EventEmitter {
     app.once('will-quit', () => {
       chat.shutdown();
       void accounts?.then(value => value.shutdown()).catch(() => {});
+    });
+    const superrUpdateStore = new ElectronStore({ name: 'superr-updater' }) as unknown as {
+      get: (key: string, fallback: unknown) => unknown; set: (key: string, value: unknown) => void;
+    };
+    const superrInstalledVersion = superrProduct.version + (superrProduct.prerelease ? `-${superrProduct.prerelease}` : '');
+    const superrDownload = new UpdateDownload(superrInstalledVersion, path.join(app.getPath('userData'), 'superr-update-downloads'));
+    const authorizeSuperrUpdater = (event: Electron.IpcMainInvokeEvent) => {
+      if (process.env.SUPER_RSTUDIO_EXPERIMENTAL !== '1' || event.sender !== mainWindow.window.webContents ||
+          event.senderFrame !== mainWindow.window.webContents.mainFrame) throw new Error('Update check unavailable');
+    };
+    ipcMain.handle('superr_check_for_updates', (event, version: unknown, channel: unknown) => {
+      authorizeSuperrUpdater(event);
+      if (typeof version !== 'string' || (channel !== 'stable' && channel !== 'preview')) throw new Error('Invalid update query');
+      return checkSuperrUpdates(version, channel);
+    });
+    ipcMain.handle('superr_get_update_prefs', event => {
+      authorizeSuperrUpdater(event);
+      return { automatic: superrUpdateStore.get('automatic', false) === true,
+        channel: superrUpdateStore.get('channel', 'stable') === 'preview' ? 'preview' : 'stable' };
+    });
+    ipcMain.handle('superr_set_update_prefs', (event, automatic: unknown, channel: unknown) => {
+      authorizeSuperrUpdater(event);
+      if (typeof automatic !== 'boolean' || (channel !== 'stable' && channel !== 'preview')) throw new Error('Invalid update preferences');
+      superrUpdateStore.set('channel', channel);
+      superrUpdateStore.set('automatic', automatic);
+    });
+    ipcMain.handle('superr_download_update', async (event, tag: unknown, channel: unknown) => {
+      authorizeSuperrUpdater(event);
+      try {
+        const result = await superrDownload.start(tag, channel, progress => {
+          if (!mainWindow.window.isDestroyed()) mainWindow.window.webContents.send('superr_update_progress', progress);
+        });
+        return {ok: true, version: result.version};
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '';
+        const reason = message.includes('No trusted') ? 'untrusted' :
+          message.includes('already running') ? 'busy' :
+          (error instanceof Error && error.name === 'AbortError') ? 'cancelled' :
+          /signature|manifest|versions|artifact|Untrusted|Invalid/.test(message) ? 'verification' : 'network';
+        return {ok: false, reason};
+      }
+    });
+    ipcMain.handle('superr_cancel_download', event => { authorizeSuperrUpdater(event); return superrDownload.cancel(); });
+    app.once('will-quit', () => {
+      superrDownload.shutdown();
+      for (const channel of ['superr_check_for_updates', 'superr_get_update_prefs', 'superr_set_update_prefs',
+        'superr_download_update', 'superr_cancel_download']) ipcMain.removeHandler(channel);
     });
 
     if (process.platform === 'linux') {

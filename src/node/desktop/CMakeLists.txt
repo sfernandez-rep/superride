@@ -225,6 +225,9 @@ endif()
 
 # define source dependencies
 file(GLOB_RECURSE DESKTOP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ts")
+# SuperR updater modules are bundled CommonJS and must trigger desktop rebuilds.
+file(GLOB_RECURSE SUPERR_UPDATER_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/main/superr-updater/*.cjs")
+list(APPEND DESKTOP_SOURCES ${SUPERR_UPDATER_SOURCES})
 list(APPEND DESKTOP_SOURCES package.json forge.config.js)
 
 if (WIN32)
