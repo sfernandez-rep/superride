@@ -1,5 +1,17 @@
 # SuperR handoff
 
+## Preview integration, 2026-11-10
+
+`feature/release-chat-updater` combines Chat IA `9c0252d3d7` (only
+documentation after CI-validated `272494bfbb`) and updater `b405938d83`.
+The GWT callback keeps both IPC sets and shuts the updater down on application
+quit, not via a window during construction. Windows component suites passed:
+47 Chat IA and 13 updater tests; baseline, identity and integration checks pass.
+Real release packaging, GUI and installer validation are still pending. The
+updater has no production trust key, download fails closed, and installation
+and restart are not implemented. The documented prior Chat IA Windows CI
+failure was fixed in `272494bfbb` (GitHub Actions run 42895831537 passed).
+
 ## Chat IA: ready to integrate (2026-11-10)
 
 `feature/chat-ia` is complete for the next preview, validated and pushed.

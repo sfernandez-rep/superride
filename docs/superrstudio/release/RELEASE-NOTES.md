@@ -1,114 +1,103 @@
-# SuperR 0.1.1-preview.1 (experimental preview, Windows x64)
+# SuperR 0.2.0-preview.1 (experimental preview, Windows x64)
 
-**Experimental software. Not for production analyses.** SuperR is an
-independent fork of RStudio Desktop that adds visual tools for scientific
-work (biology, ecology, marine science, fisheries). It is not developed,
-endorsed or supported by Posit Software, PBC. RStudio is a trademark of
-Posit Software, PBC.
+SuperR is an independent, experimental fork of RStudio. This Windows x64
+installer is not Authenticode signed; Windows may display a publisher warning.
+Verify the SHA-256 checksum published with the installer. Back up your work and
+settings before updating from an earlier preview; uninstall the earlier version
+first if the installer cannot remove it. Existing user preferences are intended
+to be retained.
 
-## New in 0.1.1-preview.1
+Chat IA and update checks are experimental desktop features. Start SuperR with
+`SUPER_RSTUDIO_EXPERIMENTAL=1` in its environment to enable them. The updater
+can check Stable and Preview releases and open GitHub Releases. Executable
+downloads remain disabled without a configured production signing key, and
+automatic installation and restart are not available. Updates can be installed
+manually from the official release page.
 
-- **Data table** (Environment pane): type values or paste cells from Excel
-  or LibreOffice, or open a CSV, text or Excel file. The separator, decimal
-  comma and encoding are detected. Or copy a data frame of the session to
-  correct it. SuperR creates the data frame with R code that runs in the
-  console, and the plot editor and the length-frequency window open with it
-  already selected. Excel files need readxl, offered for installation only
-  with consent.
-- Same RStudio base as 0.1.0-preview.1 (2026.10.0, build 233).
+The visual ggplot2 editor and TropFishR tools remain part of SuperR. Their
+optional R packages are installed only with user consent.
 
-To update from 0.1.0-preview.1, uninstall it first (*Settings → Apps →
-SuperR → Uninstall*), then install this version. Uninstalling keeps your
-SuperR settings, projects and R libraries. Installing over the earlier
-version has not been tested.
+# Chat IA: notes for the next SuperR preview
 
-## What is in this preview
+Text for the next preview's release notes, ready to merge into
+[RELEASE-NOTES.md](RELEASE-NOTES.md). Chat IA is **experimental**. It is
+available only in SuperR Desktop with the SuperR experimental features enabled.
 
-- **Visual plot editor:** scatter, lines, histogram, boxplot, bar and density
-  plots; lm and LOESS fits; facets and axes. It writes clean ggplot2 code and
-  exports the plot. You can use it docked in the *Visual* tab or as a
-  floating window.
-- **Length-frequency window (TropFishR):**
-  - preprocessing, ELEFAN growth, catch-curve mortality, Beverton–Holt Z
-    from mean length and yield per recruit, computed by TropFishR's own
-    functions;
-  - comparison of configurations, saved analyses and reproducible code.
-- **One-click light/dark theme switch and Spanish:**
-  - the theme switch is in the global toolbar;
-  - Spanish is available for the SuperR windows.
-- **Optional R packages on request:** ggplot2 and TropFishR are offered for
-  installation when a window needs them, never installed without consent.
-- **Everything else is RStudio 2026.10.0** (build 233) as released upstream.
+## New: Chat IA, an R assistant inside SuperR
 
-## Install
+- **Gemini built in.** A *Chat IA* button in the toolbar opens a side panel.
+  It chats with Google Gemini through the Gemini API and streams the answer as
+  it arrives. You can stop an answer or start a new conversation at any time.
+- **Your own free key.** You create an API key in Google AI Studio with your
+  Google account, in a project without billing, and paste it into the panel.
+  - SuperR checks the key with Google first, then stores it encrypted with the
+    system's credential storage (Windows DPAPI). It is never shown again,
+    never written to logs or project files, and never sent anywhere but Google.
+  - SuperR asks for no card and never enables billing.
+  - Only text models that Google lists with a free tier are offered.
+- **Help with R projects.** Below the message box you choose what Gemini may
+  see:
+  - **General chat**: only what you type.
+  - **Current file**: the document open in the editor, including unsaved
+    changes and the selected code.
+  - **Project**: read-only access to the open RStudio project. Gemini asks
+    for the files it needs; SuperR reads them and lists, under your message,
+    exactly which files were sent.
+- **Safe file access.** In project mode SuperR reads only inside the project:
+  - only R scripts, R Markdown, Quarto and text data;
+  - it never reads `.env`, credential-like files, `.git` or `renv`, and it
+    follows no link that leads outside the project;
+  - `.rds` and `.RData` files are never read;
+  - large data files are read only from the start;
+  - your home folder or a drive root are never treated as a project.
+- **Reviewable edits.** Ask Gemini to fix or improve a script and it
+  *proposes* a change. SuperR shows a diff with **Accept** and **Reject**.
+  - Accepted changes are applied in the editor, unsaved; Ctrl+Z or **Revert**
+    undoes them.
+  - A proposal is refused if the file changed after it was made.
+  - Changes to several files are applied all or nothing.
+  - Chat IA never saves files, runs code or installs packages.
+- **A panel that fits the IDE.**
+  - It follows the light and dark themes.
+  - It shows the real connection state: connected, checking, generating,
+    offline, error, or quota exhausted.
+  - Answers are formatted, with tables and highlighted R code, and code blocks
+    have *Copy* and *Insert in editor*.
+  - Enter sends; Shift+Enter adds a line.
+  - Editor actions explain a selection, explain a file, review code, or send a
+    selection to the chat.
 
-1. Download `SuperR-0.1.1-preview.1-Windows-x64.exe` and its `.sha256` file.
-2. Optional: verify the download in PowerShell with
-   `(Get-FileHash .\SuperR-0.1.1-preview.1-Windows-x64.exe).Hash` and compare
-   it with the `.sha256` file.
-3. Run the installer. It installs either for the current user only (no
-   administrator rights) or, with administrator rights, for all users.
+## Privacy and the free quota
 
-The installer is **not digitally signed**, so Windows SmartScreen shows
-"Windows protected your PC". Check the SHA-256 first. Then choose *More info →
-Run anyway* only if you trust this download. Never disable Defender or
-SmartScreen.
+- On Gemini's **free tier, Google may use what you send, including any file
+  contents you allow it to read, to improve its products, and human reviewers
+  may read it.** Do not send personal, confidential or sensitive data.
+- Free limits belong to **your** Google project and model; for example,
+  5 requests per minute and 20 per day. Each time Gemini reads project files
+  uses one more request. When a limit is reached, SuperR shows the limit and
+  retry time that Google reported. *View my project's limits* opens Google AI
+  Studio's own page.
+- Google's Gemini API terms require users to be 18 or older and describe the
+  API as intended for developers. In the European Economic Area, Switzerland
+  and the United Kingdom, apps may offer only Google's paid service.
+- Signing in with a personal Google account through Google's Antigravity tool
+  is **not** offered: Google's terms do not allow third-party apps to use it on
+  consumer plans.
 
-**R:** SuperR needs R installed separately (from CRAN). It uses the same R
-and the same package libraries as RStudio. The plot editor needs ggplot2 and
-the length-frequency window needs TropFishR. SuperR does not need them at
-start-up: when you open one of these windows without its package, SuperR
-shows what it would install (package, dependencies, source, library) and
-installs only if you choose *Install*. Under renv, packages go into the
-project library and `renv.lock` is left unchanged. SuperR never updates
-packages by itself.
+## Current limitations
 
-## Next to RStudio
-
-SuperR installs into its own folder and keeps its own settings
-(`%APPDATA%\SuperR`, `%LOCALAPPDATA%\SuperR`). It does not change RStudio,
-its settings, or the default program of `.R`, `.Rproj`, `.Rmd` or `.qmd`
-files. SuperR only appears under *Open with*. Projects are not converted: the
-same `.Rproj` folder opens in both.
-
-Test an existing project on a copy first. `tools\superrstudio\test-project-copy.ps1`
-in the source makes the copy, opens it in SuperR, and reports which files the
-session changed. Running scripts can create or overwrite their outputs.
-
-## Uninstall
-
-Use *Settings → Apps → SuperR → Uninstall*. This removes the program, the
-shortcut and SuperR's registry entries. It keeps your projects, data, R
-libraries and SuperR's settings folders. Delete those folders by hand if you
-no longer need them.
-
-## Tested
-
-Results for this build are in `docs/superrstudio/release/RELEASE-CHECKLIST.md`
-at the release commit.
-
-| Item | Status |
-| --- | --- |
-| Windows | Windows 11 x64 tested. Windows 10 not tested |
-| R | R 4.6.1 tested (plus R 3.6.3 for the missing-package paths) |
-
-## Known limitations
-
-- The SuperR features are an experimental preview, and their scientific
-  results need review by domain experts. TropFishR computes the estimates;
-  SuperR does not alter them.
-- Many upstream menus and messages still say "RStudio". These refer to
-  RStudio functionality and documentation.
-- Spanish covers the SuperR windows only. The rest of the IDE stays in
-  English.
-- The installer is unsigned. There are no automatic updates: check the
-  repository for new versions.
-- Windows 10, Windows on ARM, macOS and Linux packages are not available or
-  not verified.
-
-## Source and licence
-
-SuperR is licensed under the GNU Affero General Public License v3 (`COPYING`),
-like RStudio. Third-party notices are in `NOTICE` and in the application's
-*Help → About → Open Source Components*. The corresponding source for this
-build is the commit named in `SOURCE.txt` and in the provenance file.
+- Experimental and Desktop only. Without the experimental features the button
+  does not appear. In a browser session (server) the panel can only report
+  that it is unavailable, because it needs the desktop's own bridge.
+- Gemini API only. The Codex and Antigravity agents are listed but stay
+  disabled until their isolation is verified.
+- Analysing a large project can use several requests of the daily quota.
+  Projects with more than 300 readable files are only partly indexed.
+- Proposals can change existing `.R`, `.Rmd` and `.qmd` files. They cannot
+  create or delete files.
+- Binary R data (`.rds`, `.RData`) is never read.
+- Accepted changes stay unsaved. When you save, RStudio's "Line ending
+  format" option applies as for any edit. Its default, "native", writes CRLF on
+  Windows; choose "Passthrough" to keep a file's own line endings.
+- Conversations are kept in memory only and are lost when SuperR closes.
+- The editor actions are in the panel, not in the editor's context menu.
