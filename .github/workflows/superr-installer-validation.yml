@@ -8,7 +8,9 @@ on:
       - 'tests/superrstudio/release-installer-smoke.cjs'
   workflow_dispatch:
 permissions:
-  contents: read
+  # GitHub hides draft releases from the default read-only Actions token.
+  # The token is passed only to the download step; this job performs no writes.
+  contents: write
 jobs:
   installer:
     runs-on: windows-2025
