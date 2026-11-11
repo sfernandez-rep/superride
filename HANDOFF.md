@@ -1,5 +1,42 @@
 # SuperR handoff
 
+## Integrated preview build, 2026-11-11
+
+Release candidate source: `402a847ffc23c324c153bba3608cdb873207a489` on
+`feature/release-chat-updater`. GitHub Actions run 42948936534 passed all
+Windows/Ubuntu agent, updater and R checks. Windows package build completed
+with CMake 4.3.4 and MSVC 14.5; GWT optimised and Electron passed. CPack's
+first isolated staging path exceeded the NSIS path limit (263 characters);
+the shorter `p` path succeeded and was moved to `.cache/superrstudio/cpack-short`.
+The unsigned installer and release files are in `dist/superr/`; installer
+SHA-256 is `bd880643cb4896cab5e1ae4d1cfd4ad6b6506d474a5b4f1a5ce1830c8bc4d4b4`.
+7-Zip's NSIS integrity check passed and the extracted `SuperR.exe` matched
+the staged executable used for GUI tests.
+
+Packaged staged executable, isolated profiles: Chat IA UI (simulated Gemini),
+project reads and reviewed edits passed; updater IPC changed preferences,
+queried the real GitHub releases endpoint and rejected an untrusted download;
+ggplot2 and TropFishR GUI regressions passed. UI test initially timed out on
+retired-model handling and passed on a clean-profile retry. The first ggplot2
+test lacked `data.table`; it passed after copying the existing package into
+the isolated test library. The development launcher was incompatible with the
+package build (no ready session); the staged executable worked. DesktopCallback
+unit tests passed 12/12. No authenticated Gemini request was made in this run.
+
+Not published: real NSIS install/uninstall/restart is untested. The existing
+packaged test moves the real user's SuperR directories and changes shared
+registry keys; Windows Sandbox is absent and no isolated runner was configured
+to receive and test this locally built installer.
+Do not run it against the user's installation. The updater still lacks a
+production trust key, executable downloads fail closed, and installation and
+restart are unimplemented. `npm audit --omit=dev` reported one high
+(`source-map-js`) and one moderate (`fast-uri`) dependency advisory; the full
+development dependency audit reported 44 findings including two critical.
+The prior naming and dependency release issues also remain open. Do not claim
+the installer was installed or a public preview released. For release, run an
+isolated Windows installer test, assess the advisories and remaining release
+gates, confirm the release SHA and tag availability, and only then publish.
+
 ## Preview integration, 2026-11-10
 
 `feature/release-chat-updater` combines Chat IA `9c0252d3d7` (only
